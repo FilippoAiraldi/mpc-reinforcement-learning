@@ -21,7 +21,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Mathematics"
 ]
 dependencies = [
-    "csnlp >= 1.2.2",
+    "csnlp >= 1.2.3",
 ]
 
 [project.urls]
