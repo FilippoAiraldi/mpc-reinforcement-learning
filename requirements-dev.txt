@@ -1,1 +1,2 @@
+casadi>=3.5.6  # python3.10 is giving some issues with 3.5.6
 csnlp>=1.2.2
