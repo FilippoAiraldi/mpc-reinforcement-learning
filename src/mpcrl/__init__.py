@@ -1,4 +1,5 @@
-__all__ = ["ExperienceReplay", "MpcSolverError", "UpdateError"]
+__all__ = ["ExperienceReplay", "util", "MpcSolverError", "UpdateError"]
 
-from mpcrl.experience import ExperienceReplay
+import mpcrl.util as util
 from mpcrl.errors import MpcSolverError, UpdateError
+from mpcrl.experience import ExperienceReplay
