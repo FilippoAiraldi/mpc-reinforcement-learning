@@ -1,7 +1,7 @@
 import os
-from itertools import product
 import tempfile
 import unittest
+from itertools import product
 from typing import Tuple
 
 import numpy as np
