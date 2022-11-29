@@ -25,8 +25,8 @@ dependencies = [
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/FilippoAiraldi/mpc-rl"
-"Bug Tracker" = "https://github.com/FilippoAiraldi/mpc-rl/issues"
+"Homepage" = "https://github.com/FilippoAiraldi/mpc-reinforcement-learning"
+"Bug Tracker" = "https://github.com/FilippoAiraldi/mpc-reinforcement-learning/issues"
 
 [tool.setuptools]
 license-files = [
