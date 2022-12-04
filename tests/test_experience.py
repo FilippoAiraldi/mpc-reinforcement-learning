@@ -2,10 +2,11 @@ import os
 import tempfile
 import unittest
 from itertools import product
-from typing import Tuple
+from typing import Tuple, Union
 
 import numpy as np
 from csnlp.util import io
+from parameterized import parameterized
 
 from mpcrl.experience import ExperienceReplay
 
@@ -32,8 +33,10 @@ class TestExperienceReplay(unittest.TestCase):
         global TMPFILENAME
         TMPFILENAME = next(tempfile._get_candidate_names())
         io.save(TMPFILENAME, ER=mem, check=69)
-        mem_: ExperienceReplay = io.load(TMPFILENAME)["ER"]
 
+        loadeddata = io.load(TMPFILENAME)
+        self.assertEqual(loadeddata["check"], 69)
+        mem_: ExperienceReplay = loadeddata["ER"]
         for (a, f), (a_, f_) in zip(mem, mem_):
             np.testing.assert_equal(a, a_)
             self.assertEqual(f, f_)
@@ -49,35 +52,37 @@ class TestExperienceReplay(unittest.TestCase):
         with self.assertRaises(TypeError):
             list(mem.sample(n=0.0))
 
-    def test_sample__with_zero_samples__returns_no_samples(self):
+    @parameterized.expand([(int(0),), (float(0),)])
+    def test_sample__with_zero_samples__returns_no_samples(self, n: Union[int, float]):
         mem = ExperienceReplay[Tuple[np.ndarray, float]](maxlen=100)
-        for n in (0, 0.0):
-            self.assertListEqual(list(mem.sample(n)), [])
+        self.assertListEqual(list(mem.sample(n)), [])
 
-    def test_sample__returns_right_sample_size(self):
+    @parameterized.expand([(10,), (0.1,)])
+    def test_sample__returns_right_sample_size(self, n: Union[int, float]):
         N = 100
         Nsample = 10
         mem = ExperienceReplay[Tuple[np.ndarray, float]](maxlen=N)
         mem.extend(range(N))
-        for n in (Nsample, Nsample / N):
-            sample = list(mem.sample(n=n))
-            self.assertEqual(len(sample), Nsample)
-            for item in sample:
-                self.assertIn(item, mem)
+        sample = list(mem.sample(n=n))
+        self.assertEqual(len(sample), Nsample)
+        for item in sample:
+            self.assertIn(item, mem)
 
-    def test_sample__last_n__includes_last_n_items(self):
+    @parameterized.expand([(20, 10), (20, 0.5), (0.2, 10), (0.2, 0.5)])
+    def test_sample__last_n__includes_last_n_items(
+        self, n: Union[int, float], last_n: Union[int, float]
+    ):
         N = 100
         Nsample = 20
         Nlast = 10
         mem = ExperienceReplay[Tuple[np.ndarray, float]](maxlen=N)
         mem.extend(range(N))
-        for n, last_n in product((Nsample, Nsample / N), (Nlast, Nlast / Nsample)):
-            sample = list(mem.sample(n=n, last_n=last_n))
-            self.assertEqual(len(sample), Nsample)
-            for item in sample:
-                self.assertIn(item, mem)
-            for item in range(N - Nlast, N):
-                self.assertIn(item, sample)
+        sample = list(mem.sample(n=n, last_n=last_n))
+        self.assertEqual(len(sample), Nsample)
+        for item in sample:
+            self.assertIn(item, mem)
+        for item in range(N - Nlast, N):
+            self.assertIn(item, sample)
 
 
 if __name__ == "__main__":
