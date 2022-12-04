@@ -52,7 +52,7 @@ class TestExperienceReplay(unittest.TestCase):
         with self.assertRaises(TypeError):
             list(mem.sample(n=0.0))
 
-    @parameterized.expand([(int(0),), (float(0),)])
+    @parameterized.expand([(0, ), (float(0),)])
     def test_sample__with_zero_samples__returns_no_samples(self, n: Union[int, float]):
         mem = ExperienceReplay[Tuple[np.ndarray, float]](maxlen=100)
         self.assertListEqual(list(mem.sample(n)), [])
@@ -61,7 +61,7 @@ class TestExperienceReplay(unittest.TestCase):
     def test_sample__returns_right_sample_size(self, n: Union[int, float]):
         N = 100
         Nsample = 10
-        mem = ExperienceReplay[Tuple[np.ndarray, float]](maxlen=N)
+        mem = ExperienceReplay[int](maxlen=N)
         mem.extend(range(N))
         sample = list(mem.sample(n=n))
         self.assertEqual(len(sample), Nsample)
@@ -75,7 +75,7 @@ class TestExperienceReplay(unittest.TestCase):
         N = 100
         Nsample = 20
         Nlast = 10
-        mem = ExperienceReplay[Tuple[np.ndarray, float]](maxlen=N)
+        mem = ExperienceReplay[int](maxlen=N)
         mem.extend(range(N))
         sample = list(mem.sample(n=n, last_n=last_n))
         self.assertEqual(len(sample), Nsample)
