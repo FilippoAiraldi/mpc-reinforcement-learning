@@ -24,7 +24,7 @@ class TestExperienceReplay(unittest.TestCase):
         self.assertIn(items[2], mem)
         self.assertIsInstance(mem.np_random, np.random.Generator)
 
-    def test_experience__is_pickleable(self):
+    def test__is_pickleable(self):
         mem = ExperienceReplay[Tuple[np.ndarray, float]]()
         for _ in range(10):
             mem.append((np.random.rand(10), np.random.rand()))
@@ -52,7 +52,7 @@ class TestExperienceReplay(unittest.TestCase):
         with self.assertRaises(TypeError):
             list(mem.sample(n=0.0))
 
-    @parameterized.expand([(0, ), (float(0),)])
+    @parameterized.expand([(0,), (float(0),)])
     def test_sample__with_zero_samples__returns_no_samples(self, n: Union[int, float]):
         mem = ExperienceReplay[Tuple[np.ndarray, float]](maxlen=100)
         self.assertListEqual(list(mem.sample(n)), [])
