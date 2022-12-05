@@ -1,7 +1,7 @@
 from itertools import chain
 from typing import Deque, Generator, Iterable, Optional, TypeVar, Union
 
-from csnlp.util.funcs import np_random
+from csnlp.nlp.funcs import np_random
 
 T = TypeVar("T")
 
