@@ -1,14 +1,13 @@
 import os
 import tempfile
 import unittest
-from itertools import product
 from typing import Tuple, Union
 
 import numpy as np
 from csnlp.util import io
 from parameterized import parameterized
 
-from mpcrl.experience import ExperienceReplay
+from mpcrl.core.experience import ExperienceReplay
 
 TMPFILENAME: str = ""
 
