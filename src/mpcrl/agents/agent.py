@@ -19,7 +19,7 @@ import numpy.typing as npt
 from csnlp import Solution
 from csnlp.wrappers import Mpc
 
-from mpcrl.core.named import Named
+from mpcrl.util.named import Named
 
 T = TypeVar("T", cs.SX, cs.MX)
 

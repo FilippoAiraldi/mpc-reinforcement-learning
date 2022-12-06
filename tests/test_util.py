@@ -1,9 +1,9 @@
 import unittest
 
-from mpcrl.agents.agent import Named
+from mpcrl.util import named
 
 
-class DummyAgent(Named):
+class DummyAgent(named.Named):
     ...
 
 
