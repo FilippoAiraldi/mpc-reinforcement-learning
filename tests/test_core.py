@@ -4,12 +4,8 @@ from typing import Optional, Tuple, Union
 import numpy as np
 from parameterized import parameterized
 
-from mpcrl.core.experience import ExperienceReplay
-from mpcrl.core.exploration import (
-    EpsilonGreedyExploration,
-    GreedyExploration,
-    NoExploration,
-)
+from mpcrl import ExperienceReplay
+from mpcrl import exploration as E
 from mpcrl.core.random import np_random
 
 
@@ -81,38 +77,38 @@ class TestRandom(unittest.TestCase):
 
 class TestExploration(unittest.TestCase):
     def test_no_exploration__never_explores(self):
-        exploration = NoExploration()
+        exploration = E.NoExploration()
         self.assertFalse(exploration.can_explore())
         np.testing.assert_equal(exploration.perturbation(), np.nan)
         exploration.decay()  # does nothing
 
     def test_greedy_exploration__instantiates_np_random(self):
-        exploration = GreedyExploration(strength=0.5, strength_decay_rate=0.75)
+        exploration = E.GreedyExploration(strength=0.5, strength_decay_rate=0.75)
         self.assertIsInstance(exploration.np_random, np.random.Generator)
 
     def test_greedy_exploration__always_explores(self):
-        exploration = GreedyExploration(strength=0.5, strength_decay_rate=0.75)
+        exploration = E.GreedyExploration(strength=0.5, strength_decay_rate=0.75)
         self.assertTrue(exploration.can_explore())
 
     def test_greedy_exploration__decays_strength(self):
-        exploration = GreedyExploration(strength=0.5, strength_decay_rate=0.75)
+        exploration = E.GreedyExploration(strength=0.5, strength_decay_rate=0.75)
         for _ in range(5):
             exploration.decay()
         np.testing.assert_allclose(exploration.strength, 0.5 * 0.75**5)
 
     @parameterized.expand([("uniform",), ("normal",), ("standard_normal",)])
     def test_greedy_exploration__perturbs(self, method: str):
-        exploration = GreedyExploration(strength=0.5, strength_decay_rate=0.75)
+        exploration = E.GreedyExploration(strength=0.5, strength_decay_rate=0.75)
         exploration.perturbation(method)
 
     def test_epsilon_greedy_exploration__init(self):
-        exploration = EpsilonGreedyExploration(
+        exploration = E.EpsilonGreedyExploration(
             epsilon=0.7, strength=0.5, epsilon_decay_rate=0.75
         )
         self.assertEqual(exploration.strength_decay_rate, 0.75)
 
     def test_epsilon_greedy_exploration__sometimes_explores(self):
-        exploration = EpsilonGreedyExploration(
+        exploration = E.EpsilonGreedyExploration(
             epsilon=0.7, strength=0.5, epsilon_decay_rate=0.75, seed=42
         )
         self.assertTrue(exploration.can_explore())
@@ -128,7 +124,7 @@ class TestExploration(unittest.TestCase):
         self.assertTrue(found_true and found_false)
 
     def test_epsilon_greedy_exploration__decays_strength(self):
-        exploration = EpsilonGreedyExploration(
+        exploration = E.EpsilonGreedyExploration(
             epsilon=0.7, strength=0.5, epsilon_decay_rate=0.75, strength_decay_rate=0.2
         )
         for _ in range(5):

@@ -10,8 +10,10 @@ from csnlp import MultistartNlp, Nlp, Solution, scaling
 from csnlp.util import io
 from csnlp.wrappers import Mpc, NlpScaling
 from parameterized import parameterized, parameterized_class
+from scipy import io as matio
 
-from mpcrl.agents.agent import Agent
+from mpcrl import Agent
+from mpcrl import exploration as E
 
 TMPFILENAME: str = ""
 OPTS = {
@@ -26,6 +28,7 @@ OPTS = {
         "print_options_documentation": "no",
     },
 }
+RESULTS = matio.loadmat(r"tests/tests_data.mat")
 
 
 def get_dynamics(g: float, alpha: float, dt: float) -> cs.Function:
