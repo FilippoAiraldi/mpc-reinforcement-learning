@@ -94,12 +94,12 @@ class TestAgent(unittest.TestCase):
 
     def test_init__instantiates_V_and_Q_correctly(self):
         agent = Agent(mpc=get_mpc(3, self.multistart_nlp))
-        self.assertIn(Agent.cost_perturbation_par, agent.V.parameters.keys())
-        self.assertNotIn(Agent.cost_perturbation_par, agent.Q.parameters.keys())
-        self.assertIn(Agent.init_action_par, agent.Q.parameters.keys())
-        self.assertIn(Agent.init_action_con, agent.Q.constraints.keys())
-        self.assertNotIn(Agent.init_action_par, agent.V.parameters.keys())
-        self.assertNotIn(Agent.init_action_con, agent.V.constraints.keys())
+        self.assertIn(agent.cost_perturbation_parameter, agent.V.parameters.keys())
+        self.assertNotIn(agent.cost_perturbation_parameter, agent.Q.parameters.keys())
+        self.assertIn(agent.init_action_parameter, agent.Q.parameters.keys())
+        self.assertIn(agent.init_action_constraint, agent.Q.constraints.keys())
+        self.assertNotIn(agent.init_action_parameter, agent.V.parameters.keys())
+        self.assertNotIn(agent.init_action_constraint, agent.V.constraints.keys())
 
     def test_unwrapped(self):
         agent = Agent(mpc=get_mpc(3, self.multistart_nlp))
@@ -157,7 +157,7 @@ class TestAgent(unittest.TestCase):
             a = cs.DM(a.values())
         if mpctype == "V":
             a = None
-        pars = {Agent.cost_perturbation_par: [42, 69], "d": cs.DM([5, 6, 7])}
+        pars = {agent.cost_perturbation_parameter: [42, 69], "d": cs.DM([5, 6, 7])}
         pars_ = (
             (pars.copy() for _ in range(mpc.nlp.starts))
             if multiple_pars
@@ -173,7 +173,7 @@ class TestAgent(unittest.TestCase):
             "m_0": s[2] if vector else s["m"],
         }
         if mpctype != "V":
-            call_pars[Agent.init_action_par] = a if vector else cs.DM(a.values())
+            call_pars[Agent.init_action_parameter] = a if vector else cs.DM(a.values())
         if self.multistart_nlp:
             mpc.nlp.solve_multi.assert_called_once()
             kwargs = mpc.nlp.solve_multi.call_args.kwargs
@@ -187,10 +187,11 @@ class TestAgent(unittest.TestCase):
                 for key in call_pars:
                     np.testing.assert_allclose(pars_i[key], call_pars[key], rtol=0)
         else:
-            par = kwargs["pars"]
-            self.assertEqual(len(mpc.unwrapped._pars.keys() - pars_i.keys()), 0)
+            pars = kwargs["pars"]
+            self.assertEqual(len(mpc.unwrapped._pars.keys() - pars.keys()), 0)
             for key in call_pars:
-                np.testing.assert_allclose(par[key], call_pars[key], rtol=0)
+                np.testing.assert_allclose(pars[key], call_pars[key], rtol=0)
+
 
 
 if __name__ == "__main__":

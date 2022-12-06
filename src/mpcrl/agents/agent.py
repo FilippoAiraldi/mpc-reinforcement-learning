@@ -1,6 +1,5 @@
 from contextlib import contextmanager
 from copy import deepcopy
-from itertools import repeat
 from typing import (
     Dict,
     Generic,
@@ -40,8 +39,9 @@ class Agent(Named, Generic[T]):
     state and action of the environment, respectively. However, this class does not use
     any RL method to improve its MPC policy."""
 
-    cost_perturbation_par = "cost_perturbation"
-    init_action_par = init_action_con = "a_init"
+    cost_perturbation_method = "normal"
+    cost_perturbation_parameter = "cost_perturbation"
+    init_action_parameter = init_action_constraint = "a_init"
 
     def __init__(
         self,
@@ -60,8 +60,8 @@ class Agent(Named, Generic[T]):
             modified in place, so it is recommended not to modify it further. Moreover,
             some parameter and constraint names will need to be created, so an error is
             thrown if these names are already in use in the mpc. These names are under
-            the attributes `cost_perturbation_par`, `init_action_par` and
-            `init_action_con`.
+            the attributes `perturbation_parameter`, `action_parameter` and
+            `action_constraint`.
         fixed_pars : dict[str, array_like], optional
             A dict containing whose keys are the names of the MPC parameters and the
             values are their corresponding values. Use this to specify fixed parameters,
@@ -195,7 +195,7 @@ class Agent(Named, Generic[T]):
         # merge (initial) state and action in unique dict,
         additional_pars = x0_dict
         if u0_vec is not None:
-            additional_pars[self.init_action_par] = u0_vec
+            additional_pars[self.init_action_parameter] = u0_vec
 
         # create pars and vals0
         if pars is None:
