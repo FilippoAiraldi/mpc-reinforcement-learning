@@ -5,6 +5,11 @@ import numpy as np
 from parameterized import parameterized
 
 from mpcrl.core.experience import ExperienceReplay
+from mpcrl.core.exploration import (
+    EpsilonGreedyExploration,
+    GreedyExploration,
+    NoExploration,
+)
 from mpcrl.core.random import np_random
 
 
@@ -73,6 +78,63 @@ class TestRandom(unittest.TestCase):
         else:
             self.assertIsInstance(actual_seed, int)
 
+
+class TestExploration(unittest.TestCase):
+    def test_no_exploration__never_explores(self):
+        exploration = NoExploration()
+        self.assertFalse(exploration.can_explore())
+        np.testing.assert_equal(exploration.perturbation(), np.nan)
+        exploration.decay()  # does nothing
+
+    def test_greedy_exploration__instantiates_np_random(self):
+        exploration = GreedyExploration(strength=0.5, strength_decay_rate=0.75)
+        self.assertIsInstance(exploration.np_random, np.random.Generator)
+
+    def test_greedy_exploration__always_explores(self):
+        exploration = GreedyExploration(strength=0.5, strength_decay_rate=0.75)
+        self.assertTrue(exploration.can_explore())
+
+    def test_greedy_exploration__decays_strength(self):
+        exploration = GreedyExploration(strength=0.5, strength_decay_rate=0.75)
+        for _ in range(5):
+            exploration.decay()
+        np.testing.assert_allclose(exploration.strength, 0.5 * 0.75**5)
+
+    def test_greedy_exploration__perturbs(self):
+        exploration = GreedyExploration(strength=0.5, strength_decay_rate=0.75)
+        for method in ('random', 'uniform'):
+            exploration.perturbation(method)
+
+    def test_epsilon_greedy_exploration__init(self):
+        exploration = EpsilonGreedyExploration(
+            epsilon=0.7, strength=0.5, epsilon_decay_rate=0.75
+        )
+        self.assertEqual(exploration.strength_decay_rate, 0.75)
+
+    def test_epsilon_greedy_exploration__sometimes_explores(self):
+        exploration = EpsilonGreedyExploration(
+            epsilon=0.7, strength=0.5, epsilon_decay_rate=0.75, seed=42
+        )
+        self.assertTrue(exploration.can_explore())
+        found_true, found_false = False, False
+        for _ in range(100):
+            explore = exploration.can_explore()
+            if explore:
+                found_true = True
+            else:
+                found_false = True
+            if found_true and found_false:
+                break
+        self.assertTrue(found_true and found_false)
+
+    def test_epsilon_greedy_exploration__decays_strength(self):
+        exploration = EpsilonGreedyExploration(
+            epsilon=0.7, strength=0.5, epsilon_decay_rate=0.75, strength_decay_rate=0.2
+        )
+        for _ in range(5):
+            exploration.decay()
+        np.testing.assert_allclose(exploration.epsilon, 0.7 * 0.75**5)
+        np.testing.assert_allclose(exploration.strength, 0.5 * 0.2**5)
 
 
 if __name__ == "__main__":
