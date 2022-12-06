@@ -40,6 +40,7 @@ class Agent(Named, Generic[T]):
         mpc: Mpc[T],
         name: str = None,
         warmstart: Literal["last", "last-successful"] = "last-successful",
+        name: str = None,
     ) -> None:
         """Instantiates an agent with an MPC controller.
 
@@ -59,6 +60,9 @@ class Agent(Named, Generic[T]):
             The warmstart strategy for the MPC's NLP. If 'last-successful', the last
             successful solution is used to warm start the solver for the next iteration.
             If 'last', the last solution is used, regardless of success or failure.
+        name : str, optional
+            Name of the agent. If `None`, one is automatically created from a counter of
+            the class' instancies.
 
         Raises
         ------

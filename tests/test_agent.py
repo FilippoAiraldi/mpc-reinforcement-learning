@@ -1,14 +1,13 @@
 import os
 import tempfile
 import unittest
-from unittest.mock import MagicMock
 from itertools import product
+from unittest.mock import MagicMock
 
 import casadi as cs
 import numpy as np
-from csnlp import MultistartNlp, Nlp, Solution
+from csnlp import MultistartNlp, Nlp, Solution, scaling
 from csnlp.util import io
-from csnlp.util.scaling import Scaler
 from csnlp.wrappers import Mpc, NlpScaling
 from parameterized import parameterized, parameterized_class
 
@@ -35,25 +34,20 @@ def get_dynamics(g: float, alpha: float, dt: float) -> cs.Function:
     return cs.Function("F", [x, u], [x_next], ["x", "u"], ["x+"])
 
 
-def get_mpc(multistart: bool):
-    N = 10
+def get_mpc(horizon: int, multistart: bool):
+    N = horizon
     T = 100
     K = 3
     dt = T / N
     yT = 100000
     g = 9.81
     alpha = 1 / (300 * g)
-    seed = 69
-    nlp = (
-        MultistartNlp(sym_type="MX", starts=K, seed=seed)
-        if multistart
-        else Nlp(sym_type="MX", seed=seed)
-    )
+    nlp = MultistartNlp(sym_type="MX", starts=K) if multistart else Nlp(sym_type="MX")
     y_nom = 1e5
     v_nom = 2e3
     m_nom = 3e5
     u_nom = 1e8
-    scaler = Scaler()
+    scaler = scaling.Scaler()
     scaler.register("y", scale=y_nom)
     scaler.register("y_0", scale=y_nom)
     scaler.register("v", scale=v_nom)
@@ -86,13 +80,13 @@ class TestAgent(unittest.TestCase):
             Agent(mpc=Mpc(Nlp(), 4))
 
     def test_init__instantiates_V_and_Q_as_two_different_mpcs(self):
-        agent = Agent(mpc=get_mpc(self.multistart_nlp))
+        agent = Agent(mpc=get_mpc(3, self.multistart_nlp))
         self.assertIsInstance(agent.Q, Mpc)
         self.assertIsInstance(agent.V, Mpc)
         self.assertIsNot(agent.Q, agent.V)
 
     def test_init__instantiates_V_and_Q_correctly(self):
-        agent = Agent(mpc=get_mpc(self.multistart_nlp))
+        agent = Agent(mpc=get_mpc(3, self.multistart_nlp))
         self.assertIn(Agent.cost_perturbation_par, agent.V.parameters.keys())
         self.assertNotIn(Agent.cost_perturbation_par, agent.Q.parameters.keys())
         self.assertIn(Agent.init_action_par, agent.Q.parameters.keys())
@@ -101,25 +95,19 @@ class TestAgent(unittest.TestCase):
         self.assertNotIn(Agent.init_action_con, agent.V.constraints.keys())
 
     def test_unwrapped(self):
-        agent = Agent(mpc=get_mpc(self.multistart_nlp))
+        agent = Agent(mpc=get_mpc(3, self.multistart_nlp))
         agent2 = agent.unwrapped
         self.assertIs(agent, agent2)
 
-    def test_np_random(self):
-        agent = Agent(mpc=get_mpc(self.multistart_nlp))
-        self.assertIsInstance(agent.np_random, np.random.Generator)
-        self.assertIs(agent.np_random, agent.V.np_random)
-        self.assertIsNot(agent.np_random, agent.Q.np_random)
-
     def test_copy(self):
-        agent1 = Agent(mpc=get_mpc(self.multistart_nlp))
+        agent1 = Agent(mpc=get_mpc(3, self.multistart_nlp))
         agent2 = agent1.copy()
         self.assertIsNot(agent1, agent2)
         self.assertIsNot(agent1.Q, agent2.Q)
         self.assertIsNot(agent1.V, agent2.V)
 
     def test__is_pickleable(self):
-        agent1 = Agent(mpc=get_mpc(self.multistart_nlp))
+        agent1 = Agent(mpc=get_mpc(3, self.multistart_nlp))
 
         global TMPFILENAME
         TMPFILENAME = next(tempfile._get_candidate_names())
