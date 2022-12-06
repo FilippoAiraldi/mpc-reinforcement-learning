@@ -15,6 +15,7 @@ from typing import (
 
 import casadi as cs
 import numpy as np
+import numpy.typing as npt
 from csnlp import Solution
 from csnlp.wrappers import Mpc
 
@@ -103,13 +104,14 @@ class Agent(Named, Generic[T]):
     def _setup_V_and_Q(self, mpc: Mpc[T]) -> Tuple[Mpc[T], Mpc[T]]:
         """Internal utility to setup the function approximators for the value function
         V(s) and the quality function Q(s,a)."""
-        if mpc.na <= 0:
-            raise ValueError(f"Expected Mpc with na>0; got na={mpc.na} instead.")
+        na = mpc.na
+        if na <= 0:
+            raise ValueError(f"Expected Mpc with na>0; got na={na} instead.")
         V, Q = mpc, mpc.copy()
         actions = mpc.actions
         u0 = cs.vertcat(*(actions[k][:, 0] for k in actions.keys()))
-        perturbation = V.nlp.parameter(self.cost_perturbation_par, (mpc.na, 1))
+        perturbation = V.nlp.parameter(self.cost_perturbation_par, (na, 1))
         V.nlp.minimize(V.nlp.f + cs.dot(perturbation, u0))
-        a0 = Q.nlp.parameter(self.init_action_par, (mpc.na, 1))
+        a0 = Q.nlp.parameter(self.init_action_par, (na, 1))
         Q.nlp.constraint(self.init_action_con, u0, "==", a0)
         return V, Q
