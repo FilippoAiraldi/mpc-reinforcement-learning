@@ -100,10 +100,10 @@ class TestExploration(unittest.TestCase):
             exploration.decay()
         np.testing.assert_allclose(exploration.strength, 0.5 * 0.75**5)
 
-    def test_greedy_exploration__perturbs(self):
+    @parameterized.expand([("uniform",), ("normal",), ("standard_normal",)])
+    def test_greedy_exploration__perturbs(self, method: str):
         exploration = GreedyExploration(strength=0.5, strength_decay_rate=0.75)
-        for method in ("random", "uniform"):
-            exploration.perturbation(method)
+        exploration.perturbation(method)
 
     def test_epsilon_greedy_exploration__init(self):
         exploration = EpsilonGreedyExploration(
