@@ -25,10 +25,11 @@ from mpcrl.util.named import Named
 T = TypeVar("T", cs.SX, cs.MX)
 
 
-def _update_dict(sink: Dict, source: Dict) -> Dict:
-    """Internal utility for updating dict `sink` with `source`."""
-    sink.update(source)
-    return sink
+def _update_dicts(sinks: Iterable[Dict], source: Dict) -> Iterator[Dict]:
+    """Internal utility for updating dicts `sinks` with one `source`."""
+    for sink in sinks:
+        sink.update(source)
+        yield sink
 
 
 class Agent(Named, Generic[T]):
@@ -140,10 +141,10 @@ class Agent(Named, Generic[T]):
         state: Union[npt.ArrayLike, Dict[str, npt.ArrayLike]],
         action: Union[npt.ArrayLike, Dict[str, npt.ArrayLike]] = None,
         pars: Union[
-            Dict[str, npt.ArrayLike], Iterable[Dict[str, npt.ArrayLike]]
+            None, Dict[str, npt.ArrayLike], Iterable[Dict[str, npt.ArrayLike]]
         ] = None,
         vals0: Union[
-            Dict[str, npt.ArrayLike], Iterable[Dict[str, npt.ArrayLike]]
+            None, Dict[str, npt.ArrayLike], Iterable[Dict[str, npt.ArrayLike]]
         ] = None,
     ) -> Solution:
         """Solves the agent's specific MPC optimal control problem.
@@ -175,10 +176,8 @@ class Agent(Named, Generic[T]):
         Solution
             The solution of the MPC.
         """
-        is_multi = mpc.nlp.is_multi
-        K = mpc.nlp.starts if is_multi else None
-
-        # convert state keys into initial state keys (with "_0")
+        # convert state keys into initial state keys (with "_0") and, if not None,
+        # convert action dict to vector
         if isinstance(state, dict):
             x0_dict = {f"{k}_0": v for k, v in state.items()}
         else:
@@ -186,8 +185,6 @@ class Agent(Named, Generic[T]):
             cumsizes = np.cumsum([s.shape[0] for s in mpcstates.values()][:-1])
             states = np.split(state, cumsizes)
             x0_dict = {f"{k}_0": v for k, v in zip(mpcstates.keys(), states)}
-
-        # if not None, convert action dict to vector
         if action is None:
             u0_vec = None
         elif isinstance(action, dict):
@@ -195,29 +192,22 @@ class Agent(Named, Generic[T]):
         else:
             u0_vec = action
 
-        # add initial state and action to pars
-        pars_to_add = x0_dict
+        # merge (initial) state and action in unique dict,
+        additional_pars = x0_dict
         if u0_vec is not None:
-            pars_to_add[self.init_action_par] = u0_vec
-        # iterable of dicts
-        if is_multi:
-            if pars is None:
-                pars = repeat(pars_to_add, K)
-            else:
-                pars = map(_update_dict, pars, repeat(pars_to_add, K))  # type: ignore
-        # dict
-        elif pars is None:
-            pars = pars_to_add
-        else:
-            pars.update(pars_to_add)  # type: ignore
+            additional_pars[self.init_action_par] = u0_vec
 
-        # warmstart initial conditions, solve, and store solution
+        # create pars and vals0
+        if pars is None:
+            pars = additional_pars
+        elif isinstance(pars, dict):
+            pars.update(additional_pars)
+        else:  # iterable of dict
+            pars = _update_dicts(pars, additional_pars)
         if vals0 is None and self._last_solution is not None:
-            vals0 = (
-                repeat(self._last_solution.vals, K)
-                if is_multi
-                else self._last_solution.vals
-            )
+            vals0 = self._last_solution.vals
+
+        # solve and store solution
         sol = mpc(pars=pars, vals0=vals0)
         if not self._store_last_successful or sol.success:
             self._last_solution = sol

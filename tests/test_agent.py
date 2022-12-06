@@ -99,7 +99,7 @@ class TestAgent(unittest.TestCase):
         agent2 = agent.unwrapped
         self.assertIs(agent, agent2)
 
-    def test_copy(self):
+    def test_copy(self):  # sourcery skip: class-extract-method
         agent1 = Agent(mpc=get_mpc(3, self.multistart_nlp))
         agent2 = agent1.copy()
         self.assertIsNot(agent1, agent2)
@@ -124,15 +124,24 @@ class TestAgent(unittest.TestCase):
         self.assertIsNot(agent1.Q, agent2.Q)
         self.assertIsNot(agent1.V, agent2.V)
 
-    @parameterized.expand(product(["V", "Q"], [False, True]))
-    def test_solve_mpc__calls_mpc_with_correct_args(self, mpctype: str, vector: bool):
-        agent = Agent(mpc=get_mpc(3, self.multistart_nlp))
+    @parameterized.expand(product(["V", "Q"], [False, True], [False, True]))
+    def test_solve_mpc__calls_mpc_with_correct_args(
+        self, mpctype: str, vector: bool, multiple_pars: bool
+    ):
+        if not self.multistart_nlp:
+            multiple_pars = False
+        mpc = get_mpc(3, self.multistart_nlp)
+        agent = Agent(mpc=mpc)
         vals0 = object()
         sol = Solution(
             f=5, vars=None, vals=vals0, stats={"success": True}, _get_value=None
         )
         agent._last_solution = sol
         mpc: Mpc[cs.SX] = getattr(agent, mpctype)
+        if self.multistart_nlp:
+            mpc.nlp.solve_multi = MagicMock(return_value=sol)
+        else:
+            mpc.nlp.solve = MagicMock(return_value=sol)
 
         s = {"y": 0, "v": 10, "m": 5e5}
         a = {"u1": 1, "u2": 2}
@@ -142,12 +151,12 @@ class TestAgent(unittest.TestCase):
         if mpctype == "V":
             a = None
         pars = {Agent.cost_perturbation_par: [42, 69]}
-        if self.multistart_nlp:
-            mpc.solve_multi = MagicMock(return_value=sol)
-            pars_ = [pars.copy()] * mpc.nlp.starts
-        else:
-            pars_ = pars.copy()
-            mpc.solve = MagicMock(return_value=sol)
+        pars_ = (
+            (pars.copy() for _ in range(mpc.nlp.starts))
+            if multiple_pars
+            else pars.copy()
+        )
+
         agent.solve_mpc(mpc, state=s, action=a, pars=pars_)
 
         call_pars = {
@@ -159,18 +168,21 @@ class TestAgent(unittest.TestCase):
         if mpctype != "V":
             call_pars[Agent.init_action_par] = a if vector else cs.DM(a.values())
         if self.multistart_nlp:
-            mpc.solve_multi.assert_called_once()
-            kwargs = mpc.solve_multi.call_args.kwargs
+            mpc.nlp.solve_multi.assert_called_once()
+            kwargs = mpc.nlp.solve_multi.call_args.kwargs
+        else:
+            mpc.nlp.solve.assert_called_once()
+            kwargs = mpc.nlp.solve.call_args.kwargs
+        self.assertIs(kwargs["vals0"], vals0)
+        if multiple_pars:
             for pars_i in kwargs["pars"]:
                 for key in call_pars:
                     np.testing.assert_allclose(pars_i[key], call_pars[key], rtol=0)
-            self.assertListEqual(list(kwargs["vals0"]), [vals0] * mpc.nlp.starts)
         else:
-            mpc.solve.assert_called_once()
-            kwargs = mpc.solve.call_args.kwargs
             for key in call_pars:
                 np.testing.assert_allclose(kwargs["pars"][key], call_pars[key], rtol=0)
-            self.assertIs(kwargs["vals0"], vals0)
+        self.assertIs(kwargs["vals0"], vals0)
+
     def tearDown(self) -> None:
         try:
             os.remove(f"{TMPFILENAME}.pkl")

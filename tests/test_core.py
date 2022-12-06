@@ -102,7 +102,7 @@ class TestExploration(unittest.TestCase):
 
     def test_greedy_exploration__perturbs(self):
         exploration = GreedyExploration(strength=0.5, strength_decay_rate=0.75)
-        for method in ('random', 'uniform'):
+        for method in ("random", "uniform"):
             exploration.perturbation(method)
 
     def test_epsilon_greedy_exploration__init(self):
