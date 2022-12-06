@@ -29,9 +29,9 @@ OPTS = {
 
 
 def get_dynamics(g: float, alpha: float, dt: float) -> cs.Function:
-    x, u = cs.SX.sym("x", 3), cs.SX.sym("u", 2)
-    x_next = x + cs.vertcat(x[1], u[0] / x[2] - g, -alpha * u[0]) * dt
-    return cs.Function("F", [x, u], [x_next], ["x", "u"], ["x+"])
+    x, u, d = cs.SX.sym("x", 3), cs.SX.sym("u", 2), cs.SX.sym("d", 3)
+    x_next = x + cs.vertcat(x[1], u[0] / x[2] - g, -alpha * u[0]) * dt + d * 0
+    return cs.Function("F", [x, u, d], [x_next], ["x", "u", "d"], ["x+"])
 
 
 def get_mpc(horizon: int, multistart: bool):
@@ -63,6 +63,7 @@ def get_mpc(horizon: int, multistart: bool):
     m, _ = mpc.state("m", lb=0)
     mpc.action("u1", lb=0, ub=5e7)
     mpc.action("u2", lb=0, ub=5e7)
+    mpc.disturbance("d", 3)
     F = get_dynamics(g, alpha, dt)
     mpc.dynamics = F
     mpc.constraint("yT", y[-1], "==", yT)
@@ -73,6 +74,12 @@ def get_mpc(horizon: int, multistart: bool):
 
 @parameterized_class("multistart_nlp", [(True,), (False,)])
 class TestAgent(unittest.TestCase):
+    def tearDown(self) -> None:
+        try:
+            os.remove(f"{TMPFILENAME}.pkl")
+        finally:
+            return super().tearDown()
+
     def test_init__raises__mpc_with_no_actions(self):
         with self.assertRaisesRegex(
             ValueError, "Expected Mpc with na>0; got na=0 instead."
@@ -150,7 +157,7 @@ class TestAgent(unittest.TestCase):
             a = cs.DM(a.values())
         if mpctype == "V":
             a = None
-        pars = {Agent.cost_perturbation_par: [42, 69]}
+        pars = {Agent.cost_perturbation_par: [42, 69], "d": cs.DM([5, 6, 7])}
         pars_ = (
             (pars.copy() for _ in range(mpc.nlp.starts))
             if multiple_pars
@@ -176,18 +183,14 @@ class TestAgent(unittest.TestCase):
         self.assertIs(kwargs["vals0"], vals0)
         if multiple_pars:
             for pars_i in kwargs["pars"]:
+                self.assertEqual(len(mpc.unwrapped._pars.keys() - pars_i.keys()), 0)
                 for key in call_pars:
                     np.testing.assert_allclose(pars_i[key], call_pars[key], rtol=0)
         else:
+            par = kwargs["pars"]
+            self.assertEqual(len(mpc.unwrapped._pars.keys() - pars_i.keys()), 0)
             for key in call_pars:
-                np.testing.assert_allclose(kwargs["pars"][key], call_pars[key], rtol=0)
-        self.assertIs(kwargs["vals0"], vals0)
-
-    def tearDown(self) -> None:
-        try:
-            os.remove(f"{TMPFILENAME}.pkl")
-        finally:
-            return super().tearDown()
+                np.testing.assert_allclose(par[key], call_pars[key], rtol=0)
 
 
 if __name__ == "__main__":
