@@ -1,15 +1,11 @@
-import os
-import tempfile
 import unittest
-from typing import Tuple, Union
+from typing import Optional, Tuple, Union
 
 import numpy as np
-from csnlp.util import io
 from parameterized import parameterized
 
 from mpcrl.core.experience import ExperienceReplay
-
-TMPFILENAME: str = ""
+from mpcrl.core.random import np_random
 
 
 class TestExperienceReplay(unittest.TestCase):
@@ -22,29 +18,6 @@ class TestExperienceReplay(unittest.TestCase):
         self.assertIn(items[1], mem)
         self.assertIn(items[2], mem)
         self.assertIsInstance(mem.np_random, np.random.Generator)
-
-    def test__is_pickleable(self):
-        mem = ExperienceReplay[Tuple[np.ndarray, float]]()
-        for _ in range(10):
-            mem.append((np.random.rand(10), np.random.rand()))
-        self.assertTrue(io.is_pickleable(mem))
-
-        global TMPFILENAME
-        TMPFILENAME = next(tempfile._get_candidate_names())
-        io.save(TMPFILENAME, ER=mem, check=69)
-
-        loadeddata = io.load(TMPFILENAME)
-        self.assertEqual(loadeddata["check"], 69)
-        mem_: ExperienceReplay = loadeddata["ER"]
-        for (a, f), (a_, f_) in zip(mem, mem_):
-            np.testing.assert_equal(a, a_)
-            self.assertEqual(f, f_)
-
-    def tearDown(self) -> None:
-        try:
-            os.remove(f"{TMPFILENAME}.pkl")
-        finally:
-            return super().tearDown()
 
     def test_sample__raises__with_no_maxlen_and_percentage_size(self):
         mem = ExperienceReplay[Tuple[np.ndarray, float]](maxlen=None)
@@ -82,6 +55,24 @@ class TestExperienceReplay(unittest.TestCase):
             self.assertIn(item, mem)
         for item in range(N - Nlast, N):
             self.assertIn(item, sample)
+
+
+class TestRandom(unittest.TestCase):
+    def test_np_random__raises__with_invalid_seed(self):
+        with self.assertRaisesRegex(
+            ValueError, "Seed must be a non-negative integer or omitted, not -1."
+        ):
+            np_random(-1)
+
+    @parameterized.expand([(69,), (None,)])
+    def test_np_random__initializes_rng_with_correct_seed(self, seed: Optional[int]):
+        rng, actual_seed = np_random(seed)
+        self.assertIsInstance(rng, np.random.Generator)
+        if seed is not None:
+            self.assertEqual(seed, actual_seed)
+        else:
+            self.assertIsInstance(actual_seed, int)
+
 
 
 if __name__ == "__main__":
