@@ -19,6 +19,7 @@ import numpy.typing as npt
 from csnlp import Solution
 from csnlp.wrappers import Mpc
 
+from mpcrl.core.exploration import ExplorationStrategy, NoExploration
 from mpcrl.util.named import Named
 
 T = TypeVar("T", cs.SX, cs.MX)
@@ -38,7 +39,8 @@ class Agent(Named, Generic[T]):
     def __init__(
         self,
         mpc: Mpc[T],
-        name: str = None,
+        fixed_parameters: Dict[str, npt.ArrayLike] = None,
+        exploration: ExplorationStrategy = None,
         warmstart: Literal["last", "last-successful"] = "last-successful",
         name: str = None,
     ) -> None:
@@ -53,9 +55,14 @@ class Agent(Named, Generic[T]):
             thrown if these names are already in use in the mpc. These names are under
             the attributes `cost_perturbation_par`, `init_action_par` and
             `init_action_con`.
-        name : str, optional
-            Name of the agent. If `None`, one is automatically created from a counter of
-            the class' instancies.
+        fixed_pars : dict[str, array_like], optional
+            A dict containing whose keys are the names of the MPC parameters and the
+            values are their corresponding values. Use this to specify fixed parameters,
+            that is, parameters that are non-learnable. If `None`, then no fixed
+            parameter is assumed.
+        exploration : ExplorationStrategy, optional
+            Exploration strategy for inducing exploration in the MPC policy. By default
+            `None`, in which case `NoExploration` is used in the fixed-MPC agent.
         warmstart: 'last' or 'last-successful', optional
             The warmstart strategy for the MPC's NLP. If 'last-successful', the last
             successful solution is used to warm start the solver for the next iteration.
@@ -72,7 +79,9 @@ class Agent(Named, Generic[T]):
             mpc.
         """
         super().__init__(name)
-        self.V, self.Q = self._setup_V_and_Q(mpc)
+        self._V, self._Q = self._setup_V_and_Q(mpc)
+        self._fixed_pars = {} if fixed_parameters is None else fixed_parameters
+        self._exploration = NoExploration() if exploration is None else exploration
         self._last_solution: Optional[Solution[T]] = None
         self._store_last_successful = warmstart == "last-successful"
 
@@ -82,9 +91,24 @@ class Agent(Named, Generic[T]):
         return self
 
     @property
-    def np_random(self) -> np.random.Generator:
-        """Gets the RNG of the Agent (borrowed from MPC V)."""
-        return self.V.unwrapped.np_random
+    def V(self) -> Mpc[T]:
+        """Gets the MPC function approximation of the state value function `V(s)`."""
+        return self._V
+
+    @property
+    def Q(self) -> Mpc[T]:
+        """Gets the MPC function approximation of the action value function `Q(s,a)`."""
+        return self._Q
+
+    @property
+    def fixed_parameters(self) -> Dict[str, npt.ArrayLike]:
+        """Gets the fixed parameters of the MPC controller (i.e., non-learnable)."""
+        return self._fixed_pars
+
+    @property
+    def exploration(self) -> ExplorationStrategy:
+        """Gets the exploration strategy used within this agent."""
+        return self._exploration
 
     def copy(self) -> "Agent":
         """Creates a deepcopy of this Agent's instance.
@@ -94,14 +118,14 @@ class Agent(Named, Generic[T]):
         Agent
             A new instance of the agent.
         """
-        with self.Q.fullstate(), self.V.fullstate():
+        with self._Q.fullstate(), self._V.fullstate():
             return deepcopy(self)
 
     @contextmanager
     def pickleable(self) -> Iterator[None]:
         """Context manager that makes the agent and its function approximators
         pickleable."""
-        with self.Q.pickleable(), self.V.pickleable():
+        with self._Q.pickleable(), self._V.pickleable():
             yield
 
 
