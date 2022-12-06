@@ -25,6 +25,12 @@ from mpcrl.util.named import Named
 T = TypeVar("T", cs.SX, cs.MX)
 
 
+def _update_dict(sink: Dict, source: Dict) -> Dict:
+    """Internal utility for updating dict `sink` with `source`."""
+    sink.update(source)
+    return sink
+
+
 class Agent(Named, Generic[T]):
     """Simple MPC-based agent with a fixed (i.e., non-learnable) MPC controller.
 
@@ -128,6 +134,94 @@ class Agent(Named, Generic[T]):
         with self._Q.pickleable(), self._V.pickleable():
             yield
 
+    def solve_mpc(
+        self,
+        mpc: Mpc[T],
+        state: Union[npt.ArrayLike, Dict[str, npt.ArrayLike]],
+        action: Union[npt.ArrayLike, Dict[str, npt.ArrayLike]] = None,
+        pars: Union[
+            Dict[str, npt.ArrayLike], Iterable[Dict[str, npt.ArrayLike]]
+        ] = None,
+        vals0: Union[
+            Dict[str, npt.ArrayLike], Iterable[Dict[str, npt.ArrayLike]]
+        ] = None,
+    ) -> Solution:
+        """Solves the agent's specific MPC optimal control problem.
+
+        Parameters
+        ----------
+        mpc : Mpc
+            The MPC problem to solve, either `Agent.V` or `Agent.Q`.
+        state : array_like or dict[str, array_like]
+            A 1D array representing the value of all states of the MPC, concatenated.
+            Otherwise, a dict whose keys are the names of each state, and values are
+            their numerical values.
+        action : array_like or dict[str, array_like], optional
+            Same for `state`, for the action. Only valid if evaluating the action value
+            function `Q(s,a)`. For this reason, it can be `None` for `V(s)`.
+        pars : dict[str, array_like] or iterable of, optional
+            A dict (or an iterable of dict, in case of `csnlp.MultistartNlp`), whose
+            keys are the names of the MPC parameters, and values are the numerical
+            values of each parameter. Pass `None` in case the MPC has no parameter.
+        vals0 : dict[str, array_like] or iterable of, optional
+            A dict (or an iterable of dict, in case of `csnlp.MultistartNlp`), whose
+            keys are the names of the MPC variables, and values are the numerical
+            initial values of each variable. Use this to warm-start the MPC. If `None`,
+            and a previous solution (possibly, successful) is available, the MPC solver
+            is automatically warm-started
+
+        Returns
+        -------
+        Solution
+            The solution of the MPC.
+        """
+        is_multi = mpc.nlp.is_multi
+        K = mpc.nlp.starts if is_multi else None
+
+        # convert state keys into initial state keys (with "_0")
+        if isinstance(state, dict):
+            x0_dict = {f"{k}_0": v for k, v in state.items()}
+        else:
+            mpcstates = mpc.states
+            cumsizes = np.cumsum([s.shape[0] for s in mpcstates.values()][:-1])
+            states = np.split(state, cumsizes)
+            x0_dict = {f"{k}_0": v for k, v in zip(mpcstates.keys(), states)}
+
+        # if not None, convert action dict to vector
+        if action is None:
+            u0_vec = None
+        elif isinstance(action, dict):
+            u0_vec = cs.vertcat(*(action[k] for k in mpc.actions.keys()))
+        else:
+            u0_vec = action
+
+        # add initial state and action to pars
+        pars_to_add = x0_dict
+        if u0_vec is not None:
+            pars_to_add[self.init_action_par] = u0_vec
+        # iterable of dicts
+        if is_multi:
+            if pars is None:
+                pars = repeat(pars_to_add, K)
+            else:
+                pars = map(_update_dict, pars, repeat(pars_to_add, K))  # type: ignore
+        # dict
+        elif pars is None:
+            pars = pars_to_add
+        else:
+            pars.update(pars_to_add)  # type: ignore
+
+        # warmstart initial conditions, solve, and store solution
+        if vals0 is None and self._last_solution is not None:
+            vals0 = (
+                repeat(self._last_solution.vals, K)
+                if is_multi
+                else self._last_solution.vals
+            )
+        sol = mpc(pars=pars, vals0=vals0)
+        if not self._store_last_successful or sol.success:
+            self._last_solution = sol
+        return sol
 
     def _setup_V_and_Q(self, mpc: Mpc[T]) -> Tuple[Mpc[T], Mpc[T]]:
         """Internal utility to setup the function approximators for the value function

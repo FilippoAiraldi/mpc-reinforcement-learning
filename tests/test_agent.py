@@ -124,6 +124,53 @@ class TestAgent(unittest.TestCase):
         self.assertIsNot(agent1.Q, agent2.Q)
         self.assertIsNot(agent1.V, agent2.V)
 
+    @parameterized.expand(product(["V", "Q"], [False, True]))
+    def test_solve_mpc__calls_mpc_with_correct_args(self, mpctype: str, vector: bool):
+        agent = Agent(mpc=get_mpc(3, self.multistart_nlp))
+        vals0 = object()
+        sol = Solution(
+            f=5, vars=None, vals=vals0, stats={"success": True}, _get_value=None
+        )
+        agent._last_solution = sol
+        mpc: Mpc[cs.SX] = getattr(agent, mpctype)
+
+        s = {"y": 0, "v": 10, "m": 5e5}
+        a = {"u1": 1, "u2": 2}
+        if vector:
+            s = cs.DM(s.values())
+            a = cs.DM(a.values())
+        if mpctype == "V":
+            a = None
+        pars = {Agent.cost_perturbation_par: [42, 69]}
+        if self.multistart_nlp:
+            mpc.solve_multi = MagicMock(return_value=sol)
+            pars_ = [pars.copy()] * mpc.nlp.starts
+        else:
+            pars_ = pars.copy()
+            mpc.solve = MagicMock(return_value=sol)
+        agent.solve_mpc(mpc, state=s, action=a, pars=pars_)
+
+        call_pars = {
+            **pars,
+            "y_0": s[0] if vector else s["y"],
+            "v_0": s[1] if vector else s["v"],
+            "m_0": s[2] if vector else s["m"],
+        }
+        if mpctype != "V":
+            call_pars[Agent.init_action_par] = a if vector else cs.DM(a.values())
+        if self.multistart_nlp:
+            mpc.solve_multi.assert_called_once()
+            kwargs = mpc.solve_multi.call_args.kwargs
+            for pars_i in kwargs["pars"]:
+                for key in call_pars:
+                    np.testing.assert_allclose(pars_i[key], call_pars[key], rtol=0)
+            self.assertListEqual(list(kwargs["vals0"]), [vals0] * mpc.nlp.starts)
+        else:
+            mpc.solve.assert_called_once()
+            kwargs = mpc.solve.call_args.kwargs
+            for key in call_pars:
+                np.testing.assert_allclose(kwargs["pars"][key], call_pars[key], rtol=0)
+            self.assertIs(kwargs["vals0"], vals0)
     def tearDown(self) -> None:
         try:
             os.remove(f"{TMPFILENAME}.pkl")
