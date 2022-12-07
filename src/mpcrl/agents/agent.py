@@ -15,7 +15,7 @@ from typing import (
 import casadi as cs
 import numpy as np
 import numpy.typing as npt
-from csnlp import Solution
+from csnlp import Solution, wrappers
 from csnlp.wrappers import Mpc
 
 from mpcrl.core.exploration import ExplorationStrategy, NoExploration
@@ -219,11 +219,17 @@ class Agent(Named, Generic[T]):
         na = mpc.na
         if na <= 0:
             raise ValueError(f"Expected Mpc with na>0; got na={na} instead.")
+
         V, Q = mpc, mpc.copy()
+        a0 = Q.nlp.parameter(self.init_action_parameter, (na, 1))
+        perturbation = V.nlp.parameter(self.cost_perturbation_parameter, (na, 1))
+
         actions = mpc.actions
         u0 = cs.vertcat(*(actions[k][:, 0] for k in actions.keys()))
-        perturbation = V.nlp.parameter(self.cost_perturbation_par, (na, 1))
-        V.nlp.minimize(V.nlp.f + cs.dot(perturbation, u0))
-        a0 = Q.nlp.parameter(self.init_action_par, (na, 1))
-        Q.nlp.constraint(self.init_action_con, u0, "==", a0)
+        f = V.nlp.f
+        if mpc.is_wrapped(wrappers.NlpScaling):
+            f = mpc.scale(f)
+
+        V.nlp.minimize(f + cs.dot(perturbation, u0))
+        Q.nlp.constraint(self.init_action_constraint, u0, "==", a0)
         return V, Q
