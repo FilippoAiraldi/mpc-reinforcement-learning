@@ -1,6 +1,7 @@
 from contextlib import contextmanager
 from copy import deepcopy
 from typing import (
+    Collection,
     Dict,
     Generic,
     Iterable,
@@ -46,7 +47,9 @@ class Agent(Named, Generic[T]):
     def __init__(
         self,
         mpc: Mpc[T],
-        fixed_parameters: Dict[str, npt.ArrayLike] = None,
+        fixed_parameters: Union[
+            None, Dict[str, npt.ArrayLike], Collection[Dict[str, npt.ArrayLike]]
+        ] = None,
         exploration: ExplorationStrategy = None,
         warmstart: Literal["last", "last-successful"] = "last-successful",
         name: str = None,
@@ -62,11 +65,11 @@ class Agent(Named, Generic[T]):
             thrown if these names are already in use in the mpc. These names are under
             the attributes `perturbation_parameter`, `action_parameter` and
             `action_constraint`.
-        fixed_pars : dict[str, array_like], optional
-            A dict containing whose keys are the names of the MPC parameters and the
-            values are their corresponding values. Use this to specify fixed parameters,
-            that is, parameters that are non-learnable. If `None`, then no fixed
-            parameter is assumed.
+        fixed_parameters : dict[str, array_like] or collection of, optional
+            A dict (or an iterable of dict, in case of `csnlp.MultistartNlp`) whose keys
+            are the names of the MPC parameters and the values are their corresponding
+            values. Use this to specify fixed parameters, that is, non-learnable. If
+            `None`, then no fixed parameter is assumed.
         exploration : ExplorationStrategy, optional
             Exploration strategy for inducing exploration in the MPC policy. By default
             `None`, in which case `NoExploration` is used in the fixed-MPC agent.
@@ -108,8 +111,12 @@ class Agent(Named, Generic[T]):
         return self._Q
 
     @property
-    def fixed_parameters(self) -> Dict[str, npt.ArrayLike]:
-        """Gets the fixed parameters of the MPC controller (i.e., non-learnable)."""
+    def fixed_parameters(
+        self,
+    ) -> Union[None, Dict[str, npt.ArrayLike], Collection[Dict[str, npt.ArrayLike]]]:
+        """Gets the fixed parameters of the MPC controller (i.e., non-learnable). Can be
+        an iterable in the case of `csnlp.MultistartNpl`, where multiple parameters can
+        be specified, one for each scenario in the MPC scheme."""
         return self._fixed_pars
 
     @property
@@ -213,6 +220,53 @@ class Agent(Named, Generic[T]):
             self._last_solution = sol
         return sol
 
+    def state_value(
+        self,
+        state: Union[npt.ArrayLike, Dict[str, npt.ArrayLike]],
+        deterministic: bool = False,
+        vals0: Union[
+            Dict[str, npt.ArrayLike], Iterable[Dict[str, npt.ArrayLike]]
+        ] = None,
+    ) -> Solution:
+        """Computes the state value function `V(s)` approximated by the MPC.
+
+        Parameters
+        ----------
+        state : array_like or dict[str, array_like]
+            The state `s` at which to evaluate the value function `V(s)`. Can either be
+            a dict of state names and values, or a single concatenated column vector of
+            all the states.
+        deterministic : bool, optional
+            If `True`, the cost of the MPC is perturbed according to the exploration
+            strategy to induce some exploratory behaviour. Otherwise, no perturbation is
+            performed. By default, `deterministic=False`.
+        vals0 : dict[str, array_like] or iterable of, optional
+            A dict (or an iterable of dict, in case of `csnlp.MultistartNlp`), whose
+            keys are the names of the MPC variables, and values are the numerical
+            initial values of each variable. Use this to warm-start the MPC. If `None`,
+            and a previous solution (possibly, successful) is available, the MPC solver
+            is automatically warm-started
+
+        Returns
+        -------
+        Solution
+            The solution of the MPC approximating `V(s)` at the given state `s`.
+        """
+        if deterministic or not self._exploration.can_explore():
+            perturbation = 0
+        else:
+            shape = self.V.parameters[self.cost_perturbation_parameter].shape
+            perturbation = self.exploration.perturbation(
+                self.cost_perturbation_method, size=shape
+            )
+        pars = self._get_parameters()
+        if isinstance(pars, dict):
+            pars[self.cost_perturbation_parameter] = perturbation
+        else:  # iterable of dict
+            d = {self.cost_perturbation_parameter: perturbation}
+            pars = _update_dicts(pars, d)  # type: ignore
+        return self.solve_mpc(self._V, state, pars=pars, vals0=vals0)
+
     def _setup_V_and_Q(self, mpc: Mpc[T]) -> Tuple[Mpc[T], Mpc[T]]:
         """Internal utility to setup the function approximators for the value function
         V(s) and the quality function Q(s,a)."""
@@ -233,3 +287,11 @@ class Agent(Named, Generic[T]):
         V.nlp.minimize(f + cs.dot(perturbation, u0))
         Q.nlp.constraint(self.init_action_constraint, u0, "==", a0)
         return V, Q
+
+    def _get_parameters(
+        self,
+    ) -> Union[Dict[str, npt.ArrayLike], Collection[Dict[str, npt.ArrayLike]]]:
+        """Internal utility to retrieve parameters of the MPC in order to solve it.
+        `Agent` has no learnable parameter, so only fixed parameters are returned."""
+        return self._fixed_pars
+

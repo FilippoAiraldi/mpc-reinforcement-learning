@@ -45,7 +45,6 @@ def get_mpc(horizon: int, multistart: bool):
     yT = 100000
     g = 9.81
     alpha = 1 / (300 * g)
-    nlp = MultistartNlp(sym_type="MX", starts=K) if multistart else Nlp(sym_type="MX")
     y_nom = 1e5
     v_nom = 2e3
     m_nom = 3e5
@@ -59,8 +58,13 @@ def get_mpc(horizon: int, multistart: bool):
     scaler.register("m_0", scale=m_nom)
     scaler.register("u1", scale=u_nom)
     scaler.register("u2", scale=u_nom)
-    nlp = NlpScaling(nlp, scaler=scaler, warns=False)
-    mpc = Mpc(nlp, prediction_horizon=N)
+    nlp = (
+        MultistartNlp[cs.MX](sym_type="MX", starts=K)
+        if multistart
+        else Nlp[cs.MX](sym_type="MX")
+    )
+    nlp = NlpScaling[cs.MX](nlp, scaler=scaler)
+    mpc = Mpc[cs.MX](nlp, prediction_horizon=N)
     y, _ = mpc.state("y")
     _, _ = mpc.state("v")
     m, _ = mpc.state("m", lb=0)
@@ -195,6 +199,32 @@ class TestAgent(unittest.TestCase):
             for key in call_pars:
                 np.testing.assert_allclose(pars[key], call_pars[key], rtol=0)
 
+    @parameterized.expand([(False,), (True,)])
+    def test_state_value__computes_right_solution(self, vector: bool):
+        horizon = 100
+        fixed_pars = {"d": cs.DM([5, 6, 7])}
+        if self.multistart_nlp:
+            fixed_pars = [fixed_pars.copy() for _ in range(3)]
+
+        exploration = E.GreedyExploration(strength=0, strength_decay_rate=1e-8)
+        mpc = get_mpc(horizon, self.multistart_nlp)
+        agent = Agent(mpc=mpc, fixed_parameters=fixed_pars, exploration=exploration)
+
+        state = {"y": 0, "v": 0, "m": 5e5}
+        vals0 = {"y": 0, "v": 0, "m": 5e5, "u1": 1e8, "u2": 0}
+        agent._last_solution = Solution(f=0, vars=0, vals=vals0, stats=0, _get_value=0)
+        if vector:
+            state = cs.DM(state.values())
+
+        sol = agent.state_value(state=state, vals0=None, deterministic=False)
+
+        np.testing.assert_allclose(sol.f, RESULTS["state_value_f"].item())
+        np.testing.assert_allclose(
+            sol.vals["u1"],
+            RESULTS["state_value_us"],
+            rtol=1e-7,
+            atol=1e-7,
+        )
 
 
 if __name__ == "__main__":
