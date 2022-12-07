@@ -113,15 +113,28 @@ class TestAgent(unittest.TestCase):
         agent2 = agent.unwrapped
         self.assertIs(agent, agent2)
 
-    def test_copy(self):  # sourcery skip: class-extract-method
-        agent1 = Agent(mpc=get_mpc(3, self.multistart_nlp))
+    def test_copy(self):
+        exploration = E.EpsilonGreedyExploration(0.1, 0.2, 0.3, 0.4, seed=42)
+        agent1 = Agent(mpc=get_mpc(3, self.multistart_nlp), exploration=exploration)
         agent2 = agent1.copy()
         self.assertIsNot(agent1, agent2)
         self.assertIsNot(agent1.Q, agent2.Q)
         self.assertIsNot(agent1.V, agent2.V)
+        self.assertIs(agent1.exploration, exploration)
+        self.assertIsNot(agent1.exploration, agent2.exploration)
+        for n in [
+            "epsilon",
+            "epsilon_decay_rate",
+            "strength",
+            "strength_decay_rate",
+        ]:
+            self.assertEqual(
+                getattr(agent1.exploration, n), getattr(agent2.exploration, n)
+            )
 
     def test__is_pickleable(self):
-        agent1 = Agent(mpc=get_mpc(3, self.multistart_nlp))
+        exploration = E.EpsilonGreedyExploration(0.1, 0.2, 0.3, 0.4, seed=42)
+        agent1 = Agent(mpc=get_mpc(3, self.multistart_nlp), exploration=exploration)
 
         global TMPFILENAME
         TMPFILENAME = next(tempfile._get_candidate_names())
@@ -137,6 +150,17 @@ class TestAgent(unittest.TestCase):
         self.assertIsNot(agent1, agent2)
         self.assertIsNot(agent1.Q, agent2.Q)
         self.assertIsNot(agent1.V, agent2.V)
+        self.assertIs(agent1.exploration, exploration)
+        self.assertIsNot(agent1.exploration, agent2.exploration)
+        for n in [
+            "epsilon",
+            "epsilon_decay_rate",
+            "strength",
+            "strength_decay_rate",
+        ]:
+            self.assertEqual(
+                getattr(agent1.exploration, n), getattr(agent2.exploration, n)
+            )
 
     @parameterized.expand(product(["V", "Q"], [False, True], [False, True]))
     def test_solve_mpc__calls_mpc_with_correct_args(
