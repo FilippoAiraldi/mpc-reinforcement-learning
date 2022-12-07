@@ -142,20 +142,22 @@ class TestAgent(unittest.TestCase):
     def test_solve_mpc__calls_mpc_with_correct_args(
         self, mpctype: str, vector: bool, multiple_pars: bool
     ):
+        starts = 3
+        horizon = 3
         if not self.multistart_nlp:
             multiple_pars = False
-        mpc = get_mpc(3, self.multistart_nlp)
-        agent = Agent(mpc=mpc)
-        vals0 = object()
-        sol = Solution(
-            f=5, vars=None, vals=vals0, stats={"success": True}, _get_value=None
+        fixed_pars = {
+            Agent.cost_perturbation_parameter: [42, 69],
+            "d": cs.DM([5, 6, 7]),
+        }
+        fixed_pars_ = (
+            (fixed_pars.copy() for _ in range(starts))
+            if multiple_pars
+            else fixed_pars.copy()
         )
-        agent._last_solution = sol
+        mpc = get_mpc(horizon, self.multistart_nlp)
+        agent = Agent(mpc=mpc, fixed_parameters=fixed_pars_)
         mpc: Mpc[cs.SX] = getattr(agent, mpctype)
-        if self.multistart_nlp:
-            mpc.nlp.solve_multi = MagicMock(return_value=sol)
-        else:
-            mpc.nlp.solve = MagicMock(return_value=sol)
 
         s = {"y": 0, "v": 10, "m": 5e5}
         a = {"u1": 1, "u2": 2}
@@ -164,22 +166,29 @@ class TestAgent(unittest.TestCase):
             a = cs.DM(a.values())
         if mpctype == "V":
             a = None
-        pars = {agent.cost_perturbation_parameter: [42, 69], "d": cs.DM([5, 6, 7])}
-        pars_ = (
-            (pars.copy() for _ in range(mpc.nlp.starts))
-            if multiple_pars
-            else pars.copy()
-        )
 
-        agent.solve_mpc(mpc, state=s, action=a, pars=pars_)
+        pert = cs.DM([65, 79])
+        vals0 = object()
+        sol = Solution(
+            f=5, vars=None, vals=vals0, stats={"success": True}, _get_value=None
+        )
+        agent._last_solution = sol
+        if self.multistart_nlp:
+            mpc.nlp.solve_multi = MagicMock(return_value=sol)
+        else:
+            mpc.nlp.solve = MagicMock(return_value=sol)
+
+        agent.solve_mpc(mpc, state=s, action=a, perturbation=pert)
 
         call_pars = {
-            **pars,
+            **fixed_pars,
             "y_0": s[0] if vector else s["y"],
             "v_0": s[1] if vector else s["v"],
             "m_0": s[2] if vector else s["m"],
         }
-        if mpctype != "V":
+        if mpctype == "V":
+            call_pars[Agent.cost_perturbation_parameter] = pert
+        else:
             call_pars[Agent.init_action_parameter] = a if vector else cs.DM(a.values())
         if self.multistart_nlp:
             mpc.nlp.solve_multi.assert_called_once()
@@ -199,12 +208,15 @@ class TestAgent(unittest.TestCase):
             for key in call_pars:
                 np.testing.assert_allclose(pars[key], call_pars[key], rtol=0)
 
-    @parameterized.expand([(False,), (True,)])
-    def test_state_value__computes_right_solution(self, vector: bool):
+    @parameterized.expand(product((False, True), (False, True)))
+    def test_state_value__computes_right_solution(
+        self, vector: bool, deterministic: bool
+    ):
+        starts = 3
         horizon = 100
         fixed_pars = {"d": cs.DM([5, 6, 7])}
         if self.multistart_nlp:
-            fixed_pars = [fixed_pars.copy() for _ in range(3)]
+            fixed_pars = [fixed_pars.copy() for _ in range(starts)]
 
         exploration = E.GreedyExploration(strength=0, strength_decay_rate=1e-8)
         mpc = get_mpc(horizon, self.multistart_nlp)
@@ -216,8 +228,8 @@ class TestAgent(unittest.TestCase):
         if vector:
             state = cs.DM(state.values())
 
-        sol = agent.state_value(state=state, vals0=None, deterministic=False)
-
+        sol = agent.state_value(state=state, vals0=None, deterministic=deterministic)
+        self.assertTrue(sol.success)
         np.testing.assert_allclose(sol.f, RESULTS["state_value_f"].item())
         np.testing.assert_allclose(
             sol.vals["u1"],

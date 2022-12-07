@@ -147,9 +147,7 @@ class Agent(Named, Generic[T]):
         mpc: Mpc[T],
         state: Union[npt.ArrayLike, Dict[str, npt.ArrayLike]],
         action: Union[npt.ArrayLike, Dict[str, npt.ArrayLike]] = None,
-        pars: Union[
-            None, Dict[str, npt.ArrayLike], Iterable[Dict[str, npt.ArrayLike]]
-        ] = None,
+        perturbation: npt.ArrayLike = None,
         vals0: Union[
             None, Dict[str, npt.ArrayLike], Iterable[Dict[str, npt.ArrayLike]]
         ] = None,
@@ -167,10 +165,9 @@ class Agent(Named, Generic[T]):
         action : array_like or dict[str, array_like], optional
             Same for `state`, for the action. Only valid if evaluating the action value
             function `Q(s,a)`. For this reason, it can be `None` for `V(s)`.
-        pars : dict[str, array_like] or iterable of, optional
-            A dict (or an iterable of dict, in case of `csnlp.MultistartNlp`), whose
-            keys are the names of the MPC parameters, and values are the numerical
-            values of each parameter. Pass `None` in case the MPC has no parameter.
+        perturbation : array_like, optional
+            The cost perturbation used to induce exploration in `V(s)`. Can be `None`
+            for `Q(s,a)`.
         vals0 : dict[str, array_like] or iterable of, optional
             A dict (or an iterable of dict, in case of `csnlp.MultistartNlp`), whose
             keys are the names of the MPC variables, and values are the numerical
@@ -199,12 +196,17 @@ class Agent(Named, Generic[T]):
         else:
             u0_vec = action
 
-        # merge (initial) state and action in unique dict,
+        # merge (initial) state, action and perturbation in unique dict
         additional_pars = x0_dict
         if u0_vec is not None:
             additional_pars[self.init_action_parameter] = u0_vec
+        if self.cost_perturbation_parameter in mpc.parameters:
+            additional_pars[self.cost_perturbation_parameter] = (
+                0 if perturbation is None else perturbation
+            )
 
         # create pars and vals0
+        pars = self._get_parameters()
         if pars is None:
             pars = additional_pars
         elif isinstance(pars, dict):
@@ -253,19 +255,11 @@ class Agent(Named, Generic[T]):
             The solution of the MPC approximating `V(s)` at the given state `s`.
         """
         if deterministic or not self._exploration.can_explore():
-            perturbation = 0
+            p = None
         else:
             shape = self.V.parameters[self.cost_perturbation_parameter].shape
-            perturbation = self.exploration.perturbation(
-                self.cost_perturbation_method, size=shape
-            )
-        pars = self._get_parameters()
-        if isinstance(pars, dict):
-            pars[self.cost_perturbation_parameter] = perturbation
-        else:  # iterable of dict
-            d = {self.cost_perturbation_parameter: perturbation}
-            pars = _update_dicts(pars, d)  # type: ignore
-        return self.solve_mpc(self._V, state, pars=pars, vals0=vals0)
+            p = self.exploration.perturbation(self.cost_perturbation_method, size=shape)
+        return self.solve_mpc(self._V, state, perturbation=p, vals0=vals0)
 
     def _setup_V_and_Q(self, mpc: Mpc[T]) -> Tuple[Mpc[T], Mpc[T]]:
         """Internal utility to setup the function approximators for the value function
