@@ -90,7 +90,7 @@ class Agent(Named, Generic[T]):
         """
         super().__init__(name)
         self._V, self._Q = self._setup_V_and_Q(mpc)
-        self._fixed_pars = {} if fixed_parameters is None else fixed_parameters
+        self._fixed_pars = fixed_parameters
         self._exploration = NoExploration() if exploration is None else exploration
         self._last_solution: Optional[Solution[T]] = None
         self._store_last_successful = warmstart == "last-successful"
@@ -183,8 +183,8 @@ class Agent(Named, Generic[T]):
         Solution
             The solution of the MPC.
         """
-        # convert state keys into initial state keys (with "_0") and, if not None,
-        # convert action dict to vector
+        # convert state keys into initial state keys (with "_0")
+        # convert action dict to vector if not None
         if isinstance(state, dict):
             x0_dict = {f"{k}_0": v for k, v in state.items()}
         else:
@@ -210,7 +210,7 @@ class Agent(Named, Generic[T]):
         elif isinstance(pars, dict):
             pars.update(additional_pars)
         else:  # iterable of dict
-            pars = _update_dicts(pars, additional_pars)
+            pars = _update_dicts(pars, additional_pars)  # type: ignore
         if vals0 is None and self._last_solution is not None:
             vals0 = self._last_solution.vals
 
@@ -275,6 +275,8 @@ class Agent(Named, Generic[T]):
             raise ValueError(f"Expected Mpc with na>0; got na={na} instead.")
 
         V, Q = mpc, mpc.copy()
+        V.unwrapped.name += "_V"
+        Q.unwrapped.name += "_Q"
         a0 = Q.nlp.parameter(self.init_action_parameter, (na, 1))
         perturbation = V.nlp.parameter(self.cost_perturbation_parameter, (na, 1))
 
@@ -290,8 +292,9 @@ class Agent(Named, Generic[T]):
 
     def _get_parameters(
         self,
-    ) -> Union[Dict[str, npt.ArrayLike], Collection[Dict[str, npt.ArrayLike]]]:
+    ) -> Union[None, Dict[str, npt.ArrayLike], Collection[Dict[str, npt.ArrayLike]]]:
         """Internal utility to retrieve parameters of the MPC in order to solve it.
         `Agent` has no learnable parameter, so only fixed parameters are returned."""
+        # NOTE: should we return copies of these dicts?
         return self._fixed_pars
 
