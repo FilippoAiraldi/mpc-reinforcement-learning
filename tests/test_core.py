@@ -6,6 +6,7 @@ from parameterized import parameterized
 
 from mpcrl import ExperienceReplay
 from mpcrl import exploration as E
+from mpcrl import LearnableParameter
 from mpcrl.core.random import np_random
 
 
@@ -131,6 +132,22 @@ class TestExploration(unittest.TestCase):
             exploration.decay()
         np.testing.assert_allclose(exploration.epsilon, 0.7 * 0.75**5)
         np.testing.assert_allclose(exploration.strength, 0.5 * 0.2**5)
+
+
+class TestParameters(unittest.TestCase):
+    @parameterized.expand(map(lambda i: (i,), range(3)))
+    def test_learnable_parameter_init__raises__with_unbroadcastable_args(self, i: int):
+        args = [5, 0, 10]
+        args[i] = np.random.rand(2, 2, 2)
+        with self.assertRaises(ValueError):
+            LearnableParameter("theta", 10, *args)
+
+    def test_learnable_parameter_init_and_update__raise__with_value_outside_range(self):
+        with self.assertRaises(ValueError):
+            LearnableParameter("theta", 10, -5, 0, 10)
+        par = LearnableParameter("theta", 10, 5, 0, 10)
+        with self.assertRaises(ValueError):
+            par.update(-5)
 
 
 if __name__ == "__main__":
