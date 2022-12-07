@@ -4,9 +4,8 @@ from typing import Optional, Tuple, Union
 import numpy as np
 from parameterized import parameterized
 
-from mpcrl import ExperienceReplay
+from mpcrl import ExperienceReplay, LearnableParameter
 from mpcrl import exploration as E
-from mpcrl import LearnableParameter
 from mpcrl.core.random import np_random
 
 
