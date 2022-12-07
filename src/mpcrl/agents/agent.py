@@ -252,7 +252,7 @@ class Agent(Named, Generic[T]):
         Returns
         -------
         Solution
-            The solution of the MPC approximating `V(s)` at the given state `s`.
+            The solution of the MPC approximating `V(s)` at the given state.
         """
         if deterministic or not self._exploration.can_explore():
             p = None
@@ -260,6 +260,40 @@ class Agent(Named, Generic[T]):
             shape = self.V.parameters[self.cost_perturbation_parameter].shape
             p = self.exploration.perturbation(self.cost_perturbation_method, size=shape)
         return self.solve_mpc(self._V, state, perturbation=p, vals0=vals0)
+
+    def action_value(
+        self,
+        state: Union[npt.ArrayLike, Dict[str, npt.ArrayLike]],
+        action: Union[npt.ArrayLike, Dict[str, npt.ArrayLike]],
+        vals0: Union[
+            Dict[str, npt.ArrayLike], Iterable[Dict[str, npt.ArrayLike]]
+        ] = None,
+    ) -> Solution:
+        """Computes the action value function `Q(s,a)` approximated by the MPC.
+
+        Parameters
+        ----------
+        state : array_like or dict[str, array_like]
+            The state `s` at which to evaluate the value function `Q(s,a)`. Can either
+            be a dict of state names and values, or a single concatenated column vector
+            of all the states.
+        action : array_like or dict[str, array_like]
+            The action `a` at which to evaluate the value function `Q(s,a)`. Can either
+            be a dict of action names and values, or a single concatenated column vector
+            of all the actions.
+        vals0 : dict[str, array_like] or iterable of, optional
+            A dict (or an iterable of dict, in case of `csnlp.MultistartNlp`), whose
+            keys are the names of the MPC variables, and values are the numerical
+            initial values of each variable. Use this to warm-start the MPC. If `None`,
+            and a previous solution (possibly, successful) is available, the MPC solver
+            is automatically warm-started
+
+        Returns
+        -------
+        Solution
+            The solution of the MPC approximating `Q(s,a)` at given state and action.
+        """
+        return self.solve_mpc(self._Q, state, action=action, vals0=vals0)
 
     def _setup_V_and_Q(self, mpc: Mpc[T]) -> Tuple[Mpc[T], Mpc[T]]:
         """Internal utility to setup the function approximators for the value function

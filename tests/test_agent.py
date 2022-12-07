@@ -69,12 +69,12 @@ def get_mpc(horizon: int, multistart: bool):
     _, _ = mpc.state("v")
     m, _ = mpc.state("m", lb=0)
     mpc.action("u1", lb=0, ub=5e7)
-    mpc.action("u2", lb=0, ub=5e7)
+    u2, _ = mpc.action("u2", lb=0, ub=5e7)
     mpc.disturbance("d", 3)
     F = get_dynamics(g, alpha, dt)
     mpc.dynamics = F
     mpc.constraint("yT", y[-1], "==", yT)
-    mpc.minimize(m[0] - m[-1])
+    mpc.minimize(m[0] - m[-1] + cs.sum2(u2))
     mpc.init_solver(OPTS)
     return mpc
 
@@ -211,7 +211,7 @@ class TestAgent(unittest.TestCase):
     @parameterized.expand(product((False, True), (False, True)))
     def test_state_value__computes_right_solution(
         self, vector: bool, deterministic: bool
-    ):
+    ):  # sourcery skip: move-assign
         starts = 3
         horizon = 100
         fixed_pars = {"d": cs.DM([5, 6, 7])}
@@ -230,13 +230,50 @@ class TestAgent(unittest.TestCase):
 
         sol = agent.state_value(state=state, vals0=None, deterministic=deterministic)
         self.assertTrue(sol.success)
-        np.testing.assert_allclose(sol.f, RESULTS["state_value_f"].item())
+        np.testing.assert_allclose(sol.f, RESULTS["state_value_f"].item(), rtol=1e-3)
         np.testing.assert_allclose(
             sol.vals["u1"],
             RESULTS["state_value_us"],
             rtol=1e-7,
             atol=1e-7,
         )
+
+    @parameterized.expand(product((False, True), (False, True)))
+    def test_action_value__computes_right_solution(self, vector: bool, a_optimal: bool):
+        # sourcery skip: move-assign
+        starts = 3
+        horizon = 100
+        fixed_pars = {"d": cs.DM([5, 6, 7])}
+        if self.multistart_nlp:
+            fixed_pars = [fixed_pars.copy() for _ in range(starts)]
+
+        exploration = E.GreedyExploration(strength=0, strength_decay_rate=1e-8)
+        mpc = get_mpc(horizon, self.multistart_nlp)
+        agent = Agent(mpc=mpc, fixed_parameters=fixed_pars, exploration=exploration)
+
+        a_opt, a_subopt = 5e7, 1.42e7
+        state = {"y": 0, "v": 0, "m": 5e5}
+        action = {"u1": a_opt if a_optimal else a_subopt, "u2": 0}
+        vals0 = {**state, **action}
+        agent._last_solution = Solution(f=0, vars=0, vals=vals0, stats=0, _get_value=0)
+        if vector:
+            state = cs.DM(state.values())
+            action = cs.DM(action.values())
+
+        sol = agent.action_value(state=state, action=action, vals0=None)
+        self.assertTrue(sol.success)
+        u1_0_0 = sol.value(mpc.unscaled_variables["u1"][0, 0])
+        if a_optimal:
+            np.testing.assert_allclose(u1_0_0, a_opt)
+            np.testing.assert_allclose(
+                sol.vals["u1"],
+                RESULTS["state_value_us"],
+                rtol=1e-7,
+                atol=1e-7,
+            )
+        else:
+            np.testing.assert_allclose(u1_0_0, a_subopt)
+            self.assertTrue(sol.f >= RESULTS["state_value_f"].item())
 
 
 if __name__ == "__main__":
