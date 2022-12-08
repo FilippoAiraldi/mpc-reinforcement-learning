@@ -21,18 +21,15 @@ class ExplorationStrategy(ABC):
             `True` if the agent should explore according to this strategy; otherwise,
             `False`.
         """
-        pass
 
     @abstractmethod
     def decay(self) -> None:
         """Updats the exploration strength and/or probability, in case the strategy
         supports them (usually, by decaying them over time)."""
-        pass
 
     @abstractmethod
     def perturbation(self, *args: Any, **kwargs: Any) -> npt.NDArray[np.double]:
         """Returns a random perturbation."""
-        pass
 
     def __str__(self) -> str:
         return self.__class__.__name__
