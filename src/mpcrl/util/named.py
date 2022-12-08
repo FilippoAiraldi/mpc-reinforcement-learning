@@ -5,6 +5,7 @@ from typing import Dict, Iterator, Optional, Type
 class Named:
     """Base class for objects with names."""
 
+    __slots__ = "name"
     __ids: Dict[Type, Iterator[int]] = {}
 
     def __init__(self, name: Optional[str] = None) -> None:
