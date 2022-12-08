@@ -4,7 +4,7 @@ from typing import Optional, Tuple, Union
 import numpy as np
 from parameterized import parameterized
 
-from mpcrl import ExperienceReplay, LearnableParameter
+from mpcrl import ExperienceReplay, LearnableParameter, LearnableParametersDict
 from mpcrl import exploration as E
 from mpcrl.core.random import np_random
 
@@ -146,7 +146,90 @@ class TestParameters(unittest.TestCase):
             LearnableParameter("theta", 10, -5, 0, 10)
         par = LearnableParameter("theta", 10, 5, 0, 10)
         with self.assertRaises(ValueError):
-            par.update(-5)
+            par._update_value(-5)
+
+    @parameterized.expand([(False,), (True,)])
+    def test_parameters_dict__init__initializes_properly(self, empty_init: bool):
+        p1 = LearnableParameter("theta1", 10, 0.0)
+        p2 = LearnableParameter("theta2", 11, 0.0)
+        PARS = [p1, p2]
+        if empty_init:
+            pars = LearnableParametersDict()
+            pars.update(iter(PARS))
+        else:
+            pars = LearnableParametersDict(iter(PARS))
+        self.assertEqual(len(pars), 2)
+        for p in PARS:
+            self.assertIn(p.name, pars)
+            self.assertIs(pars[p.name], p)
+
+    @parameterized.expand([(False,), (True,)])
+    def test_parameters_dict__setitem__raises_with_wrong_name(self, wrong_name: bool):
+        p = LearnableParameter("t", 10, 0.0)
+        pars = LearnableParametersDict()
+        if wrong_name:
+            with self.assertRaisesRegex(
+                AssertionError, r"Key 't_hello_there' must match parameter name 't'."
+            ):
+                pars[f"{p.name}_hello_there"] = p
+        else:
+            pars[p.name] = p
+
+    @parameterized.expand(
+        map(
+            lambda m: (m,),
+            ["setitem", "update", "setdefault", "delitem", "pop", "popitem", "clear"],
+        )
+    )
+    def test_parameters_dict__caches_get_cleared_properly(self, method: str):
+        def check(pars, PARS):
+            self.assertEqual(pars.size, sum(p.size for p in PARS))
+            np.testing.assert_array_equal(
+                pars.lb, sum((p.lb.tolist() for p in PARS), [])
+            )
+            np.testing.assert_array_equal(
+                pars.ub, sum((p.ub.tolist() for p in PARS), [])
+            )
+            np.testing.assert_array_equal(
+                pars.value, sum((p.value.tolist() for p in PARS), [])
+            )
+            self.assertDictEqual(
+                pars.syms(key="V"), {p.name: p.syms.get("V", None) for p in PARS}
+            )
+            self.assertDictEqual(
+                pars.syms(key="Q"), {p.name: p.syms.get("Q", None) for p in PARS}
+            )
+
+        p1 = LearnableParameter[float]("t1", 1, 1.0, -1.0, 2.0, {"V": 0.1, "Q": 0.2})
+        p2 = LearnableParameter[float]("t2", 2, 2.0, -2.0, 3.0, {"Q": 0.4})
+        PARS = [p1, p2]
+        pars = LearnableParametersDict(PARS)
+        check(pars, PARS)
+
+        p3 = LearnableParameter[float]("t3", 3, 3.0, -3.0, 4.0, {"V": 0.5, "Q": 0.6})
+        if method == "setitem":
+            pars[p3.name] = p3
+            PARS = [p1, p2, p3]
+        elif method == "update":
+            pars.update([p3])
+            PARS = [p1, p2, p3]
+        elif method == "setdefault":
+            pars.setdefault(p3)
+            PARS = [p1, p2, p3]
+        elif method == "delitem":
+            del pars[p2.name]
+            PARS = [p1]
+        elif method == "pop":
+            pars.pop(p1.name)
+            PARS = [p2]
+        elif method == "popitem":
+            pars.popitem()
+            PARS = [p1]
+        elif method == "clear":
+            pars.clear()
+            PARS = []
+
+        check(pars, PARS)
 
 
 if __name__ == "__main__":

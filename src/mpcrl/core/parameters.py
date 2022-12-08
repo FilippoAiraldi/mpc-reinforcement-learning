@@ -1,9 +1,12 @@
-from typing import Any, Dict, Generic, TypeVar
+from functools import cached_property
+from itertools import chain
+from typing import Dict, Generic, Iterable, Optional, TypeVar, Union
 
 import numpy as np
 import numpy.typing as npt
+from csnlp.core.cache import invalidate_cache
 
-T = TypeVar("T")  # most like, T is cs.SX or MX
+T = TypeVar("T")  # most likely, T is cs.SX or MX
 
 
 class LearnableParameter(Generic[T]):
@@ -51,7 +54,7 @@ class LearnableParameter(Generic[T]):
         value: npt.ArrayLike,
         lb: npt.ArrayLike = -np.inf,
         ub: npt.ArrayLike = +np.inf,
-        syms: Dict[str, Any] = None,
+        syms: Dict[str, T] = None,
     ) -> None:
         """_summary_
 
@@ -84,12 +87,12 @@ class LearnableParameter(Generic[T]):
         self.size = size
         self.syms = syms
         shape = (size,)
-        self.lb = np.broadcast_to(lb, shape)
-        self.ub = np.broadcast_to(ub, shape)
-        self.update(value)
+        self.lb: npt.NDArray[np.double] = np.broadcast_to(lb, shape)
+        self.ub: npt.NDArray[np.double] = np.broadcast_to(ub, shape)
+        self._update_value(value)
 
-    def update(self, v: npt.ArrayLike) -> None:
-        """Updates the parameter value with a new value.
+    def _update_value(self, v: npt.ArrayLike) -> None:
+        """Internal utility for updating the parameter value with a new value.
 
         Parameters
         ----------
@@ -110,4 +113,134 @@ class LearnableParameter(Generic[T]):
             (v > ub) & ~np.isclose(v, ub)
         ).any():
             raise ValueError(f"Updated parameter {self.name} is outside bounds.")
-        self.value = np.clip(v, lb, ub)
+        self.value: npt.NDArray[np.double] = np.clip(v, lb, ub)
+
+    def __str__(self) -> str:
+        return f"<{self.name}(size={self.size})>"
+
+    def __repr__(self) -> str:
+        return f"<{self.__class__.__name__}(name={self.name},size={self.size})>"
+
+
+class LearnableParametersDict(Dict[str, LearnableParameter[T]], Generic[T]):
+    """Dict-based collection of `LearnableParameter` instances that simplifies the
+    process of managing and updating these. The dict contains pairs of parameter's name
+    vs parameter's instance.
+
+    Note: to speed up computations, properties of this class are often cached for faster
+    calls to the same methods. However, these are cleared when the underlying dict is
+    modified."""
+
+    def __init__(self, pars: Iterable[LearnableParameter[T]] = None):
+        """Initializes the collection of learnable parameters.
+
+        Parameters
+        ----------
+        pars : iterable of LearnableParameter[T], optional
+            An optional iterable of parameters to insert into the dict by their names.
+        """
+        if pars is None:
+            super().__init__()
+        else:
+            super().__init__(map(lambda p: (p.name, p), chain(pars)))
+
+    @cached_property
+    def size(self) -> int:
+        """Gets the overall size of all the learnable parameters."""
+        return sum(p.size for p in self.values())
+
+    @cached_property
+    def lb(self) -> npt.NDArray[np.double]:
+        """Gets the lower bound of all the learnable parameters, concatenated."""
+        if len(self) == 0:
+            return np.asarray([])
+        return np.concatenate(tuple(p.lb for p in self.values()))
+
+    @cached_property
+    def ub(self) -> npt.NDArray[np.double]:
+        """Gets the upper bound of all the learnable parameters, concatenated."""
+        if len(self) == 0:
+            return np.asarray([])
+        return np.concatenate(tuple(p.ub for p in self.values()))
+
+    @cached_property
+    def value(self) -> npt.NDArray[np.double]:
+        """Gets the values of all the learnable parameters, concatenated."""
+        if len(self) == 0:
+            return np.asarray([])
+        return np.concatenate(tuple(p.value for p in self.values()))
+
+    def syms(self, key: str) -> Dict[str, Optional[T]]:
+        """Gets symbols of all the learnable parameters, in a dict. If one parameter
+        does not possess the symbol, `None` is put.
+
+        Note: this method is not cached.
+
+        Parameters
+        ----------
+        key : str
+            The symbol to fetch from each parameter `syms` dict.
+
+        Returns
+        -------
+        dict[str, T]
+            Retuns a dict with parameter's names vs parameter's symbol (corresponding to
+            the given key).
+        """
+        return {
+            parname: None if par.syms is None or key not in par.syms else par.syms[key]
+            for parname, par in self.items()
+        }
+
+    @invalidate_cache(value)
+    def update_values(
+        self, new_values: Union[npt.ArrayLike, Dict[str, npt.ArrayLike]]
+    ) -> None:
+        """Updates the value of each parameter
+
+        Parameters
+        ----------
+        new_values : array_like or dict[str, array_like]
+            The parameters' new values, either as a single concatenated array (which
+            will be splitted according to the sizes and each piece sequentially assigned
+            to each parameter), or as a dict of parameter's name vs parameter's new
+            value.
+
+        Raises
+        ------
+        ValueError
+            In case of array-like, raises if `new_values` cannot be split according to
+            the sizes of parameters; or if the new values cannot be broadcasted to 1D
+            vectors according to each parameter's size; or if the new values lie outside
+            either the lower or upper bounds of each parameter.
+        """
+        if isinstance(new_values, dict):
+            for parname, new_value in new_values.items():
+                self[parname]._update_value(new_value)
+        else:
+            cumsizes = np.cumsum([p.size for p in self.values()])[:-1]
+            values_ = np.split(new_values, cumsizes)
+            for par, value in zip(self.values(), values_):
+                par._update_value(value)
+
+    __cache_decorator = invalidate_cache(size, lb, ub, value)
+
+    @__cache_decorator
+    def __setitem__(self, name: str, par: LearnableParameter) -> None:
+        assert name == par.name, f"Key '{name}' must match parameter name '{par.name}'."
+        return super().__setitem__(name, par)
+
+    @__cache_decorator
+    def update(
+        self, pars: Iterable[LearnableParameter[T]], *args: LearnableParameter[T]
+    ) -> None:
+        return super().update(map(lambda p: (p.name, p), chain(pars, args)))
+
+    @__cache_decorator
+    def setdefault(self, par: LearnableParameter[T]) -> LearnableParameter[T]:
+        return super().setdefault(par.name, par)
+
+    __delitem__ = __cache_decorator(dict.__delitem__)
+    pop = __cache_decorator(dict.pop)
+    popitem = __cache_decorator(dict.popitem)
+    clear = __cache_decorator(dict.clear)
