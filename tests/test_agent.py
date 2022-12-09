@@ -1,5 +1,4 @@
-import os
-import tempfile
+import pickle
 import unittest
 from itertools import product
 from unittest.mock import MagicMock
@@ -7,7 +6,6 @@ from unittest.mock import MagicMock
 import casadi as cs
 import numpy as np
 from csnlp import MultistartNlp, Nlp, Solution, scaling
-from csnlp.util import io
 from csnlp.wrappers import Mpc, NlpScaling
 from parameterized import parameterized, parameterized_class
 from scipy import io as matio
@@ -15,7 +13,6 @@ from scipy import io as matio
 from mpcrl import Agent
 from mpcrl import exploration as E
 
-TMPFILENAME: str = ""
 OPTS = {
     "expand": True,
     "print_time": False,
@@ -81,12 +78,6 @@ def get_mpc(horizon: int, multistart: bool):
 
 @parameterized_class("multistart_nlp", [(True,), (False,)])
 class TestAgent(unittest.TestCase):
-    def tearDown(self) -> None:
-        try:
-            os.remove(f"{TMPFILENAME}.pkl")
-        finally:
-            return super().tearDown()
-
     def test_init__raises__mpc_with_no_actions(self):
         with self.assertRaisesRegex(
             ValueError, "Expected Mpc with na>0; got na=0 instead."
@@ -136,12 +127,9 @@ class TestAgent(unittest.TestCase):
         exploration = E.EpsilonGreedyExploration(0.1, 0.2, 0.3, 0.4, seed=42)
         agent1 = Agent(mpc=get_mpc(3, self.multistart_nlp), exploration=exploration)
 
-        global TMPFILENAME
-        TMPFILENAME = next(tempfile._get_candidate_names())
         with agent1.pickleable():
-            io.save(TMPFILENAME, agent=agent1, check=42)
+            loadeddata = pickle.loads(pickle.dumps(dict(agent=agent1, check=42)))
 
-        loadeddata = io.load(TMPFILENAME)
         self.assertEqual(loadeddata["check"], 42)
         agent2: Agent = loadeddata["agent"]
         self.assertIsInstance(agent2, Agent)
