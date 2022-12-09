@@ -54,7 +54,7 @@ class LearnableParameter(Generic[T]):
         value: npt.ArrayLike,
         lb: npt.ArrayLike = -np.inf,
         ub: npt.ArrayLike = +np.inf,
-        syms: Dict[str, T] = None,
+        syms: Optional[Dict[str, T]] = None,
     ) -> None:
         """_summary_
 
@@ -131,12 +131,12 @@ class LearnableParametersDict(Dict[str, LearnableParameter[T]], Generic[T]):
     calls to the same methods. However, these are cleared when the underlying dict is
     modified."""
 
-    def __init__(self, pars: Iterable[LearnableParameter[T]] = None):
+    def __init__(self, pars: Optional[Iterable[LearnableParameter[T]]] = None):
         """Initializes the collection of learnable parameters.
 
         Parameters
         ----------
-        pars : iterable of LearnableParameter[T], optional
+        pars : iterable of LearnableParameter, optional
             An optional iterable of parameters to insert into the dict by their names.
         """
         if pars is None:

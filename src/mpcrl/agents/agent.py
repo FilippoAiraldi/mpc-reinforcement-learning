@@ -58,9 +58,9 @@ class Agent(Named, Generic[T]):
         fixed_parameters: Union[
             None, Dict[str, npt.ArrayLike], Collection[Dict[str, npt.ArrayLike]]
         ] = None,
-        exploration: ExplorationStrategy = None,
+        exploration: Optional[ExplorationStrategy] = None,
         warmstart: Literal["last", "last-successful"] = "last-successful",
-        name: str = None,
+        name: Optional[str] = None,
     ) -> None:
         """Instantiates an agent with an MPC controller.
 
@@ -154,8 +154,8 @@ class Agent(Named, Generic[T]):
         self,
         mpc: Mpc[T],
         state: Union[npt.ArrayLike, Dict[str, npt.ArrayLike]],
-        action: Union[npt.ArrayLike, Dict[str, npt.ArrayLike]] = None,
-        perturbation: npt.ArrayLike = None,
+        action: Union[None, npt.ArrayLike, Dict[str, npt.ArrayLike]] = None,
+        perturbation: Optional[npt.ArrayLike] = None,
         vals0: Union[
             None, Dict[str, npt.ArrayLike], Iterable[Dict[str, npt.ArrayLike]]
         ] = None,
@@ -235,7 +235,7 @@ class Agent(Named, Generic[T]):
         state: Union[npt.ArrayLike, Dict[str, npt.ArrayLike]],
         deterministic: bool = False,
         vals0: Union[
-            Dict[str, npt.ArrayLike], Iterable[Dict[str, npt.ArrayLike]]
+            None, Dict[str, npt.ArrayLike], Iterable[Dict[str, npt.ArrayLike]]
         ] = None,
     ) -> Solution:
         """Computes the state value function `V(s)` approximated by the MPC.
@@ -274,7 +274,7 @@ class Agent(Named, Generic[T]):
         state: Union[npt.ArrayLike, Dict[str, npt.ArrayLike]],
         action: Union[npt.ArrayLike, Dict[str, npt.ArrayLike]],
         vals0: Union[
-            Dict[str, npt.ArrayLike], Iterable[Dict[str, npt.ArrayLike]]
+            None, Dict[str, npt.ArrayLike], Iterable[Dict[str, npt.ArrayLike]]
         ] = None,
     ) -> Solution:
         """Computes the action value function `Q(s,a)` approximated by the MPC.

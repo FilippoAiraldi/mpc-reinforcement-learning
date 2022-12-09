@@ -137,7 +137,7 @@ class EpsilonGreedyExploration(GreedyExploration):
         epsilon: float,
         strength: npt.NDArray[np.double],
         epsilon_decay_rate: float,
-        strength_decay_rate: npt.NDArray[np.double] = None,
+        strength_decay_rate: Optional[npt.NDArray[np.double]] = None,
         seed: Optional[int] = None,
     ) -> None:
         """Initializes the epsilon-greedy exploration strategy.
@@ -168,7 +168,7 @@ class EpsilonGreedyExploration(GreedyExploration):
         self.epsilon_decay_rate = epsilon_decay_rate
 
     def can_explore(self) -> bool:
-        return self.np_random.random() > self.strength
+        return self.np_random.random() > self.strength  # type: ignore
 
     def decay(self) -> None:
         super().decay()  # decays only the strength
