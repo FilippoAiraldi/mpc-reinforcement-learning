@@ -11,32 +11,7 @@ T = TypeVar("T")  # most likely, T is cs.SX or MX
 
 class LearnableParameter(Generic[T]):
     """A 1D parameter that is learnable, that is, it can be adjusted via . This class
-    is useful for managing symbols, bounds and value of learnable parameters.
-
-    Parameters
-    ----------
-    name : str
-        Name of the learnable parameter.
-    size : int
-        Size of the 1D parameter vector.
-    value : array_like
-        Starting value of the parameter. This can then be updated via `update` method.
-    lb : array_like, optional
-        Lower bound of the parameter values. If not specified, it is unbounded.
-    ub : array_like, optional
-        Upper bound of the parameter values. If not specified, it is unbounded.
-    syms : dict[str, Any], optional
-        An optional dictionary contaring references to different symbols linked to this
-        parameter. For example, in MPC-based RL, it is convenient to keep a reference to
-        the parameter's symbol for the V function and for the Q function, i.e.,
-        `syms = {"V": V_par_sym, "Q": Q_par_sym}`
-
-    Raises
-    ------
-    ValueError
-        Raises if `value`, `lb` or `ub` cannot be broadcasted to a 1D vector with shape
-        equal to `(size,)`.
-    """
+    is useful for managing symbols, bounds and value of learnable parameters."""
 
     __slots__ = (
         "name",
@@ -44,7 +19,7 @@ class LearnableParameter(Generic[T]):
         "value",
         "lb",
         "ub",
-        "syms",
+        "sym",
     )
 
     def __init__(
@@ -54,9 +29,9 @@ class LearnableParameter(Generic[T]):
         value: npt.ArrayLike,
         lb: npt.ArrayLike = -np.inf,
         ub: npt.ArrayLike = +np.inf,
-        syms: Optional[Dict[str, T]] = None,
+        sym: Optional[T] = None,
     ) -> None:
-        """_summary_
+        """Instantiates a learnable parameter.
 
         Parameters
         ----------
@@ -70,11 +45,8 @@ class LearnableParameter(Generic[T]):
             Lower bound of the parameter values. If not specified, it is unbounded.
         ub : array_like, optional
             Upper bound of the parameter values. If not specified, it is unbounded.
-        syms : dict[str, Any], optional
-            An optional dictionary contaring references to different symbols linked to
-            this parameter. For example, in MPC-based RL, it is convenient to keep a
-            reference to the parameter's symbol for the V function and for the Q
-            function, i.e., `syms = {"V": V_par_sym, "Q": Q_par_sym}`
+        sym : T, optional
+            An optional reference to a symbolic variable representing this parameter.
 
         Raises
         ------
@@ -85,7 +57,7 @@ class LearnableParameter(Generic[T]):
         super().__init__()
         self.name = name
         self.size = size
-        self.syms = syms
+        self.sym = sym
         shape = (size,)
         self.lb: npt.NDArray[np.double] = np.broadcast_to(lb, shape)
         self.ub: npt.NDArray[np.double] = np.broadcast_to(ub, shape)
@@ -170,25 +142,12 @@ class LearnableParametersDict(Dict[str, LearnableParameter[T]], Generic[T]):
             return np.asarray([])
         return np.concatenate(tuple(p.value for p in self.values()))
 
-    def syms(self, key: str) -> Dict[str, Optional[T]]:
+    @cached_property
+    def sym(self) -> Dict[str, Optional[T]]:
         """Gets symbols of all the learnable parameters, in a dict. If one parameter
-        does not possess the symbol, `None` is put.
-
-        Note: this method is not cached.
-
-        Parameters
-        ----------
-        key : str
-            The symbol to fetch from each parameter `syms` dict.
-
-        Returns
-        -------
-        dict[str, T]
-            Retuns a dict with parameter's names vs parameter's symbol (corresponding to
-            the given key).
-        """
+        does not possess the symbol, `None` is put."""
         return {
-            parname: None if par.syms is None or key not in par.syms else par.syms[key]
+            parname: None if par.sym is None else par.sym
             for parname, par in self.items()
         }
 
@@ -223,7 +182,7 @@ class LearnableParametersDict(Dict[str, LearnableParameter[T]], Generic[T]):
             for par, value in zip(self.values(), values_):
                 par._update_value(value)
 
-    __cache_decorator = invalidate_cache(size, lb, ub, value)
+    __cache_decorator = invalidate_cache(size, lb, ub, value, sym)
 
     @__cache_decorator
     def __setitem__(self, name: str, par: LearnableParameter) -> None:
