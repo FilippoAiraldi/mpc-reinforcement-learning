@@ -182,31 +182,25 @@ class TestParameters(unittest.TestCase):
         )
     )
     def test_parameters_dict__caches_get_cleared_properly(self, method: str):
+        assert_array_equal = np.testing.assert_array_equal
+
         def check(pars, PARS):
             self.assertEqual(pars.size, sum(p.size for p in PARS))
-            np.testing.assert_array_equal(
-                pars.lb, sum((p.lb.tolist() for p in PARS), [])
-            )
-            np.testing.assert_array_equal(
-                pars.ub, sum((p.ub.tolist() for p in PARS), [])
-            )
-            np.testing.assert_array_equal(
-                pars.value, sum((p.value.tolist() for p in PARS), [])
-            )
-            self.assertDictEqual(
-                pars.syms(key="V"), {p.name: p.syms.get("V", None) for p in PARS}
-            )
-            self.assertDictEqual(
-                pars.syms(key="Q"), {p.name: p.syms.get("Q", None) for p in PARS}
-            )
+            assert_array_equal(pars.lb, sum((p.lb.tolist() for p in PARS), []))
+            assert_array_equal(pars.ub, sum((p.ub.tolist() for p in PARS), []))
+            assert_array_equal(pars.value, sum((p.value.tolist() for p in PARS), []))
+            if len(pars) > 0 and len(PARS) > 0:
+                sym1 = cs.vertcat(*(p.sym for p in pars.values()))
+                sym2 = cs.vertcat(*(p.sym for p in PARS))
+                assert_array_equal(cs.evalf(cs.simplify(sym1 - sym2)), 0)
 
-        p1 = LearnableParameter[float]("t1", 1, 1.0, -1.0, 2.0, {"V": 0.1, "Q": 0.2})
-        p2 = LearnableParameter[float]("t2", 2, 2.0, -2.0, 3.0, {"Q": 0.4})
+        p1 = LearnableParameter[float]("t1", 1, 1.0, -1.0, 2.0, cs.SX.sym("t1", 1))
+        p2 = LearnableParameter[float]("t2", 2, 2.0, -2.0, 3.0, cs.SX.sym("t2", 2))
         PARS = [p1, p2]
         pars = LearnableParametersDict(PARS)
         check(pars, PARS)
 
-        p3 = LearnableParameter[float]("t3", 3, 3.0, -3.0, 4.0, {"V": 0.5, "Q": 0.6})
+        p3 = LearnableParameter[float]("t3", 3, 3.0, -3.0, 4.0, cs.SX.sym("t3", 3))
         if method == "setitem":
             pars[p3.name] = p3
             PARS = [p1, p2, p3]

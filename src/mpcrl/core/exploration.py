@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, List, Optional
+from typing import Any, Optional, Tuple
 
 import numpy as np
 import numpy.typing as npt
@@ -10,7 +10,7 @@ from mpcrl.core.random import np_random
 class ExplorationStrategy(ABC):
     """Base class for exploration strategies such as greedy, epsilon-greeyd, etc."""
 
-    __slots__: List[str] = []
+    __slots__: Tuple[str, ...] = ()
 
     @abstractmethod
     def can_explore(self) -> bool:
