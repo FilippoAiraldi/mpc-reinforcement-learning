@@ -1,5 +1,4 @@
 from contextlib import contextmanager
-from copy import deepcopy
 from typing import (
     Collection,
     Dict,
@@ -17,8 +16,8 @@ import casadi as cs
 import numpy as np
 import numpy.typing as npt
 from csnlp import Solution, wrappers
-from csnlp.wrappers import Mpc
 from csnlp.util.io import SupportsDeepcopyAndPickle
+from csnlp.wrappers import Mpc
 
 from mpcrl.core.exploration import ExplorationStrategy, NoExploration
 from mpcrl.util.named import Named
