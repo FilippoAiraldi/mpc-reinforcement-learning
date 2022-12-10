@@ -5,11 +5,12 @@ from typing import Dict, Generic, Iterable, Optional, TypeVar, Union
 import numpy as np
 import numpy.typing as npt
 from csnlp.core.cache import invalidate_cache
+from csnlp.util.io import SupportsDeepcopyAndPickle
 
 T = TypeVar("T")  # most likely, T is cs.SX or MX
 
 
-class LearnableParameter(Generic[T]):
+class LearnableParameter(SupportsDeepcopyAndPickle, Generic[T]):
     """A 1D parameter that is learnable, that is, it can be adjusted via . This class
     is useful for managing symbols, bounds and value of learnable parameters."""
 

@@ -1,6 +1,9 @@
+import pickle
 import unittest
+from itertools import product
 from typing import Optional, Tuple, Union
 
+import casadi as cs
 import numpy as np
 from parameterized import parameterized
 
@@ -147,6 +150,34 @@ class TestParameters(unittest.TestCase):
         par = LearnableParameter("theta", 10, 5, 0, 10)
         with self.assertRaises(ValueError):
             par._update_value(-5)
+
+    @parameterized.expand(product([cs.SX, cs.MX], [False, True]))
+    def test_learnable_parameter__is_deepcopyable_and_pickleable(
+        self, cstype: Union[cs.SX, cs.MX], copy: bool
+    ):
+        size = 5
+        theta_sym = cstype.sym("theta", size)
+        f = theta_sym[0]
+        df = cs.evalf(cs.jacobian(f, theta_sym)[0])
+        theta1 = LearnableParameter("theta", size, 1, -1, 2, sym={"v": theta_sym})
+        if copy:
+            theta2 = theta1.copy()
+        else:
+            with theta1.pickleable():
+                theta2: LearnableParameter = pickle.loads(pickle.dumps(theta1))
+        self.assertIsNot(theta1, theta2)
+        self.assertEqual(theta1.name, theta2.name)
+        self.assertEqual(theta1.size, theta2.size)
+        np.testing.assert_array_equal(theta1.value, theta2.value)
+        np.testing.assert_array_equal(theta1.lb, theta2.lb)
+        np.testing.assert_array_equal(theta1.ub, theta2.ub)
+        np.testing.assert_equal(df, cs.evalf(cs.jacobian(f, theta1.sym["v"])[0]))
+        if copy:
+            self.assertIsNot(theta1.sym, theta2.sym)
+            self.assertIsNot(theta1.sym["v"], theta2.sym["v"])
+            np.testing.assert_equal(df, cs.evalf(cs.jacobian(f, theta2.sym["v"])[0]))
+        else:
+            self.assertFalse(hasattr(theta2, "sym"))
 
     @parameterized.expand([(False,), (True,)])
     def test_parameters_dict__init__initializes_properly(self, empty_init: bool):
