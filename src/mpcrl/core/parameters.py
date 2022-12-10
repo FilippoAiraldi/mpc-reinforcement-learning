@@ -1,7 +1,7 @@
 from contextlib import ExitStack, contextmanager
 from functools import cached_property
 from itertools import chain
-from typing import Dict, Generic, Iterable, Iterator, Optional, TypeVar, Union
+from typing import Any, Dict, Generic, Iterable, Iterator, Optional, TypeVar, Union
 
 import numpy as np
 import numpy.typing as npt
@@ -65,13 +65,16 @@ class LearnableParameter(SupportsDeepcopyAndPickle, Generic[T]):
         self.ub: npt.NDArray[np.double] = np.broadcast_to(ub, shape)
         self._update_value(value)
 
-    def _update_value(self, v: npt.ArrayLike) -> None:
+    def _update_value(self, v: npt.ArrayLike, **is_close_kwargs: Any) -> None:
         """Internal utility for updating the parameter value with a new value.
 
         Parameters
         ----------
         new_value : array_like
             New value of the parameter.
+        is_close_kwargs
+            Additional kwargs for `np.isclose`, e.g., `rtol` and `atol`, for checking
+            numerical values close to a bound.
 
         Raises
         ------
@@ -83,8 +86,8 @@ class LearnableParameter(SupportsDeepcopyAndPickle, Generic[T]):
         v = np.broadcast_to(v, (self.size,))
         lb = self.lb
         ub = self.ub
-        if ((v < lb) & ~np.isclose(v, lb)).any() or (
-            (v > ub) & ~np.isclose(v, ub)
+        if ((v < lb) & ~np.isclose(v, lb, **is_close_kwargs)).any() or (
+            (v > ub) & ~np.isclose(v, ub, **is_close_kwargs)
         ).any():
             raise ValueError(f"Updated parameter {self.name} is outside bounds.")
         self.value: npt.NDArray[np.double] = np.clip(v, lb, ub)
@@ -158,7 +161,9 @@ class LearnableParametersDict(
 
     @invalidate_cache(value)
     def update_values(
-        self, new_values: Union[npt.ArrayLike, Dict[str, npt.ArrayLike]]
+        self,
+        new_values: Union[npt.ArrayLike, Dict[str, npt.ArrayLike]],
+        **is_close_kwargs: Any,
     ) -> None:
         """Updates the value of each parameter
 
@@ -169,6 +174,9 @@ class LearnableParametersDict(
             will be splitted according to the sizes and each piece sequentially assigned
             to each parameter), or as a dict of parameter's name vs parameter's new
             value.
+        is_close_kwargs
+            Additional kwargs for `np.isclose`, e.g., `rtol` and `atol`, for checking
+            numerical values of parameters close to a bound.
 
         Raises
         ------
@@ -180,12 +188,12 @@ class LearnableParametersDict(
         """
         if isinstance(new_values, dict):
             for parname, new_value in new_values.items():
-                self[parname]._update_value(new_value)
+                self[parname]._update_value(new_value, **is_close_kwargs)
         else:
             cumsizes = np.cumsum([p.size for p in self.values()])[:-1]
             values_ = np.split(new_values, cumsizes)
             for par, value in zip(self.values(), values_):
-                par._update_value(value)
+                par._update_value(value, **is_close_kwargs)
 
     __cache_decorator = invalidate_cache(size, lb, ub, value, sym)
 
