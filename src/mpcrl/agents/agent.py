@@ -101,8 +101,8 @@ class Agent(Named, SupportsDeepcopyAndPickle, Generic[T]):
         self._V, self._Q = self._setup_V_and_Q(mpc)
         self._fixed_pars = fixed_parameters
         self._exploration = NoExploration() if exploration is None else exploration
-        self._last_solution: Optional[Solution[T]] = None
         self._store_last_successful = warmstart == "last-successful"
+        self.reset()
 
     @property
     def unwrapped(self) -> "Agent":
@@ -142,6 +142,10 @@ class Agent(Named, SupportsDeepcopyAndPickle, Generic[T]):
     def pickleable(self) -> Iterator[None]:
         with super().pickleable(), self._Q.pickleable(), self._V.pickleable():
             yield
+
+    def reset(self) -> None:
+        """Resets the agent's internal variables."""
+        self._last_solution: Optional[Solution[T]] = None
 
     def solve_mpc(
         self,
