@@ -287,6 +287,44 @@ class TestAgent(unittest.TestCase):
             np.testing.assert_allclose(u1_0_0, a_subopt)
             self.assertTrue(sol.f >= RESULTS["state_value_f"].item())
 
+    @parameterized.expand([(False,), (True,)])
+    def test_evaluate(self, action_expr_: bool = True):
+        rewards = np.random.randn(2)
+        states = [object(), object(), object()]
+        env = MagicMock()
+        env.reset = Mock(return_value=(states[0], {}))
+        env.step = Mock(
+            side_effect=[
+                (states[1], rewards[0], False, False, {}),
+                (states[2], rewards[1], True, False, {}),
+            ]
+        )
+        if action_expr_:
+            actions = [object(), object()]
+            get_value = Mock(side_effect=actions)
+            sol = Solution(0, {}, {}, {}, get_value)
+            action_expr = object()
+        else:
+            action = np.full((1, 1), object(), dtype=object)
+            sol = Solution(0, {}, {"u": action}, {}, None)
+            action_expr = None
+        deterministic = object()
+        agent = Agent(mpc=get_mpc(3, False))
+        agent.state_value = Mock(return_value=sol)
+
+        returns = agent.evaluate(
+            env, 1, deterministic=deterministic, seed=69, action_expr=action_expr
+        )
+
+        np.testing.assert_array_equal(returns, np.asarray([rewards.sum()]))
+        env.reset.assert_called_once()
+        if action_expr_:
+            get_value.assert_has_calls([call(action_expr, eval=True) for _ in range(2)])
+            env.step.assert_has_calls([call(action) for action in actions])
+        else:
+            env.step.assert_has_calls([call(action) for _ in range(2)])
+
+
 
 if __name__ == "__main__":
     unittest.main()

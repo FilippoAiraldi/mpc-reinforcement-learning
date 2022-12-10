@@ -1,5 +1,6 @@
 from contextlib import contextmanager
 from typing import (
+    Callable,
     Collection,
     Dict,
     Generic,
@@ -20,7 +21,9 @@ from csnlp.util.io import SupportsDeepcopyAndPickle
 from csnlp.wrappers import Mpc
 
 from mpcrl.core.exploration import ExplorationStrategy, NoExploration
+from mpcrl.core.random import make_seeds
 from mpcrl.util.named import Named
+from mpcrl.util.types import SupportsGymEnv, Tact, Tobs
 
 T = TypeVar("T", cs.SX, cs.MX)
 
@@ -299,6 +302,57 @@ class Agent(Named, SupportsDeepcopyAndPickle, Generic[T]):
             The solution of the MPC approximating `Q(s,a)` at given state and action.
         """
         return self.solve_mpc(self._Q, state, action=action, vals0=vals0)
+
+    def evaluate(
+        self,
+        env: SupportsGymEnv[Tobs, Tact],
+        episodes: int,
+        deterministic: bool = True,
+        seed: Union[None, int, Iterable[int]] = None,
+        action_expr: T = None,
+    ) -> npt.NDArray[np.double]:
+        """Evaluates the agent in a given environment.
+
+        Parameters
+        ----------
+        env : SupportsGymEnv[Tobs, Tact]
+            An environment that has OpenAI-like API, where the agent needs to be tested.
+        episodes : int
+            Number of evaluation episodes.
+        deterministic : bool, optional
+            Whether the agent should act deterministically; by default, `True`.
+        seed : int or iterable of ints, optional
+            Each env's seeds for RNG.
+        action_expr : casadi.SX or MX, optional
+            After solving `V(s)` for the current state `s`, the action is chosen as
+              - MPC variable `u[:, 0]`, if `action_expr=None`. This will fail if, e.g.,
+                the controller does not define a variable `u`.
+              - the value of `action_expr` for the current solution of `V(s)`, in case
+                this expression is given.
+
+        Returns
+        -------
+        array of doubles
+            The cumulative returns (one return per evaluation episode).
+        """
+        get_mpc_action: Callable[[Solution], cs.DM] = (
+            (lambda sol: sol.vals["u"][:, 0])
+            if action_expr is None
+            else (lambda sol: sol.value(action_expr))
+        )
+        returns = np.zeros(episodes)
+
+        for episode, current_seed in zip(range(episodes), make_seeds(seed)):
+            self.reset()
+            state, _ = env.reset(seed=current_seed)
+            truncated, terminated = False, False
+
+            while not (truncated or terminated):
+                sol = self.state_value(state, deterministic)
+                action = get_mpc_action(sol)
+                state, r, truncated, terminated, _ = env.step(action)  # type: ignore
+                returns[episode] += r
+        return returns
 
     def _setup_V_and_Q(self, mpc: Mpc[T]) -> Tuple[Mpc[T], Mpc[T]]:
         """Internal utility to setup the function approximators for the value function
