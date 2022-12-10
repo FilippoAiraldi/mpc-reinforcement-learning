@@ -1,7 +1,7 @@
 import pickle
 import unittest
 from itertools import product
-from typing import Optional, Tuple, Union
+from typing import Iterable, Optional, Tuple, Union
 
 import casadi as cs
 import numpy as np
@@ -9,7 +9,7 @@ from parameterized import parameterized
 
 from mpcrl import ExperienceReplay, LearnableParameter, LearnableParametersDict
 from mpcrl import exploration as E
-from mpcrl.core.random import np_random
+from mpcrl.core.random import make_seeds, np_random
 
 
 class TestExperienceReplay(unittest.TestCase):
@@ -76,6 +76,18 @@ class TestRandom(unittest.TestCase):
             self.assertEqual(seed, actual_seed)
         else:
             self.assertIsInstance(actual_seed, int)
+
+    @parameterized.expand([(5,), (None,), (range(100),)])
+    def test_make_seeds__returns_expected(self, seed: Union[None, int, Iterable[int]]):
+        N = 100
+        if seed is None:
+            expected_seeds = [None] * N
+        elif isinstance(seed, int):
+            expected_seeds = [seed + i for i in range(N)]
+        else:
+            expected_seeds = seed
+        seeds1, seeds2 = list(zip(*zip(expected_seeds, make_seeds(seed))))
+        self.assertListEqual(list(seeds1), list(seeds2))
 
 
 class TestExploration(unittest.TestCase):
