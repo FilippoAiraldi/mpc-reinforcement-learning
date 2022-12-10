@@ -18,6 +18,7 @@ import numpy as np
 import numpy.typing as npt
 from csnlp import Solution, wrappers
 from csnlp.wrappers import Mpc
+from csnlp.util.io import SupportsDeepcopyAndPickle
 
 from mpcrl.core.exploration import ExplorationStrategy, NoExploration
 from mpcrl.util.named import Named
@@ -32,7 +33,7 @@ def _update_dicts(sinks: Iterable[Dict], source: Dict) -> Iterator[Dict]:
         yield sink
 
 
-class Agent(Named, Generic[T]):
+class Agent(Named, SupportsDeepcopyAndPickle, Generic[T]):
     """Simple MPC-based agent with a fixed (i.e., non-learnable) MPC controller.
 
     In this agent, the MPC controller is used as policy provider, as well as to provide
@@ -96,7 +97,8 @@ class Agent(Named, Generic[T]):
             if the required parameter and constraint names are already specified in the
             mpc.
         """
-        super().__init__(name)
+        Named.__init__(self, name)
+        SupportsDeepcopyAndPickle.__init__(self)
         self._V, self._Q = self._setup_V_and_Q(mpc)
         self._fixed_pars = fixed_parameters
         self._exploration = NoExploration() if exploration is None else exploration
@@ -132,22 +134,14 @@ class Agent(Named, Generic[T]):
         """Gets the exploration strategy used within this agent."""
         return self._exploration
 
-    def copy(self) -> "Agent":
-        """Creates a deepcopy of this Agent's instance.
-
-        Returns
-        -------
-        Agent
-            A new instance of the agent.
-        """
-        with self._Q.fullstate(), self._V.fullstate():
-            return deepcopy(self)
+    @contextmanager
+    def fullstate(self) -> Iterator[None]:
+        with super().fullstate(), self._Q.fullstate(), self._V.fullstate():
+            yield
 
     @contextmanager
     def pickleable(self) -> Iterator[None]:
-        """Context manager that makes the agent and its function approximators
-        pickleable."""
-        with self._Q.pickleable(), self._V.pickleable():
+        with super().pickleable(), self._Q.pickleable(), self._V.pickleable():
             yield
 
     def solve_mpc(
