@@ -1,6 +1,7 @@
+from contextlib import ExitStack, contextmanager
 from functools import cached_property
 from itertools import chain
-from typing import Dict, Generic, Iterable, Optional, TypeVar, Union
+from typing import Dict, Generic, Iterable, Iterator, Optional, TypeVar, Union
 
 import numpy as np
 import numpy.typing as npt
@@ -95,7 +96,9 @@ class LearnableParameter(SupportsDeepcopyAndPickle, Generic[T]):
         return f"<{self.__class__.__name__}(name={self.name},size={self.size})>"
 
 
-class LearnableParametersDict(Dict[str, LearnableParameter[T]], Generic[T]):
+class LearnableParametersDict(
+    Dict[str, LearnableParameter[T]], SupportsDeepcopyAndPickle
+):
     """Dict-based collection of `LearnableParameter` instances that simplifies the
     process of managing and updating these. The dict contains pairs of parameter's name
     vs parameter's instance.
@@ -113,9 +116,10 @@ class LearnableParametersDict(Dict[str, LearnableParameter[T]], Generic[T]):
             An optional iterable of parameters to insert into the dict by their names.
         """
         if pars is None:
-            super().__init__()
+            dict.__init__(self)
         else:
-            super().__init__(map(lambda p: (p.name, p), chain(pars)))
+            dict.__init__(self, map(lambda p: (p.name, p), chain(pars)))
+        SupportsDeepcopyAndPickle.__init__(self)
 
     @cached_property
     def size(self) -> int:
@@ -204,3 +208,46 @@ class LearnableParametersDict(Dict[str, LearnableParameter[T]], Generic[T]):
     pop = __cache_decorator(dict.pop)
     popitem = __cache_decorator(dict.popitem)
     clear = __cache_decorator(dict.clear)
+
+    def copy(
+        self, deep: bool = False, invalidate_caches: bool = True
+    ) -> "LearnableParametersDict[T]":
+        """Creates a shallow or deep copy of the dict of learnable parameters.
+
+        Parameters
+        ----------
+        deep : bool, optional
+            If `True`, a deepcopy of the dict and its parameters is returned; otherwise,
+            the copy is only shallow.
+        invalidate_caches : bool, optional
+            If `True`, methods decorated with `csnlp.util.funcs.invalidate_cache` are
+            called to clear cached properties/lru caches in the copied instance.
+            Otherwise, caches in the copy are not invalidated. By default, `True`.
+            Only relevant when `deep=True`.
+
+        Returns
+        -------
+        LearnableParametersDict[T]
+            A copy of the dict of learnable parameters.
+        """
+        return (
+            SupportsDeepcopyAndPickle.copy(self, invalidate_caches)
+            if deep
+            else LearnableParametersDict[T](self.values())
+        )
+
+    @contextmanager
+    def fullstate(self) -> Iterator[None]:
+        with ExitStack() as es:
+            es.enter_context(SupportsDeepcopyAndPickle.fullstate(self))
+            for par in self.values():
+                es.enter_context(par.fullstate())
+            yield
+
+    @contextmanager
+    def pickleable(self) -> Iterator[None]:
+        with ExitStack() as es:
+            es.enter_context(SupportsDeepcopyAndPickle.pickleable(self))
+            for par in self.values():
+                es.enter_context(par.pickleable())
+            yield

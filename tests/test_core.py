@@ -152,32 +152,34 @@ class TestParameters(unittest.TestCase):
             par._update_value(-5)
 
     @parameterized.expand(product([cs.SX, cs.MX], [False, True]))
-    def test_learnable_parameter__is_deepcopyable_and_pickleable(
+    def test_learnable_parameters_dict__is_deepcopyable_and_pickleable(
         self, cstype: Union[cs.SX, cs.MX], copy: bool
     ):
         size = 5
         theta_sym = cstype.sym("theta", size)
         f = theta_sym[0]
         df = cs.evalf(cs.jacobian(f, theta_sym)[0])
-        theta1 = LearnableParameter("theta", size, 1, -1, 2, sym={"v": theta_sym})
+        p1 = LearnableParameter[float]("theta", size, 1, -1, 2, sym={"v": theta_sym})
+        pars = LearnableParametersDict((p1,))
         if copy:
-            theta2 = theta1.copy()
+            new_pars = pars.copy(deep=True)
         else:
-            with theta1.pickleable():
-                theta2: LearnableParameter = pickle.loads(pickle.dumps(theta1))
-        self.assertIsNot(theta1, theta2)
-        self.assertEqual(theta1.name, theta2.name)
-        self.assertEqual(theta1.size, theta2.size)
-        np.testing.assert_array_equal(theta1.value, theta2.value)
-        np.testing.assert_array_equal(theta1.lb, theta2.lb)
-        np.testing.assert_array_equal(theta1.ub, theta2.ub)
-        np.testing.assert_equal(df, cs.evalf(cs.jacobian(f, theta1.sym["v"])[0]))
+            with pars.pickleable():
+                new_pars: LearnableParametersDict = pickle.loads(pickle.dumps(pars))
+        p2: LearnableParameter = new_pars["theta"]
+        self.assertIsNot(p1, p2)
+        self.assertEqual(p1.name, p2.name)
+        self.assertEqual(p1.size, p2.size)
+        np.testing.assert_array_equal(p1.value, p2.value)
+        np.testing.assert_array_equal(p1.lb, p2.lb)
+        np.testing.assert_array_equal(p1.ub, p2.ub)
+        np.testing.assert_equal(df, cs.evalf(cs.jacobian(f, p1.sym["v"])[0]))
         if copy:
-            self.assertIsNot(theta1.sym, theta2.sym)
-            self.assertIsNot(theta1.sym["v"], theta2.sym["v"])
-            np.testing.assert_equal(df, cs.evalf(cs.jacobian(f, theta2.sym["v"])[0]))
+            self.assertIsNot(p1.sym, p2.sym)
+            self.assertIsNot(p1.sym["v"], p2.sym["v"])
+            np.testing.assert_equal(df, cs.evalf(cs.jacobian(f, p2.sym["v"])[0]))
         else:
-            self.assertFalse(hasattr(theta2, "sym"))
+            self.assertFalse(hasattr(p2, "sym"))
 
     @parameterized.expand([(False,), (True,)])
     def test_parameters_dict__init__initializes_properly(self, empty_init: bool):
