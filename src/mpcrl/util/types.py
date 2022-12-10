@@ -1,7 +1,9 @@
 from typing import Optional, Protocol, Tuple, TypeVar
 
-Tobs = TypeVar("Tobs", covariant=True)
-Tact = TypeVar("Tact", contravariant=True)
+import numpy as np
+
+Tobs = TypeVar("Tobs", bound=np.generic, covariant=True)
+Tact = TypeVar("Tact", bound=np.generic, contravariant=True)
 
 
 class SupportsGymEnv(Protocol[Tobs, Tact]):
@@ -12,7 +14,7 @@ class SupportsGymEnv(Protocol[Tobs, Tact]):
 
     def step(self, action: Tact) -> Tuple[Tobs, float, bool, bool, dict]:
         ...
-        
+
     def reset(
         self,
         *,
