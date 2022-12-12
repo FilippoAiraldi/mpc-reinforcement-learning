@@ -71,13 +71,14 @@ class Agent(Named, SupportsDeepcopyAndPickle, Generic[Tsym]):
         ----------
         mpc : Mpc[casadi.SX or MX]
             The MPC controller used as policy provider by this agent. The instance is
-            modified in place, so it is recommended not to modify it further. Moreover,
-            some parameter and constraint names will need to be created, so an error is
-            thrown if these names are already in use in the mpc. These names are under
-            the attributes `perturbation_parameter`, `action_parameter` and
-            `action_constraint`.
+            modified in place to create the approximations of the state function `V(s)`
+            and action value function `Q(s,a)`, so it is recommended not to modify it
+            further after initialization of the agent. Moreover, some parameter and
+            constraint names will need to be created, so an error is thrown if these
+            names are already in use in the mpc. These names are under the attributes
+            `perturbation_parameter`, `action_parameter` and `action_constraint`.
         fixed_parameters : dict[str, array_like] or collection of, optional
-            A dict (or an iterable of dict, in case of `csnlp.MultistartNlp`) whose keys
+            A dict (or collection of dict, in case of `csnlp.MultistartNlp`) whose keys
             are the names of the MPC parameters and the values are their corresponding
             values. Use this to specify fixed parameters, that is, non-learnable. If
             `None`, then no fixed parameter is assumed.
