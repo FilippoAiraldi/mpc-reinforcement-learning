@@ -104,8 +104,8 @@ class TestAgent(unittest.TestCase):
         agent2 = agent.unwrapped
         self.assertIs(agent, agent2)
 
-    def test_copy(self):
-        # sourcery skip: class-extract-method
+    @parameterized.expand([(True,), (False,)])
+    def test__is_deepcopyable_and_pickleable(self, copy: bool):
         epsilon, epsilon_decay_rate = 0.7, 0.75
         strength, strength_decay_rate = 0.5, 0.75
         epsilon_scheduler = S.ExponentialScheduler(epsilon, epsilon_decay_rate)
@@ -115,35 +115,11 @@ class TestAgent(unittest.TestCase):
         )
         agent1 = Agent(mpc=get_mpc(3, self.multistart_nlp), exploration=exploration)
 
-        agent2 = agent1.copy()
-
-        self.assertIsNot(agent1, agent2)
-        self.assertIsNot(agent1.Q, agent2.Q)
-        self.assertIsNot(agent1.V, agent2.V)
-        self.assertIs(agent1.exploration, exploration)
-        exp1, exp2 = agent1.exploration, agent2.exploration
-        self.assertIsNot(exp1, exp2)
-        self.assertIsNot(exp1, exp2)
-        for scheduler in ["epsilon_scheduler", "strength_scheduler"]:
-            sc1, sc2 = getattr(exp1, scheduler), getattr(exp2, scheduler)
-            self.assertIsNot(sc1, sc2)
-            self.assertEqual(sc1.value, sc2.value)
-            self.assertEqual(sc1.factor, sc2.factor)
-
-    def test__is_pickleable(self):
-        epsilon, epsilon_decay_rate = 0.7, 0.75
-        strength, strength_decay_rate = 0.5, 0.75
-        epsilon_scheduler = S.ExponentialScheduler(epsilon, epsilon_decay_rate)
-        strength_scheduler = S.ExponentialScheduler(strength, strength_decay_rate)
-        exploration = E.EpsilonGreedyExploration(
-            epsilon=epsilon_scheduler, strength=strength_scheduler, seed=42
-        )
-        agent1 = Agent(mpc=get_mpc(3, self.multistart_nlp), exploration=exploration)
-
-        with agent1.pickleable():
-            loadeddata = pickle.loads(pickle.dumps(dict(agent=agent1, check=42)))
-        self.assertEqual(loadeddata["check"], 42)
-        agent2: Agent = loadeddata["agent"]
+        if copy:
+            agent2 = agent1.copy()
+        else:
+            with agent1.pickleable():
+                agent2: Agent = pickle.loads(pickle.dumps(agent1))
 
         self.assertIsNot(agent1, agent2)
         self.assertIsNot(agent1.Q, agent2.Q)
