@@ -12,6 +12,7 @@ from scipy import io as matio
 
 from mpcrl import Agent
 from mpcrl import exploration as E
+from mpcrl import schedulers as S
 
 OPTS = {
     "expand": True,
@@ -104,50 +105,57 @@ class TestAgent(unittest.TestCase):
         self.assertIs(agent, agent2)
 
     def test_copy(self):
-        exploration = E.EpsilonGreedyExploration(0.1, 0.2, 0.3, 0.4, seed=42)
+        epsilon, epsilon_decay_rate = 0.7, 0.75
+        strength, strength_decay_rate = 0.5, 0.75
+        epsilon_scheduler = S.ExponentialScheduler(epsilon, epsilon_decay_rate)
+        strength_scheduler = S.ExponentialScheduler(strength, strength_decay_rate)
+        exploration = E.EpsilonGreedyExploration(
+            epsilon=epsilon_scheduler, strength=strength_scheduler, seed=42
+        )
         agent1 = Agent(mpc=get_mpc(3, self.multistart_nlp), exploration=exploration)
+
         agent2 = agent1.copy()
+
         self.assertIsNot(agent1, agent2)
         self.assertIsNot(agent1.Q, agent2.Q)
         self.assertIsNot(agent1.V, agent2.V)
         self.assertIs(agent1.exploration, exploration)
-        self.assertIsNot(agent1.exploration, agent2.exploration)
-        for n in [
-            "epsilon",
-            "epsilon_decay_rate",
-            "strength",
-            "strength_decay_rate",
-        ]:
-            self.assertEqual(
-                getattr(agent1.exploration, n), getattr(agent2.exploration, n)
-            )
+        exp1, exp2 = agent1.exploration, agent2.exploration
+        self.assertIsNot(exp1, exp2)
+        self.assertIsNot(exp1, exp2)
+        for scheduler in ["epsilon_scheduler", "strength_scheduler"]:
+            sc1, sc2 = getattr(exp1, scheduler), getattr(exp2, scheduler)
+            self.assertIsNot(sc1, sc2)
+            self.assertEqual(sc1.value, sc2.value)
+            self.assertEqual(sc1.factor, sc2.factor)
 
     def test__is_pickleable(self):
-        exploration = E.EpsilonGreedyExploration(0.1, 0.2, 0.3, 0.4, seed=42)
+        epsilon, epsilon_decay_rate = 0.7, 0.75
+        strength, strength_decay_rate = 0.5, 0.75
+        epsilon_scheduler = S.ExponentialScheduler(epsilon, epsilon_decay_rate)
+        strength_scheduler = S.ExponentialScheduler(strength, strength_decay_rate)
+        exploration = E.EpsilonGreedyExploration(
+            epsilon=epsilon_scheduler, strength=strength_scheduler, seed=42
+        )
         agent1 = Agent(mpc=get_mpc(3, self.multistart_nlp), exploration=exploration)
 
         with agent1.pickleable():
             loadeddata = pickle.loads(pickle.dumps(dict(agent=agent1, check=42)))
-
         self.assertEqual(loadeddata["check"], 42)
         agent2: Agent = loadeddata["agent"]
-        self.assertIsInstance(agent2, Agent)
-        self.assertIsInstance(agent2.Q, Mpc)
-        self.assertIsInstance(agent2.V, Mpc)
+
         self.assertIsNot(agent1, agent2)
         self.assertIsNot(agent1.Q, agent2.Q)
         self.assertIsNot(agent1.V, agent2.V)
         self.assertIs(agent1.exploration, exploration)
-        self.assertIsNot(agent1.exploration, agent2.exploration)
-        for n in [
-            "epsilon",
-            "epsilon_decay_rate",
-            "strength",
-            "strength_decay_rate",
-        ]:
-            self.assertEqual(
-                getattr(agent1.exploration, n), getattr(agent2.exploration, n)
-            )
+        exp1, exp2 = agent1.exploration, agent2.exploration
+        self.assertIsNot(exp1, exp2)
+        self.assertIsNot(exp1, exp2)
+        for scheduler in ["epsilon_scheduler", "strength_scheduler"]:
+            sc1, sc2 = getattr(exp1, scheduler), getattr(exp2, scheduler)
+            self.assertIsNot(sc1, sc2)
+            self.assertEqual(sc1.value, sc2.value)
+            self.assertEqual(sc1.factor, sc2.factor)
 
     @parameterized.expand(product(["V", "Q"], [False, True], [False, True]))
     def test_solve_mpc__calls_mpc_with_correct_args(
@@ -229,7 +237,7 @@ class TestAgent(unittest.TestCase):
         if self.multistart_nlp:
             fixed_pars = [fixed_pars.copy() for _ in range(starts)]
 
-        exploration = E.GreedyExploration(strength=0, strength_decay_rate=1e-8)
+        exploration = E.GreedyExploration(0)
         mpc = get_mpc(horizon, self.multistart_nlp)
         agent = Agent(mpc=mpc, fixed_parameters=fixed_pars, exploration=exploration)
 
@@ -258,7 +266,7 @@ class TestAgent(unittest.TestCase):
         if self.multistart_nlp:
             fixed_pars = [fixed_pars.copy() for _ in range(starts)]
 
-        exploration = E.GreedyExploration(strength=0, strength_decay_rate=1e-8)
+        exploration = E.GreedyExploration(0)
         mpc = get_mpc(horizon, self.multistart_nlp)
         agent = Agent(mpc=mpc, fixed_parameters=fixed_pars, exploration=exploration)
 
