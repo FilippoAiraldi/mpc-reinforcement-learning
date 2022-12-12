@@ -14,6 +14,11 @@ from mpcrl import schedulers as S
 from mpcrl.core.random import make_seeds, np_random
 
 
+def do_test_str_and_repr(testcase: unittest.TestCase, scheduler: S.Scheduler):
+    testcase.assertIn(scheduler.__class__.__name__, scheduler.__str__())
+    testcase.assertIn(scheduler.__class__.__name__, scheduler.__repr__())
+
+
 class TestExperienceReplay(unittest.TestCase):
     def test_init__initializes_memory_correctly(self):
         items = [object(), object(), object()]
@@ -97,6 +102,7 @@ class TestSchedulers(unittest.TestCase):
         scheduler = S.Scheduler(init_value=None)
         scheduler.step()
         self.assertIsNone(scheduler.value)
+        do_test_str_and_repr(self, scheduler)
 
     def test_exponential_scheduler__step__updates_value_correctly(self):
         K = 20
@@ -109,6 +115,7 @@ class TestSchedulers(unittest.TestCase):
             x_actual.append(scheduler.value)
             scheduler.step()
         np.testing.assert_allclose(x_expected, x_actual)
+        do_test_str_and_repr(self, scheduler)
 
     def test_linear_scheduler__step__updates_value_correctly(self):
         K = 20
@@ -121,6 +128,7 @@ class TestSchedulers(unittest.TestCase):
             x_actual.append(scheduler.value)
             scheduler.step()
         np.testing.assert_allclose(x_expected, x_actual)
+        do_test_str_and_repr(self, scheduler)
 
 
 class TestExploration(unittest.TestCase):
@@ -129,6 +137,7 @@ class TestExploration(unittest.TestCase):
         self.assertFalse(exploration.can_explore())
         np.testing.assert_equal(exploration.perturbation(), np.nan)
         exploration.step()  # does nothing
+        do_test_str_and_repr(self, exploration)
 
     def test_greedy_exploration__instantiates_np_random(self):
         exploration = E.GreedyExploration(strength=0.5)
