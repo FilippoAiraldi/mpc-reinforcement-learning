@@ -9,6 +9,7 @@ from parameterized import parameterized
 
 from mpcrl import ExperienceReplay, LearnableParameter, LearnableParametersDict
 from mpcrl import exploration as E
+from mpcrl import schedulers as S
 from mpcrl.core.random import make_seeds, np_random
 
 
@@ -88,6 +89,37 @@ class TestRandom(unittest.TestCase):
             expected_seeds = seed
         seeds1, seeds2 = list(zip(*zip(expected_seeds, make_seeds(seed))))
         self.assertListEqual(list(seeds1), list(seeds2))
+
+
+class TestSchedulers(unittest.TestCase):
+    def test_scheduler__step__does_not_update_value(self):
+        scheduler = S.Scheduler(init_value=None)
+        scheduler.step()
+        self.assertIsNone(scheduler.value)
+
+    def test_exponential_scheduler__step__updates_value_correctly(self):
+        K = 20
+        x0 = np.random.randn()
+        factor = np.random.rand()
+        x_expected = x0 * factor ** np.arange(K)
+        scheduler = S.ExponentialScheduler(x0, factor)
+        x_actual = []
+        for _ in range(K):
+            x_actual.append(scheduler.value)
+            scheduler.step()
+        np.testing.assert_allclose(x_expected, x_actual)
+
+    def test_linear_scheduler__step__updates_value_correctly(self):
+        K = 20
+        x0 = np.random.rand() * 10
+        xf = np.random.rand() * 10
+        x_expected = x0 + (xf - x0) / K * np.arange(K)  # akin to np.linspace
+        scheduler = S.LinearScheduler(x0, xf, K)
+        x_actual = []
+        for _ in range(K):
+            x_actual.append(scheduler.value)
+            scheduler.step()
+        np.testing.assert_allclose(x_expected, x_actual)
 
 
 class TestExploration(unittest.TestCase):
