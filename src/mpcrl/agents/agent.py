@@ -263,11 +263,13 @@ class Agent(Named, SupportsDeepcopyAndPickle, Generic[Tsym]):
             The solution of the MPC approximating `V(s)` at the given state.
         """
         if deterministic or not self._exploration.can_explore():
-            p = None
+            perturbation = None
         else:
-            shape = self.V.parameters[self.cost_perturbation_parameter].shape
-            p = self.exploration.perturbation(self.cost_perturbation_method, size=shape)
-        return self.solve_mpc(self._V, state, perturbation=p, vals0=vals0)
+            perturbation = self._exploration.perturbation(
+                self.cost_perturbation_method,
+                size=self.V.parameters[self.cost_perturbation_parameter].shape,
+            )
+        return self.solve_mpc(self._V, state, perturbation=perturbation, vals0=vals0)
 
     def action_value(
         self,
@@ -382,5 +384,4 @@ class Agent(Named, SupportsDeepcopyAndPickle, Generic[Tsym]):
     ) -> Union[None, Dict[str, npt.ArrayLike], Collection[Dict[str, npt.ArrayLike]]]:
         """Internal utility to retrieve parameters of the MPC in order to solve it.
         `Agent` has no learnable parameter, so only fixed parameters are returned."""
-        # NOTE: should we return copies of these dicts?
         return self._fixed_pars
