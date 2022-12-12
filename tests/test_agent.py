@@ -1,7 +1,7 @@
 import pickle
 import unittest
 from itertools import product
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, Mock, call
 
 import casadi as cs
 import numpy as np
