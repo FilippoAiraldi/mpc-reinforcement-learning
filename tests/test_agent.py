@@ -105,6 +105,7 @@ class TestAgent(unittest.TestCase):
         self.assertIs(agent, agent2)
 
     def test_copy(self):
+        # sourcery skip: class-extract-method
         epsilon, epsilon_decay_rate = 0.7, 0.75
         strength, strength_decay_rate = 0.5, 0.75
         epsilon_scheduler = S.ExponentialScheduler(epsilon, epsilon_decay_rate)
@@ -161,6 +162,7 @@ class TestAgent(unittest.TestCase):
     def test_solve_mpc__calls_mpc_with_correct_args(
         self, mpctype: str, vector: bool, multiple_pars: bool
     ):
+        # sourcery skip: low-code-quality
         starts = 3
         horizon = 3
         if not self.multistart_nlp:
