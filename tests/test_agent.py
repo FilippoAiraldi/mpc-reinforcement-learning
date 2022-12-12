@@ -1,5 +1,6 @@
 import pickle
 import unittest
+from functools import lru_cache
 from itertools import product
 from unittest.mock import MagicMock, Mock, call
 
@@ -29,6 +30,7 @@ OPTS = {
 RESULTS = matio.loadmat(r"tests/tests_data.mat")
 
 
+@lru_cache
 def get_dynamics(g: float, alpha: float, dt: float) -> cs.Function:
     x, u, d = cs.SX.sym("x", 3), cs.SX.sym("u", 2), cs.SX.sym("d", 3)
     x_next = x + cs.vertcat(x[1], u[0] / x[2] - g, -alpha * u[0]) * dt + d * 0
