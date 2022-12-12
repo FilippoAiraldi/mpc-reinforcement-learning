@@ -95,7 +95,7 @@ class TestExploration(unittest.TestCase):
         exploration = E.NoExploration()
         self.assertFalse(exploration.can_explore())
         np.testing.assert_equal(exploration.perturbation(), np.nan)
-        exploration.decay()  # does nothing
+        exploration.step()  # does nothing
 
     def test_greedy_exploration__instantiates_np_random(self):
         exploration = E.GreedyExploration(strength=0.5, strength_decay_rate=0.75)
@@ -108,7 +108,7 @@ class TestExploration(unittest.TestCase):
     def test_greedy_exploration__decays_strength(self):
         exploration = E.GreedyExploration(strength=0.5, strength_decay_rate=0.75)
         for _ in range(5):
-            exploration.decay()
+            exploration.step()
         np.testing.assert_allclose(exploration.strength, 0.5 * 0.75**5)
 
     @parameterized.expand([("uniform",), ("normal",), ("standard_normal",)])
@@ -143,7 +143,7 @@ class TestExploration(unittest.TestCase):
             epsilon=0.7, strength=0.5, epsilon_decay_rate=0.75, strength_decay_rate=0.2
         )
         for _ in range(5):
-            exploration.decay()
+            exploration.step()
         np.testing.assert_allclose(exploration.epsilon, 0.7 * 0.75**5)
         np.testing.assert_allclose(exploration.strength, 0.5 * 0.2**5)
 

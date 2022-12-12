@@ -25,8 +25,8 @@ class ExplorationStrategy(ABC):
         """
 
     @abstractmethod
-    def decay(self) -> None:
-        """Updats the exploration strength and/or probability, in case the strategy
+    def step(self) -> None:
+        """Updates the exploration strength and/or probability, in case the strategy
         supports them (usually, by decaying them over time)."""
 
     @abstractmethod
@@ -48,7 +48,7 @@ class NoExploration(ExplorationStrategy):
     def can_explore(self) -> bool:
         return False
 
-    def decay(self) -> None:
+    def step(self) -> None:
         return
 
     def perturbation(self, *args: Any, **kwargs: Any) -> npt.NDArray[np.double]:
@@ -93,7 +93,7 @@ class GreedyExploration(ExplorationStrategy):
     def can_explore(self) -> bool:
         return True
 
-    def decay(self) -> None:
+    def step(self) -> None:
         self.strength *= self.strength_decay_rate  # type: ignore
 
     def perturbation(  # type: ignore
@@ -170,8 +170,8 @@ class EpsilonGreedyExploration(GreedyExploration):
     def can_explore(self) -> bool:
         return self.np_random.random() > self.strength  # type: ignore
 
-    def decay(self) -> None:
-        super().decay()  # decays only the strength
+    def step(self) -> None:
+        super().step()  # decays only the strength
         self.epsilon *= self.epsilon_decay_rate
 
     def __repr__(self) -> str:
