@@ -1,10 +1,11 @@
 from abc import ABC, abstractmethod
-from typing import Any, Optional, Tuple
+from typing import Any, Optional, Tuple, Union
 
 import numpy as np
 import numpy.typing as npt
 
 from mpcrl.core.random import np_random
+from mpcrl.core.schedulers import Scheduler
 
 
 class ExplorationStrategy(ABC):
@@ -59,44 +60,46 @@ class GreedyExploration(ExplorationStrategy):
     """Fully greedy strategy for perturbing the policy, thus inducing exploration. This
     strategy always perturbs randomly the policy."""
 
-    __slots__ = (
-        "strength",
-        "strength_decay_rate",
-        "np_random",
-    )
+    __slots__ = ("strength_scheduler", "np_random")
 
     def __init__(
         self,
-        strength: npt.NDArray[np.double],
-        strength_decay_rate: npt.NDArray[np.double],
+        strength: Union[Scheduler[npt.NDArray[np.double]], npt.NDArray[np.double]],
         seed: Optional[int] = None,
     ) -> None:
         """Initializes the greedy exploration strategy.
 
         Parameters
         ----------
-        strength : npt.NDArray[np.double]
-            The strength of the exploration.
-        strength_decay_rate : float
-            Multiplicative rate at which the exploration strength decays over time, by
-            calling the method `decay`. Should be smaller than 1 for a decreasing
-            exploration strategy.
+        strength : scheduler or array/supports-algebraic-operations
+            The strength of the exploration. If passed in the form of an
+            `mpcrl.schedulers.Scheduler`, then the strength can be scheduled to
+            decay/increase every time `exploration.step` is called. If an array or
+            something other than a scheduler is passed, then this quantity will get
+            wrapped in a base scheduler which will kept it constant.
         seed : int or None, optional
             Number to seed the RNG engine used for randomizing the exploration. By
             default, `None`.
         """
         super().__init__()
-        self.strength = strength
-        self.strength_decay_rate = strength_decay_rate
+        if not isinstance(strength, Scheduler):
+            strength = Scheduler(strength)
+        self.strength_scheduler = strength
         self.np_random = np_random(seed)[0]
+
+    @property
+    def strength(self) -> npt.NDArray[np.double]:
+        """Gets the current strength of the exploration strategy."""
+        return self.strength_scheduler.value
 
     def can_explore(self) -> bool:
         return True
 
     def step(self) -> None:
-        self.strength *= self.strength_decay_rate  # type: ignore
+        """Updates the exploration strength according to its scheduler."""
+        self.strength_scheduler.step()
 
-    def perturbation(  # type: ignore
+    def perturbation(
         self, method: str, *args: Any, **kwargs: Any
     ) -> npt.NDArray[np.double]:
         """Returns a random perturbation.
@@ -114,68 +117,64 @@ class GreedyExploration(ExplorationStrategy):
         array
             An array representing the perturbation.
         """
-        return getattr(self.np_random, method)(*args, **kwargs) * self.strength
+        return (
+            getattr(self.np_random, method)(*args, **kwargs)
+            * self.strength_scheduler.value
+        )
 
     def __repr__(self) -> str:
-        return (
-            f"{self.__class__.__name__}(stn={self.strength},"
-            f"stn_decay={self.strength_decay_rate})"
-        )
+        return f"{self.__class__.__name__}(stn={self.strength_scheduler.value})"
 
 
 class EpsilonGreedyExploration(GreedyExploration):
     """Epsilon-greedy strategy for perturbing the policy, thus inducing exploration.
     This strategy only occasionally perturbs randomly the policy."""
 
-    __slots__ = (
-        "epsilon",
-        "epsilon_decay_rate",
-    )
+    __slots__ = ("epsilon_scheduler",)
 
     def __init__(
         self,
-        epsilon: float,
-        strength: npt.NDArray[np.double],
-        epsilon_decay_rate: float,
-        strength_decay_rate: Optional[npt.NDArray[np.double]] = None,
+        epsilon: Union[Scheduler[float], float],
+        strength: Union[Scheduler[npt.NDArray[np.double]], npt.NDArray[np.double]],
         seed: Optional[int] = None,
     ) -> None:
         """Initializes the epsilon-greedy exploration strategy.
 
         Parameters
         ----------
-        epsilon : float
-            The probability to explore. Should be in range (0, 1), extrema excluded.
-        strength : npt.NDArray[np.double]
-            The strength of the exploration.
-        epsilon_decay_rate : float
-            Multiplicative rate at which the exploration probability `epsilon` decays
-            over time, by calling the method `decay`. Should be smaller than 1 for a
-            decreasing exploration strategy.
-        strength_decay_rate : float, optional
-            Multiplicative rate at which the exploration strength decays over time, by
-            calling the method `decay`. Should be smaller than 1 for a decreasing
-            exploration strategy. By default, if `None`, it is equal to the epsilon
-            decay rate.
+        epsilon : scheduler or float
+            The probability to explore. Should be in range [0, 1]. If passed in the form
+            of an `mpcrl.schedulers.Scheduler`, then the probability can be scheduled to
+            decay/increase every time `exploration.step` is called. If an array or
+            something other than a scheduler is passed, then this quantity will get
+            wrapped in a base scheduler which will kept it constant.
+        strength : scheduler or array/supports-algebraic-operations
+            The strength of the exploration. Can be scheduled, see `epsilon`.
         seed : int or None, optional
             Number to seed the RNG engine used for randomizing the exploration. By
             default, `None`.
         """
-        if strength_decay_rate is None:
-            strength_decay_rate = epsilon_decay_rate  # type: ignore
-        super().__init__(strength, strength_decay_rate, seed)  # type: ignore
-        self.epsilon = epsilon
-        self.epsilon_decay_rate = epsilon_decay_rate
+        super().__init__(strength, seed)
+        if not isinstance(epsilon, Scheduler):
+            epsilon = Scheduler(epsilon)
+        self.epsilon_scheduler = epsilon
+
+    @property
+    def epsilon(self) -> float:
+        """Gets the current probability of the exploration strategy."""
+        return self.epsilon_scheduler.value
 
     def can_explore(self) -> bool:
-        return self.np_random.random() > self.strength  # type: ignore
+        return self.np_random.random() > self.epsilon_scheduler.value
 
     def step(self) -> None:
+        """Updates the exploration probability and strength according to their
+        schedulers."""
         super().step()  # decays only the strength
-        self.epsilon *= self.epsilon_decay_rate
+        self.epsilon_scheduler.step()
 
     def __repr__(self) -> str:
         return (
-            f"{self.__class__.__name__}(eps={self.epsilon},stn={self.strength},"
-            f"eps_decay={self.epsilon_decay_rate},stn_decay={self.strength_decay_rate})"
+            f"{self.__class__.__name__}(eps={self.epsilon_scheduler.value},"
+            f"stn={self.strength_scheduler.value})"
         )

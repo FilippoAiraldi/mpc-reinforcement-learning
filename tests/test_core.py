@@ -2,6 +2,7 @@ import pickle
 import unittest
 from itertools import product
 from typing import Iterable, Optional, Tuple, Union
+from unittest.mock import Mock
 
 import casadi as cs
 import numpy as np
@@ -130,33 +131,38 @@ class TestExploration(unittest.TestCase):
         exploration.step()  # does nothing
 
     def test_greedy_exploration__instantiates_np_random(self):
-        exploration = E.GreedyExploration(strength=0.5, strength_decay_rate=0.75)
+        exploration = E.GreedyExploration(strength=0.5)
         self.assertIsInstance(exploration.np_random, np.random.Generator)
 
     def test_greedy_exploration__always_explores(self):
-        exploration = E.GreedyExploration(strength=0.5, strength_decay_rate=0.75)
+        exploration = E.GreedyExploration(strength=0.5)
         self.assertTrue(exploration.can_explore())
-
-    def test_greedy_exploration__decays_strength(self):
-        exploration = E.GreedyExploration(strength=0.5, strength_decay_rate=0.75)
-        for _ in range(5):
-            exploration.step()
-        np.testing.assert_allclose(exploration.strength, 0.5 * 0.75**5)
+        do_test_str_and_repr(self, exploration)
 
     @parameterized.expand([("uniform",), ("normal",), ("standard_normal",)])
     def test_greedy_exploration__perturbs(self, method: str):
-        exploration = E.GreedyExploration(strength=0.5, strength_decay_rate=0.75)
+        exploration = E.GreedyExploration(strength=0.5)
         exploration.perturbation(method)
 
-    def test_epsilon_greedy_exploration__init(self):
+    def test_epsilon_greedy_exploration__properties_return_right_values(self):
+        epsilon, epsilon_decay_rate = 0.7, 0.75
+        strength, strength_decay_rate = 0.5, 0.75
+        epsilon_scheduler = S.ExponentialScheduler(epsilon, epsilon_decay_rate)
+        strength_scheduler = S.ExponentialScheduler(strength, strength_decay_rate)
         exploration = E.EpsilonGreedyExploration(
-            epsilon=0.7, strength=0.5, epsilon_decay_rate=0.75
+            epsilon=epsilon_scheduler, strength=strength_scheduler, seed=42
         )
-        self.assertEqual(exploration.strength_decay_rate, 0.75)
+        self.assertEqual(exploration.strength, strength)
+        self.assertEqual(exploration.epsilon, epsilon)
+        do_test_str_and_repr(self, exploration)
 
     def test_epsilon_greedy_exploration__sometimes_explores(self):
+        epsilon, epsilon_decay_rate = 0.7, 0.75
+        strength, strength_decay_rate = 0.5, 0.75
+        epsilon_scheduler = S.ExponentialScheduler(epsilon, epsilon_decay_rate)
+        strength_scheduler = S.ExponentialScheduler(strength, strength_decay_rate)
         exploration = E.EpsilonGreedyExploration(
-            epsilon=0.7, strength=0.5, epsilon_decay_rate=0.75, seed=42
+            epsilon=epsilon_scheduler, strength=strength_scheduler, seed=42
         )
         self.assertTrue(exploration.can_explore())
         found_true, found_false = False, False
@@ -171,13 +177,21 @@ class TestExploration(unittest.TestCase):
         self.assertTrue(found_true and found_false)
 
     def test_epsilon_greedy_exploration__decays_strength(self):
+        class MockScheduler(S.Scheduler):
+            ...
+
+        epsilon_scheduler = MockScheduler(None)
+        strength_scheduler = MockScheduler(None)
+        epsilon_scheduler.step = Mock()
+        strength_scheduler.step = Mock()
         exploration = E.EpsilonGreedyExploration(
-            epsilon=0.7, strength=0.5, epsilon_decay_rate=0.75, strength_decay_rate=0.2
+            epsilon=epsilon_scheduler, strength=strength_scheduler, seed=42
         )
-        for _ in range(5):
-            exploration.step()
-        np.testing.assert_allclose(exploration.epsilon, 0.7 * 0.75**5)
-        np.testing.assert_allclose(exploration.strength, 0.5 * 0.2**5)
+
+        exploration.step()
+
+        epsilon_scheduler.step.assert_called_once()
+        strength_scheduler.step.assert_called_once()
 
 
 class TestParameters(unittest.TestCase):
