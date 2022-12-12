@@ -8,10 +8,10 @@ import numpy.typing as npt
 from csnlp.core.cache import invalidate_cache
 from csnlp.util.io import SupportsDeepcopyAndPickle
 
-T = TypeVar("T")  # most likely, T is cs.SX or MX
+Tsym = TypeVar("Tsym")  # most likely, T is cs.SX or MX
 
 
-class LearnableParameter(SupportsDeepcopyAndPickle, Generic[T]):
+class LearnableParameter(SupportsDeepcopyAndPickle, Generic[Tsym]):
     """A 1D parameter that is learnable, that is, it can be adjusted via . This class
     is useful for managing symbols, bounds and value of learnable parameters."""
 
@@ -31,7 +31,7 @@ class LearnableParameter(SupportsDeepcopyAndPickle, Generic[T]):
         value: npt.ArrayLike,
         lb: npt.ArrayLike = -np.inf,
         ub: npt.ArrayLike = +np.inf,
-        sym: Optional[T] = None,
+        sym: Optional[Tsym] = None,
     ) -> None:
         """Instantiates a learnable parameter.
 
@@ -100,7 +100,7 @@ class LearnableParameter(SupportsDeepcopyAndPickle, Generic[T]):
 
 
 class LearnableParametersDict(
-    Dict[str, LearnableParameter[T]], SupportsDeepcopyAndPickle
+    Dict[str, LearnableParameter[Tsym]], SupportsDeepcopyAndPickle
 ):
     """Dict-based collection of `LearnableParameter` instances that simplifies the
     process of managing and updating these. The dict contains pairs of parameter's name
@@ -110,7 +110,7 @@ class LearnableParametersDict(
     calls to the same methods. However, these are cleared when the underlying dict is
     modified."""
 
-    def __init__(self, pars: Optional[Iterable[LearnableParameter[T]]] = None):
+    def __init__(self, pars: Optional[Iterable[LearnableParameter[Tsym]]] = None):
         """Initializes the collection of learnable parameters.
 
         Parameters
@@ -151,7 +151,7 @@ class LearnableParametersDict(
         return np.concatenate(tuple(p.value for p in self.values()))
 
     @cached_property
-    def sym(self) -> Dict[str, Optional[T]]:
+    def sym(self) -> Dict[str, Optional[Tsym]]:
         """Gets symbols of all the learnable parameters, in a dict. If one parameter
         does not possess the symbol, `None` is put."""
         return {
@@ -204,12 +204,12 @@ class LearnableParametersDict(
 
     @__cache_decorator
     def update(
-        self, pars: Iterable[LearnableParameter[T]], *args: LearnableParameter[T]
+        self, pars: Iterable[LearnableParameter[Tsym]], *args: LearnableParameter[Tsym]
     ) -> None:
         return super().update(map(lambda p: (p.name, p), chain(pars, args)))
 
     @__cache_decorator
-    def setdefault(self, par: LearnableParameter[T]) -> LearnableParameter[T]:
+    def setdefault(self, par: LearnableParameter[Tsym]) -> LearnableParameter[Tsym]:
         return super().setdefault(par.name, par)
 
     __delitem__ = __cache_decorator(dict.__delitem__)
@@ -219,7 +219,7 @@ class LearnableParametersDict(
 
     def copy(
         self, deep: bool = False, invalidate_caches: bool = True
-    ) -> "LearnableParametersDict[T]":
+    ) -> "LearnableParametersDict[Tsym]":
         """Creates a shallow or deep copy of the dict of learnable parameters.
 
         Parameters
@@ -241,7 +241,7 @@ class LearnableParametersDict(
         return (
             SupportsDeepcopyAndPickle.copy(self, invalidate_caches)
             if deep
-            else LearnableParametersDict[T](self.values())
+            else LearnableParametersDict[Tsym](self.values())
         )
 
     @contextmanager
