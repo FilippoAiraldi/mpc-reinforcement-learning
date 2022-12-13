@@ -22,7 +22,7 @@ from csnlp.wrappers import Mpc
 from mpcrl.core.exploration import ExplorationStrategy, NoExploration
 from mpcrl.core.random import make_seeds
 from mpcrl.util.named import Named
-from mpcrl.util.types import SupportsGymEnv, Tact, Tobs
+from mpcrl.util.types import GymEnvLike, Tact, Tobs
 
 Tsym = TypeVar("Tsym", cs.SX, cs.MX)
 
@@ -307,7 +307,7 @@ class Agent(Named, SupportsDeepcopyAndPickle, Generic[Tsym]):
 
     def evaluate(
         self,
-        env: SupportsGymEnv[Tobs, Tact],
+        env: GymEnvLike[Tobs, Tact],
         episodes: int,
         deterministic: bool = True,
         seed: Union[None, int, Iterable[int]] = None,
@@ -320,7 +320,7 @@ class Agent(Named, SupportsDeepcopyAndPickle, Generic[Tsym]):
 
         Parameters
         ----------
-        env : SupportsGymEnv[Tobs, Tact]
+        env : openai-like gym env
             An environment that has OpenAI-like API, where the agent needs to be tested.
         episodes : int
             Number of evaluation episodes.
