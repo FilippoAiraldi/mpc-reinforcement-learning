@@ -11,7 +11,7 @@ from csnlp.wrappers import Mpc, NlpScaling
 from parameterized import parameterized, parameterized_class
 from scipy import io as matio
 
-from mpcrl import Agent, LearningAgent
+from mpcrl import Agent, ExperienceReplay, LearnableParametersDict, LearningAgent
 from mpcrl import exploration as E
 from mpcrl import schedulers as S
 
@@ -279,7 +279,7 @@ class TestAgent(unittest.TestCase):
             np.testing.assert_allclose(u1_0_0, a_subopt)
             self.assertTrue(sol.f >= RESULTS["state_value_f"].item())
 
-    def test_evaluate(self):
+    def test_evaluate__performs_correct_calls(self):
         seed = 69
         episodes = 3
         episode_length = 10

@@ -11,6 +11,7 @@ from typing import (
     TypeVar,
     Union,
 )
+from warnings import warn
 
 import casadi as cs
 import numpy as np
@@ -19,6 +20,7 @@ from csnlp import Solution, wrappers
 from csnlp.util.io import SupportsDeepcopyAndPickle
 from csnlp.wrappers import Mpc
 
+from mpcrl.core.errors import MpcSolverError, MpcSolverWarning
 from mpcrl.core.exploration import ExplorationStrategy, NoExploration
 from mpcrl.core.random import make_seeds
 from mpcrl.util.named import Named
@@ -32,6 +34,11 @@ def _update_dicts(sinks: Iterable[Dict], source: Dict) -> Iterator[Dict]:
     for sink in sinks:
         sink.update(source)
         yield sink
+
+
+def _get_action(mpc: Mpc, sol: Solution) -> cs.DM:
+    """Internal utility to get the first optimal MPC action from a solution."""
+    return cs.vertcat(*(sol.vals[u][:, 0] for u in mpc.actions))
 
 
 class Agent(Named, SupportsDeepcopyAndPickle, Generic[Tsym]):
@@ -311,6 +318,7 @@ class Agent(Named, SupportsDeepcopyAndPickle, Generic[Tsym]):
         episodes: int,
         deterministic: bool = True,
         seed: Union[None, int, Iterable[int]] = None,
+        warns_on_exception: bool = False,
     ) -> npt.NDArray[np.double]:
         """Evaluates the agent in a given environment.
 
@@ -328,11 +336,18 @@ class Agent(Named, SupportsDeepcopyAndPickle, Generic[Tsym]):
             Whether the agent should act deterministically; by default, `True`.
         seed : int or iterable of ints, optional
             Each env's seeds for RNG.
+        warns_on_exception: bool, optional
+            If `True`, when the MPC solver fails, the exception will be propagated;
+            otherwise, a warning is raised but the evaluation is not stopped.
 
         Returns
         -------
         array of doubles
             The cumulative returns (one return per evaluation episode).
+
+        Raises
+        ------
+            Raises if the MPC optimization solver fails and `warns_on_exception=False`.
         """
         returns = np.zeros(episodes)
 
@@ -342,8 +357,17 @@ class Agent(Named, SupportsDeepcopyAndPickle, Generic[Tsym]):
             truncated, terminated = False, False
 
             while not (truncated or terminated):
-                sol = self.state_value(state, deterministic)
-                action = cs.vertcat(*(sol.vals[u][:, 0] for u in self._V.actions))
+                try:
+                    sol = self.state_value(state, deterministic)
+                except MpcSolverError as ex:
+                    if warns_on_exception:
+                        warn(
+                            f"Exception raised during mpc solver with args={ex.args}",
+                            MpcSolverWarning,
+                        )
+                    else:
+                        raise ex
+                action = _get_action(self._V, sol)
 
                 state, r, truncated, terminated, _ = env.step(action)
                 returns[episode] += r
