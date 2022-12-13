@@ -11,7 +11,7 @@ from csnlp.wrappers import Mpc, NlpScaling
 from parameterized import parameterized, parameterized_class
 from scipy import io as matio
 
-from mpcrl import Agent
+from mpcrl import Agent, LearningAgent
 from mpcrl import exploration as E
 from mpcrl import schedulers as S
 
@@ -76,6 +76,11 @@ def get_mpc(horizon: int, multistart: bool):
     mpc.minimize(m[0] - m[-1] + cs.sum2(u2))
     mpc.init_solver(OPTS)
     return mpc
+
+
+class DummyLearningAgent(LearningAgent):
+    def update(self, *args, **kwargs):
+        return
 
 
 @parameterized_class("multistart_nlp", [(True,), (False,)])
@@ -317,17 +322,27 @@ class TestAgent(unittest.TestCase):
         )
 
 
-        returns = agent.evaluate(
-            env, 1, deterministic=deterministic, seed=69, action_expr=action_expr
+class TestLearningAgent(unittest.TestCase):
+    def test__init__creates_default_experience_and_exploration(self):
+        learnable_parameters = LearnableParametersDict()
+        agent = DummyLearningAgent(
+            mpc=get_mpc(3, False), learnable_parameters=learnable_parameters
         )
+        self.assertIsInstance(agent.exploration, E.ExplorationStrategy)
+        self.assertIsInstance(agent.experience, ExperienceReplay)
+        self.assertIs(agent.learnable_parameters, learnable_parameters)
 
-        np.testing.assert_array_equal(returns, np.asarray([rewards.sum()]))
-        env.reset.assert_called_once()
-        if action_expr_:
-            get_value.assert_has_calls([call(action_expr, eval=True) for _ in range(2)])
-            env.step.assert_has_calls([call(action) for action in actions])
-        else:
-            env.step.assert_has_calls([call(action) for _ in range(2)])
+    def test__store_experience__appends_experience(self):
+        experience = MagicMock()
+        experience.append = Mock()
+        item = object()
+        agent = DummyLearningAgent(
+            mpc=get_mpc(3, False), learnable_parameters={}, experience=experience
+        )
+        self.assertIs(agent.experience, experience)
+        agent.store_experience(item)
+        experience.append.assert_called_once_with(item)
+
 
 
 

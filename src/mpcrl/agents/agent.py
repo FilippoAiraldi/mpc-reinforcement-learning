@@ -320,8 +320,8 @@ class Agent(Named, SupportsDeepcopyAndPickle, Generic[Tsym]):
 
         Parameters
         ----------
-        env : openai-like gym env
-            An environment that has OpenAI-like API, where the agent needs to be tested.
+        env : gym env
+            A gym-like environment where to test the agent in.
         episodes : int
             Number of evaluation episodes.
         deterministic : bool, optional
