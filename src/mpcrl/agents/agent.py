@@ -1,6 +1,5 @@
 from contextlib import contextmanager
 from typing import (
-    Callable,
     Collection,
     Dict,
     Generic,
@@ -312,9 +311,12 @@ class Agent(Named, SupportsDeepcopyAndPickle, Generic[Tsym]):
         episodes: int,
         deterministic: bool = True,
         seed: Union[None, int, Iterable[int]] = None,
-        action_expr: Tsym = None,
     ) -> npt.NDArray[np.double]:
         """Evaluates the agent in a given environment.
+
+        Note: after solving `V(s)` for the current state `s`, the action is computed and
+        assed to the environment as the concatenation of the first optimal actions of
+        the MPC.
 
         Parameters
         ----------
@@ -326,23 +328,12 @@ class Agent(Named, SupportsDeepcopyAndPickle, Generic[Tsym]):
             Whether the agent should act deterministically; by default, `True`.
         seed : int or iterable of ints, optional
             Each env's seeds for RNG.
-        action_expr : casadi.SX or MX, optional
-            After solving `V(s)` for the current state `s`, the action is chosen as
-              - MPC variable `u[:, 0]`, if `action_expr=None`. This will fail if, e.g.,
-                the controller does not define a variable `u`.
-              - the value of `action_expr` for the current solution of `V(s)`, in case
-                this expression is given.
 
         Returns
         -------
         array of doubles
             The cumulative returns (one return per evaluation episode).
         """
-        get_mpc_action: Callable[[Solution], cs.DM] = (
-            (lambda sol: sol.vals["u"][:, 0])
-            if action_expr is None
-            else (lambda sol: sol.value(action_expr))
-        )
         returns = np.zeros(episodes)
 
         for episode, current_seed in zip(range(episodes), make_seeds(seed)):
@@ -352,8 +343,9 @@ class Agent(Named, SupportsDeepcopyAndPickle, Generic[Tsym]):
 
             while not (truncated or terminated):
                 sol = self.state_value(state, deterministic)
-                action = get_mpc_action(sol)
-                state, r, truncated, terminated, _ = env.step(action)  # type: ignore
+                action = cs.vertcat(*(sol.vals[u][:, 0] for u in self._V.actions))
+
+                state, r, truncated, terminated, _ = env.step(action)
                 returns[episode] += r
         return returns
 

@@ -2,11 +2,11 @@ from typing import Optional, Protocol, Tuple, TypeVar
 
 import numpy as np
 
-Tobs = TypeVar("Tobs", bound=np.generic, covariant=True)
-Tact = TypeVar("Tact", bound=np.generic, contravariant=True)
+Tobs = TypeVar("Tobs", bound=np.generic)
+Tact = TypeVar("Tact", bound=np.generic)
 
 
-class SupportsGymEnv(Protocol[Tobs, Tact]):
+class SupportsGymEnv(Protocol[Tobs, Tact]):  # type: ignore
     """Class that exposes an API similar to OpenAI's Gym environments, with methods for
     - resetting the env
     - stepping the env.

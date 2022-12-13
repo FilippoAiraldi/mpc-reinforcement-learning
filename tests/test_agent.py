@@ -274,30 +274,48 @@ class TestAgent(unittest.TestCase):
             np.testing.assert_allclose(u1_0_0, a_subopt)
             self.assertTrue(sol.f >= RESULTS["state_value_f"].item())
 
-    @parameterized.expand([(False,), (True,)])
-    def test_evaluate(self, action_expr_: bool = True):
-        rewards = np.random.randn(2)
-        states = [object(), object(), object()]
+    def test_evaluate(self):
+        seed = 69
+        episodes = 3
+        episode_length = 10
+        Ttot = episodes * episode_length
+        reset_states = [object() for _ in range(episodes)]
+        step_states = [object() for _ in range(Ttot)]
+        rewards = np.random.randn(Ttot)
+        truncateds = [False] * Ttot
+        terminateds = np.full(Ttot, 0, dtype=bool)
+        terminateds[::-episode_length] = True
+        infos = [{}] * Ttot
         env = MagicMock()
-        env.reset = Mock(return_value=(states[0], {}))
+        env.reset = Mock(side_effect=zip(reset_states, infos))
         env.step = Mock(
-            side_effect=[
-                (states[1], rewards[0], False, False, {}),
-                (states[2], rewards[1], True, False, {}),
-            ]
+            side_effect=zip(step_states, rewards, truncateds, terminateds, infos)
         )
-        if action_expr_:
-            actions = [object(), object()]
-            get_value = Mock(side_effect=actions)
-            sol = Solution(0, {}, {}, {}, get_value)
-            action_expr = object()
-        else:
-            action = np.full((1, 1), object(), dtype=object)
-            sol = Solution(0, {}, {"u": action}, {}, None)
-            action_expr = None
-        deterministic = object()
+        actions1 = np.random.randn(Ttot, 2, 1)
+        actions2 = np.random.randn(Ttot, 3, 1)
+        sols = map(
+            lambda u1, u2: Solution(0, {}, {"u1": u1, "u2": u2}, {}, None),
+            actions1,
+            actions2,
+        )
         agent = Agent(mpc=get_mpc(3, False))
-        agent.state_value = Mock(return_value=sol)
+        agent.state_value = Mock(side_effect=sols)
+        deterministic = object()
+
+        returns = agent.evaluate(env, episodes, deterministic=deterministic, seed=seed)
+
+        np.testing.assert_allclose(returns, rewards.reshape(-1, episode_length).sum(1))
+        env.reset.assert_has_calls([call(seed=seed + i) for i in range(episodes)])
+        for mcall, u1, u2 in zip(env.step.mock_calls, actions1, actions2):
+            self.assertEqual(len(mcall.args), 1)
+            np.testing.assert_array_equal(mcall.args[0], cs.vertcat(u1, u2))
+        states = np.column_stack(
+            (reset_states, np.asarray(step_states).reshape(-1, episode_length))
+        )[:, :-1].flatten()
+        agent.state_value.assert_has_calls(
+            [call(state, deterministic) for state in states]
+        )
+
 
         returns = agent.evaluate(
             env, 1, deterministic=deterministic, seed=69, action_expr=action_expr
