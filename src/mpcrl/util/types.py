@@ -13,7 +13,7 @@ class GymEnvLike(Protocol[Tobs, Tact]):  # type: ignore
     """
 
     def step(self, action: Tact) -> Tuple[Tobs, float, bool, bool, dict]:
-        ...
+        """Run one timestep of the environment's dynamics."""
 
     def reset(
         self,
@@ -21,4 +21,5 @@ class GymEnvLike(Protocol[Tobs, Tact]):  # type: ignore
         seed: Optional[int] = None,
         options: Optional[dict] = None,
     ) -> Tuple[Tobs, dict]:
-        ...
+        """Resets the environment to an initial state and returns the initial
+        observation."""
