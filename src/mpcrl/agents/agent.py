@@ -317,7 +317,7 @@ class Agent(Named, SupportsDeepcopyAndPickle, Generic[SymType]):
 
     def evaluate(
         self,
-        env: GymEnvLike[ObsType, ActType],  # type: ignore
+        env: GymEnvLike[ObsType, ActType],
         episodes: int,
         deterministic: bool = True,
         seed: Union[None, int, Iterable[int]] = None,

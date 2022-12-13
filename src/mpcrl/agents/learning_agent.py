@@ -1,14 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import (
-    Collection,
-    Dict,
-    Generic,
-    Iterable,
-    Literal,
-    Optional,
-    Tuple,
-    Union,
-)
+from typing import Collection, Dict, Generic, Iterable, Literal, Optional, Tuple, Union
 from warnings import warn
 
 import numpy as np
@@ -16,7 +7,7 @@ import numpy.typing as npt
 from csnlp import Solution
 from csnlp.wrappers import Mpc
 
-from mpcrl.agents.agent import Agent, SymType, ActType, ObsType
+from mpcrl.agents.agent import ActType, Agent, ObsType, SymType
 from mpcrl.core.errors import UpdateError, UpdateWarning
 from mpcrl.core.experience import ExperienceReplay
 from mpcrl.core.exploration import ExplorationStrategy

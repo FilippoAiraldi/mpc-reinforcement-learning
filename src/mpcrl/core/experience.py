@@ -60,9 +60,10 @@ class ExperienceReplay(Deque[ExpType]):
             Raises if `n` is float (a percentage of the maximum length), but `maxlen` is
             `None`.
         """
+        assert self.maxlen is not None, "Maxlen not set; cannot use sample percentages."
         L = len(self)
         if isinstance(n, float):
-            n = int(self.maxlen * n)  # type: ignore
+            n = int(self.maxlen * n)
         n = min(max(n, 0), L)
         if isinstance(last_n, float):
             last_n = int(n * last_n)

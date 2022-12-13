@@ -53,7 +53,9 @@ class NoExploration(ExplorationStrategy):
         return
 
     def perturbation(self, *args: Any, **kwargs: Any) -> npt.NDArray[np.double]:
-        return np.nan  # type: ignore
+        raise NotImplementedError(
+            f'Perturbation not implemented for {self.__class__.__name__}'
+        )
 
 
 class GreedyExploration(ExplorationStrategy):
