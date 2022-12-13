@@ -3,10 +3,10 @@ from typing import Deque, Generator, Iterable, Optional, TypeVar, Union
 
 from mpcrl.core.random import np_random
 
-Texp = TypeVar("Texp")
+ExpType = TypeVar("ExpType")
 
 
-class ExperienceReplay(Deque[Texp]):
+class ExperienceReplay(Deque[ExpType]):
     """Deque-based class for RL traning to save and sample experience transitions. The
     class inherits from `collections.deque`, adding a couple of simple functionalities
     to it for sampling transitions at random from past observed data."""
@@ -15,7 +15,7 @@ class ExperienceReplay(Deque[Texp]):
 
     def __init__(
         self,
-        iterable: Iterable[Texp] = (),
+        iterable: Iterable[ExpType] = (),
         maxlen: Optional[int] = None,
         seed: Optional[int] = None,
     ) -> None:
@@ -37,7 +37,7 @@ class ExperienceReplay(Deque[Texp]):
 
     def sample(
         self, n: Union[int, float], last_n: Union[int, float] = 0
-    ) -> Generator[Texp, None, None]:
+    ) -> Generator[ExpType, None, None]:
         """
         Samples the experience memory and yields the sampled items.
 

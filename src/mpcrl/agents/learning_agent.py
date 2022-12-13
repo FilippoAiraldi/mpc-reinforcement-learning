@@ -1,21 +1,35 @@
 from abc import ABC, abstractmethod
-from typing import Any, Collection, Dict, Generic, Literal, Optional, TypeVar, Union
+from typing import (
+    Collection,
+    Dict,
+    Generic,
+    Iterable,
+    Literal,
+    Optional,
+    Tuple,
+    Union,
+)
+from warnings import warn
 
-import casadi as cs
+import numpy as np
 import numpy.typing as npt
+from csnlp import Solution
 from csnlp.wrappers import Mpc
 
-from mpcrl.agents.agent import Agent
+from mpcrl.agents.agent import Agent, SymType, ActType, ObsType
+from mpcrl.core.errors import UpdateError, UpdateWarning
 from mpcrl.core.experience import ExperienceReplay
 from mpcrl.core.exploration import ExplorationStrategy
 from mpcrl.core.parameters import LearnableParametersDict
-from mpcrl.util.types import GymEnvLike, Tact, Tobs
+from mpcrl.core.random import make_seeds
+from mpcrl.util.types import GymEnvLike
 
-Tsym = TypeVar("Tsym", cs.SX, cs.MX)
-Texp = TypeVar("Texp")
+ExpType = Tuple[
+    ObsType, ActType, float, ObsType, Solution[SymType], Optional[Solution[SymType]]
+]
 
 
-class LearningAgent(Agent, ABC, Generic[Tsym, Texp]):
+class LearningAgent(Agent[SymType], ABC, Generic[SymType]):
     """Base class for a learning agent with MPC as policy provider where the main method
     `update`, which is called to update the learnable parameters of the MPC according to
     the underlying learning methodology (e.g., Bayesian Optimization, RL, etc.) is
@@ -26,13 +40,13 @@ class LearningAgent(Agent, ABC, Generic[Tsym, Texp]):
 
     def __init__(
         self,
-        mpc: Mpc[Tsym],
-        learnable_parameters: LearnableParametersDict[Tsym],
+        mpc: Mpc[SymType],
+        learnable_parameters: LearnableParametersDict[SymType],
         fixed_parameters: Union[
             None, Dict[str, npt.ArrayLike], Collection[Dict[str, npt.ArrayLike]]
         ] = None,
         exploration: Optional[ExplorationStrategy] = None,
-        experience: Optional[ExperienceReplay[Texp]] = None,
+        experience: Optional[ExperienceReplay[ExpType]] = None,
         warmstart: Literal["last", "last-successful"] = "last-successful",
         name: Optional[str] = None,
     ) -> None:
@@ -79,22 +93,22 @@ class LearningAgent(Agent, ABC, Generic[Tsym, Texp]):
         self._learnable_pars = learnable_parameters
 
     @property
-    def experience(self) -> ExperienceReplay[Texp]:
+    def experience(self) -> ExperienceReplay[ExpType]:
         """Gets the experience replay memory of the agent."""
         return self._experience
 
     @property
-    def learnable_parameters(self) -> LearnableParametersDict[Tsym]:
+    def learnable_parameters(self) -> LearnableParametersDict[SymType]:
         """Gets the parameters of the MPC that can be learnt by the agent."""
         return self._learnable_pars
 
-    def store_experience(self, item: Texp) -> None:
+    def store_experience(self, item: ExpType) -> None:
         """Stores the given item in the agent's memory for later experience replay. If
         the agent has no memory, then the method does nothing.
 
         Parameters
         ----------
-        item : Texp
+        item : tuple of state-action-reward-new_state-V(s)-Q(s,a) (last can be `None`)
             Item to be stored in memory.
         """
         if self._experience is not None:

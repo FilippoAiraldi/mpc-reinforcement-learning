@@ -21,6 +21,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Mathematics"
 ]
 dependencies = [
+    "typing_extensions >= 4.4.0",
     "csnlp >= 1.4.1",
 ]
 

@@ -19,14 +19,17 @@ import numpy.typing as npt
 from csnlp import Solution, wrappers
 from csnlp.util.io import SupportsDeepcopyAndPickle
 from csnlp.wrappers import Mpc
+from typing_extensions import TypeAlias
 
 from mpcrl.core.errors import MpcSolverError, MpcSolverWarning
 from mpcrl.core.exploration import ExplorationStrategy, NoExploration
 from mpcrl.core.random import make_seeds
 from mpcrl.util.named import Named
-from mpcrl.util.types import GymEnvLike, Tact, Tobs
+from mpcrl.util.types import GymEnvLike
 
-Tsym = TypeVar("Tsym", cs.SX, cs.MX)
+SymType = TypeVar("SymType", cs.SX, cs.MX)
+ActType: TypeAlias = Union[npt.ArrayLike, Dict[str, npt.ArrayLike]]
+ObsType: TypeAlias = Union[npt.ArrayLike, Dict[str, npt.ArrayLike]]
 
 
 def _update_dicts(sinks: Iterable[Dict], source: Dict) -> Iterator[Dict]:
@@ -41,7 +44,7 @@ def _get_action(mpc: Mpc, sol: Solution) -> cs.DM:
     return cs.vertcat(*(sol.vals[u][:, 0] for u in mpc.actions))
 
 
-class Agent(Named, SupportsDeepcopyAndPickle, Generic[Tsym]):
+class Agent(Named, SupportsDeepcopyAndPickle, Generic[SymType]):
     """Simple MPC-based agent with a fixed (i.e., non-learnable) MPC controller.
 
     In this agent, the MPC controller is used as policy provider, as well as to provide
@@ -63,7 +66,7 @@ class Agent(Named, SupportsDeepcopyAndPickle, Generic[Tsym]):
 
     def __init__(
         self,
-        mpc: Mpc[Tsym],
+        mpc: Mpc[SymType],
         fixed_parameters: Union[
             None, Dict[str, npt.ArrayLike], Collection[Dict[str, npt.ArrayLike]]
         ] = None,
@@ -120,12 +123,12 @@ class Agent(Named, SupportsDeepcopyAndPickle, Generic[Tsym]):
         return self
 
     @property
-    def V(self) -> Mpc[Tsym]:
+    def V(self) -> Mpc[SymType]:
         """Gets the MPC function approximation of the state value function `V(s)`."""
         return self._V
 
     @property
-    def Q(self) -> Mpc[Tsym]:
+    def Q(self) -> Mpc[SymType]:
         """Gets the MPC function approximation of the action value function `Q(s,a)`."""
         return self._Q
 
@@ -155,11 +158,11 @@ class Agent(Named, SupportsDeepcopyAndPickle, Generic[Tsym]):
 
     def reset(self) -> None:
         """Resets the agent's internal variables."""
-        self._last_solution: Optional[Solution[Tsym]] = None
+        self._last_solution: Optional[Solution[SymType]] = None
 
     def solve_mpc(
         self,
-        mpc: Mpc[Tsym],
+        mpc: Mpc[SymType],
         state: Union[npt.ArrayLike, Dict[str, npt.ArrayLike]],
         action: Union[None, npt.ArrayLike, Dict[str, npt.ArrayLike]] = None,
         perturbation: Optional[npt.ArrayLike] = None,
@@ -314,7 +317,7 @@ class Agent(Named, SupportsDeepcopyAndPickle, Generic[Tsym]):
 
     def evaluate(
         self,
-        env: GymEnvLike[Tobs, Tact],
+        env: GymEnvLike[ObsType, ActType],  # type: ignore
         episodes: int,
         deterministic: bool = True,
         seed: Union[None, int, Iterable[int]] = None,
@@ -373,7 +376,7 @@ class Agent(Named, SupportsDeepcopyAndPickle, Generic[Tsym]):
                 returns[episode] += r
         return returns
 
-    def _setup_V_and_Q(self, mpc: Mpc[Tsym]) -> Tuple[Mpc[Tsym], Mpc[Tsym]]:
+    def _setup_V_and_Q(self, mpc: Mpc[SymType]) -> Tuple[Mpc[SymType], Mpc[SymType]]:
         """Internal utility to setup the function approximators for the value function
         V(s) and the quality function Q(s,a)."""
         na = mpc.na

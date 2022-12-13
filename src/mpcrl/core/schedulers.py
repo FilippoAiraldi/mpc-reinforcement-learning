@@ -1,16 +1,16 @@
 from typing import Generic, TypeVar
 
-Tsc = TypeVar("Tsc")  # supports basic algebraic operations
+ScType = TypeVar("ScType")  # supports basic algebraic operations
 
 
-class Scheduler(Generic[Tsc]):
+class Scheduler(Generic[ScType]):
     """Schedulers are helpful classes to udpate or decay different quantities such as
     learning rates and/or exploration probability. This is a base class that actually
     does not update the value and keeps it constant."""
 
     __slots__ = ("value",)
 
-    def __init__(self, init_value: Tsc) -> None:
+    def __init__(self, init_value: ScType) -> None:
         """Builds the scheduler.
 
         Parameters
@@ -23,7 +23,6 @@ class Scheduler(Generic[Tsc]):
 
     def step(self) -> None:
         """Updates the value of the scheduler by one step."""
-        return  # does literally nothing
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(x0={self.value})"
@@ -38,7 +37,7 @@ class ExponentialScheduler(Scheduler):
 
     __slots__ = ("factor",)
 
-    def __init__(self, init_value: Tsc, factor: Tsc) -> None:
+    def __init__(self, init_value: ScType, factor: ScType) -> None:
         """Builds the exponential scheduler.
 
         Parameters
@@ -66,7 +65,9 @@ class LinearScheduler(Scheduler):
 
     __slots__ = ("increment",)
 
-    def __init__(self, init_value: Tsc, final_value: Tsc, total_steps: int) -> None:
+    def __init__(
+        self, init_value: ScType, final_value: ScType, total_steps: int
+    ) -> None:
         """Builds the exponential scheduler.
 
         Parameters
