@@ -54,7 +54,7 @@ class NoExploration(ExplorationStrategy):
 
     def perturbation(self, *args: Any, **kwargs: Any) -> npt.NDArray[np.double]:
         raise NotImplementedError(
-            f'Perturbation not implemented for {self.__class__.__name__}'
+            f"Perturbation not implemented in {self.__class__.__name__}"
         )
 
 

@@ -1,4 +1,8 @@
+from itertools import accumulate, repeat
+from operator import mul
 from typing import Generic, TypeVar
+
+import numpy as np
 
 ScType = TypeVar("ScType")  # supports basic algebraic operations
 
@@ -22,7 +26,14 @@ class Scheduler(Generic[ScType]):
         self.value = init_value
 
     def step(self) -> None:
-        """Updates the value of the scheduler by one step."""
+        """Updates the value of the scheduler by one step.
+
+        Raises
+        ------
+        StopIteration
+            Raises if the final iteration of the scheduler (if it has any) has been
+            reached and `step` is called again.
+        """
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(x0={self.value})"
@@ -60,10 +71,10 @@ class ExponentialScheduler(Scheduler):
 class LinearScheduler(Scheduler):
     """Linearly updates the initial value of the scheduler towards a final one to be
     reached in N total steps, i.e., after k steps, the value is
-    `value_k = init_value + (final_value - init_value) * k / total_steps `
+    `value_k = init_value + (final_value - init_value) * k / total_steps`.
     """
 
-    __slots__ = ("increment",)
+    __slots__ = ("generator", "init_value", "final_value", "total_steps")
 
     def __init__(
         self, init_value: ScType, final_value: ScType, total_steps: int
@@ -81,10 +92,50 @@ class LinearScheduler(Scheduler):
             `final_value`.
         """
         super().__init__(init_value)
-        self.increment = (final_value - init_value) / total_steps  # type: ignore
+        increment = (final_value - init_value) / total_steps  # type: ignore
+        self.init_value = init_value
+        self.final_value = final_value
+        self.total_steps = total_steps
+        self.generator = accumulate(repeat(increment, total_steps), initial=init_value)
+        next(self.generator)
 
     def step(self) -> None:
-        self.value += self.increment
+        self.value = next(self.generator)
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}(x0={self.value},increment={self.increment})"
+        return (
+            f"{self.__class__.__name__}(x={self.value},x0={self.init_value},"
+            f"xf={self.final_value},N={self.total_steps})"
+        )
+
+
+class LogLinearScheduler(ExponentialScheduler):
+    """Updates the initial value of the scheduler towards a final one to be
+    reached in N total steps in a linear fashion between the exponents of the two, i.e.,
+    after k steps, the value is
+    `value_k = init_value * exp(ln(final_value / init_value) / total_steps)**k`.
+    """
+
+    __slots__ = ("generator", "init_value", "final_value", "total_steps")
+
+    def __init__(
+        self, init_value: ScType, final_value: ScType, total_steps: int
+    ) -> None:
+        factor = np.exp(np.log(final_value / init_value) / total_steps)  # type: ignore
+        super().__init__(init_value, factor)
+        self.init_value = init_value
+        self.final_value = final_value
+        self.total_steps = total_steps
+        self.generator = accumulate(
+            repeat(factor, total_steps), func=mul, initial=init_value
+        )
+        next(self.generator)
+
+    def step(self) -> None:
+        self.value = next(self.generator)
+
+    def __repr__(self) -> str:
+        return (
+            f"{self.__class__.__name__}(x={self.value},x0={self.init_value},"
+            f"xf={self.final_value},N={self.total_steps})"
+        )

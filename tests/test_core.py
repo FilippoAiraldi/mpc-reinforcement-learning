@@ -32,7 +32,7 @@ class TestExperienceReplay(unittest.TestCase):
 
     def test_sample__raises__with_no_maxlen_and_percentage_size(self):
         mem = ExperienceReplay[Tuple[np.ndarray, float]](maxlen=None)
-        with self.assertRaises(TypeError):
+        with self.assertRaises(AssertionError):
             list(mem.sample(n=0.0))
 
     @parameterized.expand([(0,), (float(0),)])
@@ -118,14 +118,36 @@ class TestSchedulers(unittest.TestCase):
         do_test_str_and_repr(self, scheduler)
 
     def test_linear_scheduler__step__updates_value_correctly(self):
+        # sourcery skip: class-extract-method
         K = 20
         x0 = np.random.rand() * 10
         xf = np.random.rand() * 10
-        x_expected = x0 + (xf - x0) / K * np.arange(K)  # akin to np.linspace
+        x_expected = np.linspace(x0, xf, K + 1)
         scheduler = S.LinearScheduler(x0, xf, K)
         x_actual = []
         for _ in range(K):
             x_actual.append(scheduler.value)
+            scheduler.step()
+        x_actual.append(scheduler.value)
+        with self.assertRaises(StopIteration):
+            scheduler.step()
+        np.testing.assert_allclose(x_expected, x_actual)
+        do_test_str_and_repr(self, scheduler)
+
+    def test_loglinear_scheduler__step__updates_value_correctly(self):
+        # sourcery skip: class-extract-method
+        K = 20
+        base = np.random.rand() + 1 * 10
+        x0 = np.random.randn() + 3
+        xf = np.random.randn()
+        x_expected = np.logspace(x0, xf, K + 1, base=base)
+        scheduler = S.LogLinearScheduler(base**x0, base**xf, K)
+        x_actual = []
+        for _ in range(K):
+            x_actual.append(scheduler.value)
+            scheduler.step()
+        x_actual.append(scheduler.value)
+        with self.assertRaises(StopIteration):
             scheduler.step()
         np.testing.assert_allclose(x_expected, x_actual)
         do_test_str_and_repr(self, scheduler)
@@ -135,7 +157,10 @@ class TestExploration(unittest.TestCase):
     def test_no_exploration__never_explores(self):
         exploration = E.NoExploration()
         self.assertFalse(exploration.can_explore())
-        np.testing.assert_equal(exploration.perturbation(), np.nan)
+        with self.assertRaisesRegex(
+            NotImplementedError, "Perturbation not implemented in NoExploration"
+        ):
+            exploration.perturbation()
         exploration.step()  # does nothing
         do_test_str_and_repr(self, exploration)
 
