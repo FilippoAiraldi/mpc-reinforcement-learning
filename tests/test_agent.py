@@ -89,6 +89,9 @@ class DummyLearningAgent(LearningAgent):
     def update(self, *args, **kwargs):
         return
 
+    def solve_iteration(self, *args, **kwargs):
+        return
+
 
 @parameterized_class("multistart_nlp", [(True,), (False,)])
 class TestAgent(unittest.TestCase):
