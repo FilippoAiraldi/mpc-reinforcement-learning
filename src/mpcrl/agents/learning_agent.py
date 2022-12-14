@@ -106,3 +106,62 @@ class LearningAgent(Agent[SymType], ABC, Generic[SymType]):
         """
         if self._experience is not None:
             self._experience.append(item)
+
+    def on_training_start(self, env: GymEnvLike[ObsType, ActType]) -> None:
+        """Callback called at the beginning of the training process.
+
+        Parameters
+        ----------
+        env : gym env
+            A gym-like environment where the agent is being trained on.
+        """
+
+    def on_training_end(self, env: GymEnvLike[ObsType, ActType]) -> None:
+        """Callback called at the end of the training process.
+
+        Parameters
+        ----------
+        env : gym env
+            A gym-like environment where the agent has been trained on.
+        """
+
+    def on_episode_start(self, env: GymEnvLike[ObsType, ActType], episode: int) -> None:
+        """Callback called at the beginning of each episode in the training process.
+
+        Parameters
+        ----------
+        env : gym env
+            A gym-like environment where the agent is being trained on.
+        episode : int
+            Number of the training episode.
+        """
+
+    def on_episode_end(self, env: GymEnvLike[ObsType, ActType], episode: int) -> None:
+        """Callback called at the end of each episode in the training process.
+
+        Parameters
+        ----------
+        env : gym env
+            A gym-like environment where the agent is being trained on.
+        episode : int
+            Number of the training episode.
+        """
+
+    def on_env_step(
+        self, env: GymEnvLike[ObsType, ActType], episode: int, timestep: int
+    ) -> None:
+        """Callback called after each `env.step`.
+
+        Parameters
+        ----------
+        env : gym env
+            A gym-like environment where the agent is being trained on.
+        episode : int
+            Number of the training episode.
+        timestep : int
+            Time instant of the current training episode.
+        """
+
+    def on_udpate(self) -> None:
+        """Callaback called after each `agent.update`. Use this callback for, e.g.,
+        decaying exploration probabilities or learning rates."""
