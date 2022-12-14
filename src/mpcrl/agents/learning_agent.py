@@ -165,3 +165,55 @@ class LearningAgent(Agent[SymType], ABC, Generic[SymType]):
     def on_udpate(self) -> None:
         """Callaback called after each `agent.update`. Use this callback for, e.g.,
         decaying exploration probabilities or learning rates."""
+
+    @abstractmethod
+    def solve_iteration(
+        self,
+        state: ObsType,
+        previous_state: Optional[ObsType],
+        previous_action: Optional[ActType],
+    ) -> Tuple[ActType, Solution[SymType], Optional[Solution[SymType]], Optional[str]]:
+        """Computes the state value function `V(s)` and, optionally the action value
+        function `Q(s,a)`, for the current iteration, returning the action to apply to
+        the environment.
+
+        Parameters
+        ----------
+        state : array_like or dict[str, array_like]
+            Current state of the environment, and for which to solve `V(s)` and,
+            possibly, `Q(s,a)`. The returned action type should be compatible with the
+            training environment.
+        previous_state : array_like or dict[str, array_like] or None
+            The previous state of the environment. At the first timestep it is `None`.
+        previous_action : array_like or dict[str, array_like] or None
+            The previous action applied to the environment. At the first timestep it is
+            `None`.
+
+        Returns
+        -------
+        action : array_like or dict[str, array_like]
+            The next action to take in the environment.
+        solution_V : Solution[casadi.SX or MX]
+            The solution to the state value function `V(s)` at the current state.
+        solution_Q : Solution[casadi.SX or MX] or None
+            The solution to the action value function `Q(s,a)` at the previous state and
+            action. Can be `None` if this value function is not needed by the learning
+            algorithm.
+        errormsg : str or None
+            `None` is returned in case all the MPC solvers ran succesfully, and the
+            current transition shall be saved in the experience memory; otherwise, a
+            string containing an error message is returned to be raised as error or
+            warning and the transition will NOT be saved.
+        """
+
+    @abstractmethod
+    def update(self) -> Optional[str]:
+        """Updates the learnable parameters of the MPC according to the agent's learning
+        algorithm.
+
+        Returns
+        -------
+        errormsg : str or None
+            In case the update fails, an error message is returned to be raised as error
+            or warning; otherwise, `None` is returned.
+        """
