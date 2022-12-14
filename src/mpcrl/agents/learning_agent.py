@@ -29,6 +29,8 @@ class LearningAgent(Agent[SymType], ABC, Generic[SymType]):
     Note: this class makes no assumptions on the learning methodology used to update the
     MPC's learnable parameters."""
 
+    __slots__ = ("_experience", "_learnable_pars")
+
     def __init__(
         self,
         mpc: Mpc[SymType],
