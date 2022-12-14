@@ -366,6 +366,113 @@ class TestLearningAgent(unittest.TestCase):
         agent.store_experience(item)
         experience.append.assert_called_once_with(item)
 
+    @parameterized.expand([("V",), ("Q",)])
+    def test_train__does_not_store_experience__with_failure_in_V_or_Q(self, type: str):
+        seed = 69
+        episodes = 1
+        update_frequency = 5
+        learnable_parameters = LearnableParametersDict()
+        env = MagicMock()
+        env.reset = Mock(return_value=(object(), object()))
+        env.step = Mock(return_value=(object(), 2, True, True, {}))
+        agent = DummyLearningAgent(
+            mpc=get_mpc(3, False), learnable_parameters=learnable_parameters
+        )
+        if type == "V":
+            solV = Solution(None, {}, {}, {"success": False}, None)
+            solQ = None
+        else:
+            solV = Solution(None, {}, {}, {"success": True}, None)
+            solQ = Solution(None, {}, {}, {"success": False}, None)
+        agent.solve_iteration = Mock(return_value=((object(), solV, solQ, "")))
+        agent.store_experience = Mock()
+
+        agent.train(env, episodes, update_frequency, seed, raises=False)
+
+        agent.store_experience.assert_not_called()
+
+    def test_train__performs_correct_calls(self):
+        seed = 69
+        episodes = 3
+        episode_length = 10
+        Ttot = episodes * episode_length
+        update_frequency = 5
+        Nupdates = Ttot // update_frequency
+        reset_states = [object() for _ in range(episodes)]
+        step_states = [object() for _ in range(Ttot)]
+        rewards = np.random.randn(Ttot)
+        truncateds = [False] * Ttot
+        terminateds = np.full(Ttot, 0, dtype=bool)
+        terminateds[::-episode_length] = True
+        infos = [{}] * Ttot
+        env = MagicMock()
+        env.reset = Mock(side_effect=zip(reset_states, infos))
+        env.step = Mock(
+            side_effect=zip(step_states, rewards, truncateds, terminateds, infos)
+        )
+        actions = np.random.randn(Ttot, 2, 1)
+        successes = [True] * Ttot
+        solsV = map(
+            lambda success: Solution(
+                0,
+                {},
+                {},
+                {"success": success, "return_status": "a status"},
+                None,
+            ),
+            successes,
+        )
+        solsQ = [None] * Ttot
+        errormsgs = [None] * Ttot
+        agent = DummyLearningAgent(
+            mpc=get_mpc(3, False), learnable_parameters=LearnableParametersDict()
+        )
+        agent.solve_iteration = Mock(side_effect=zip(actions, solsV, solsQ, errormsgs))
+        agent.update = Mock(side_effect=errormsgs)
+        agent.store_experience = Mock()
+        agent.on_training_start = Mock()
+        agent.on_training_end = Mock()
+        agent.on_episode_start = Mock()
+        agent.on_episode_end = Mock()
+        agent.on_env_step = Mock()
+        agent.on_udpate = Mock()
+
+        returns = agent.train(env, episodes, update_frequency, seed, raises=False)
+
+        np.testing.assert_allclose(returns, rewards.reshape(-1, episode_length).sum(1))
+        env.reset.assert_has_calls([call(seed=seed + i) for i in range(episodes)])
+        for mcall, u in zip(env.step.mock_calls, actions):
+            self.assertEqual(len(mcall.args), 1)
+            np.testing.assert_array_equal(mcall.args[0], u)
+        agent.on_training_start.assert_called_once_with(env)
+        agent.on_training_end.assert_called_once_with(env)
+        agent.on_episode_start.assert_has_calls([call(env, e) for e in range(episodes)])
+        agent.on_episode_end.assert_has_calls([call(env, e) for e in range(episodes)])
+        agent.on_env_step.assert_has_calls(
+            [call(env, e, t) for e in range(episodes) for t in range(episode_length)]
+        )
+        agent.on_udpate.assert_has_calls([call() for _ in range(Nupdates)])
+        agent.update.assert_has_calls([call() for _ in range(Nupdates)])
+        states = np.column_stack(
+            (reset_states, np.asarray(step_states).reshape(-1, episode_length))
+        )[:, :-1]
+        previous_states = np.column_stack(([None] * episodes, states[:, :-1]))
+        previous_actions = np.column_stack(
+            (
+                np.full((episodes, 1, 2, 1), None),
+                actions.reshape(-1, episode_length, 2, 1)[:, :-1, :, :],
+            )
+        )
+        for mcall, s, sp, ap in zip(
+            agent.solve_iteration.mock_calls,
+            states.flatten(),
+            previous_states.flatten(),
+            previous_actions.reshape(-1, 2, 1),
+        ):
+            self.assertEqual(len(mcall.args), 3)
+            self.assertIs(mcall.args[0], s)
+            self.assertIs(mcall.args[1], sp)
+            np.testing.assert_array_equal(mcall.args[2], ap)
 
 
 
