@@ -1,6 +1,5 @@
-from calendar import LocaleTextCalendar
 from contextlib import contextmanager
-from typing import Generic, Type, Iterator, Any
+from typing import Any, Generic, Iterator, Type
 
 from csnlp.util.io import SupportsDeepcopyAndPickle
 
@@ -33,7 +32,7 @@ class Wrapper(SupportsDeepcopyAndPickle, Generic[SymType]):
         return self.agent.unwrapped
 
     def is_wrapped(self, wrapper_type: Type["Wrapper[SymType]"]) -> bool:
-        """Gets whether the agent instance is wrapped or not by the given wrapper type.
+        """Gets whether the agent instance is wrapped or not by the wrapper type.
 
         Parameters
         ----------

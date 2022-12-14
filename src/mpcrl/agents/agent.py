@@ -1,5 +1,6 @@
 from contextlib import contextmanager
 from typing import (
+    Any,
     Collection,
     Dict,
     Generic,
@@ -10,7 +11,6 @@ from typing import (
     Tuple,
     TypeVar,
     Union,
-    Any,
 )
 from warnings import warn
 
@@ -132,8 +132,7 @@ class Agent(Named, SupportsDeepcopyAndPickle, Generic[SymType]):
         return self
 
     def is_wrapped(self, *args: Any, **kwargs: Any) -> bool:
-        """Gets whether the agent instance is wrapped or not by the given wrapper type.
-        """
+        """Gets whether the agent instance is wrapped or not by the wrapper type."""
         return False
 
     @property
