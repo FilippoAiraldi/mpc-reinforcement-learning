@@ -10,6 +10,7 @@ from typing import (
     Tuple,
     TypeVar,
     Union,
+    Any,
 )
 from warnings import warn
 
@@ -129,6 +130,11 @@ class Agent(Named, SupportsDeepcopyAndPickle, Generic[SymType]):
     def unwrapped(self) -> "Agent":
         """Gets the underlying wrapped instance of an agent."""
         return self
+
+    def is_wrapped(self, *args: Any, **kwargs: Any) -> bool:
+        """Gets whether the agent instance is wrapped or not by the given wrapper type.
+        """
+        return False
 
     @property
     def V(self) -> Mpc[SymType]:
