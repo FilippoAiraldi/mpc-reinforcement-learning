@@ -44,6 +44,14 @@ def _get_action(mpc: Mpc, sol: Solution) -> cs.DM:
     return cs.vertcat(*(sol.vals[u][:, 0] for u in mpc.actions))
 
 
+def _raise_or_warn_mpc_failure(msg: str, raises: bool) -> None:
+    """Internal utility to raise errors or warnings with a message for MPC failures."""
+    if raises:
+        raise MpcSolverError(msg)
+    else:
+        warn(msg, MpcSolverWarning)
+
+
 class Agent(Named, SupportsDeepcopyAndPickle, Generic[SymType]):
     """Simple MPC-based agent with a fixed (i.e., non-learnable) MPC controller.
 
@@ -321,13 +329,13 @@ class Agent(Named, SupportsDeepcopyAndPickle, Generic[SymType]):
         episodes: int,
         deterministic: bool = True,
         seed: Union[None, int, Iterable[int]] = None,
-        warns_on_exception: bool = False,
+        raises: bool = True,
     ) -> npt.NDArray[np.double]:
         """Evaluates the agent in a given environment.
 
         Note: after solving `V(s)` for the current state `s`, the action is computed and
-        assed to the environment as the concatenation of the first optimal actions of
-        the MPC.
+        passed to the environment as the concatenation of the first optimal action
+        variables of the MPC (see `csnlp.Mpc.actions`).
 
         Parameters
         ----------
@@ -338,10 +346,10 @@ class Agent(Named, SupportsDeepcopyAndPickle, Generic[SymType]):
         deterministic : bool, optional
             Whether the agent should act deterministically; by default, `True`.
         seed : int or iterable of ints, optional
-            Each env's seeds for RNG.
-        warns_on_exception: bool, optional
-            If `True`, when the MPC solver fails, the exception will be propagated;
-            otherwise, a warning is raised but the evaluation is not stopped.
+            Each env's seed for RNG.
+        raises : bool, optional
+            If `True`, when any of the MPC solver runs fails, or when an update fails,
+            the corresponding error is raised; otherwise, only a warning is raised.
 
         Returns
         -------
@@ -360,16 +368,11 @@ class Agent(Named, SupportsDeepcopyAndPickle, Generic[SymType]):
             truncated, terminated = False, False
 
             while not (truncated or terminated):
-                try:
-                    sol = self.state_value(state, deterministic)
-                except MpcSolverError as ex:
-                    if warns_on_exception:
-                        warn(
-                            f"Exception raised during mpc solver with args={ex.args}",
-                            MpcSolverWarning,
-                        )
-                    else:
-                        raise ex
+                sol = self.state_value(state, deterministic)
+                if not sol.success:
+                    _raise_or_warn_mpc_failure(
+                        f"Solver failed with status: {sol.status}.", raises
+                    )
                 action = _get_action(self._V, sol)
 
                 state, r, truncated, terminated, _ = env.step(action)

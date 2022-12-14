@@ -3,6 +3,7 @@ import unittest
 from functools import lru_cache
 from itertools import product
 from unittest.mock import MagicMock, Mock, call
+from warnings import catch_warnings
 
 import casadi as cs
 import numpy as np
@@ -11,7 +12,13 @@ from csnlp.wrappers import Mpc, NlpScaling
 from parameterized import parameterized, parameterized_class
 from scipy import io as matio
 
-from mpcrl import Agent, ExperienceReplay, LearnableParametersDict, LearningAgent
+from mpcrl import (
+    Agent,
+    ExperienceReplay,
+    LearnableParametersDict,
+    LearningAgent,
+    MpcSolverWarning,
+)
 from mpcrl import exploration as E
 from mpcrl import schedulers as S
 
@@ -298,16 +305,27 @@ class TestAgent(unittest.TestCase):
         )
         actions1 = np.random.randn(Ttot, 2, 1)
         actions2 = np.random.randn(Ttot, 3, 1)
+        successes = [True] * (Ttot - 1) + [False]
         sols = map(
-            lambda u1, u2: Solution(0, {}, {"u1": u1, "u2": u2}, {}, None),
+            lambda u1, u2, success: Solution(
+                0,
+                {},
+                {"u1": u1, "u2": u2},
+                {"success": success, "return_status": "bad"},
+                None,
+            ),
             actions1,
             actions2,
+            successes,
         )
         agent = Agent(mpc=get_mpc(3, False))
         agent.state_value = Mock(side_effect=sols)
         deterministic = object()
 
-        returns = agent.evaluate(env, episodes, deterministic=deterministic, seed=seed)
+        with catch_warnings(record=True) as cw:
+            returns = agent.evaluate(
+                env, episodes, deterministic=deterministic, seed=seed, raises=False
+            )
 
         np.testing.assert_allclose(returns, rewards.reshape(-1, episode_length).sum(1))
         env.reset.assert_has_calls([call(seed=seed + i) for i in range(episodes)])
@@ -320,6 +338,8 @@ class TestAgent(unittest.TestCase):
         agent.state_value.assert_has_calls(
             [call(state, deterministic) for state in states]
         )
+        self.assertEqual(len(cw), 1)
+        self.assertIs(cw[0].category, MpcSolverWarning)
 
 
 class TestLearningAgent(unittest.TestCase):
