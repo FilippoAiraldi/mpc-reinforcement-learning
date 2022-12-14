@@ -7,7 +7,13 @@ import numpy.typing as npt
 from csnlp import Solution
 from csnlp.wrappers import Mpc
 
-from mpcrl.agents.agent import ActType, Agent, ObsType, SymType
+from mpcrl.agents.agent import (
+    ActType,
+    Agent,
+    ObsType,
+    SymType,
+    _raise_or_warn_mpc_failure,
+)
 from mpcrl.core.errors import UpdateError, UpdateWarning
 from mpcrl.core.experience import ExperienceReplay
 from mpcrl.core.exploration import ExplorationStrategy
@@ -18,6 +24,15 @@ from mpcrl.util.types import GymEnvLike
 ExpType = Tuple[
     ObsType, ActType, float, ObsType, Solution[SymType], Optional[Solution[SymType]]
 ]
+
+
+def _raise_or_warn_update_failure(msg: str, raises: bool) -> None:
+    """Internal utility to raise errors or warnings with a message for update
+    failures."""
+    if raises:
+        raise UpdateError(msg)
+    else:
+        warn(msg, UpdateWarning)
 
 
 class LearningAgent(Agent[SymType], ABC, Generic[SymType]):
@@ -217,3 +232,93 @@ class LearningAgent(Agent[SymType], ABC, Generic[SymType]):
             In case the update fails, an error message is returned to be raised as error
             or warning; otherwise, `None` is returned.
         """
+
+    def train(
+        self,
+        env: GymEnvLike[ObsType, ActType],
+        episodes: int,
+        update_frequency: int,
+        seed: Union[None, int, Iterable[int]] = None,
+        raises: bool = True,
+    ) -> npt.NDArray[np.double]:
+        """Train the agent on an environment.
+
+        Parameters
+        ----------
+        env : GymEnvLike[ObsType, ActType]
+            A gym-like environment where to train the agent in.
+        episodes : int
+            Number of training episodes.
+        update_frequency : int
+            The frequency of timesteps (i.e., every `env.step`) at which to perform
+            updates to the learning parameters.
+        seed : int or iterable of ints, optional
+            Each env's seed for RNG.
+        raises : bool, optional
+            If `True`, when any of the MPC solver runs fails, or when an update fails,
+            the corresponding error is raised; otherwise, only a warning is raised.
+
+        Returns
+        -------
+        array of doubles
+            The cumulative returns for each training episode.
+
+        Raises
+        ------
+        MpcSolverError or MpcSolverWarning
+            Raises the error or the warning (depending on `raises`) if any of the MPC
+            solvers fail.
+        UpdateError or UpdateWarning
+            Raises the error or the warning (depending on `raises`) if the update fails.
+        """
+        self.on_training_start(env)
+
+        # prepare for training start
+        update_counter = 0
+        returns = np.zeros(episodes)
+
+        for episode, current_seed in zip(range(episodes), make_seeds(seed)):
+            self.on_episode_start(env, episode)
+
+            # reset agent and env
+            self.reset()
+            previous_state, previous_action = None, None
+            state, _ = env.reset(seed=current_seed)
+            truncated, terminated, timestep = False, False, 0
+
+            while not (truncated or terminated):
+                # solve V and Q at this iteration
+                action, solV, solQ, mpc_errormsg = self.solve_iteration(
+                    state, previous_state, previous_action
+                )
+                if mpc_errormsg:
+                    _raise_or_warn_mpc_failure(mpc_errormsg, raises)
+
+                # apply action to env
+                next_state, r, truncated, terminated, _ = env.step(action)
+                self.on_env_step(env, episode, timestep)
+
+                # store the experience only if the mpc solver did not fail
+                if not mpc_errormsg and solV.success and (solQ is None or solQ.success):
+                    experience = (state, action, r, next_state, solV, solQ)
+                    self.store_experience(experience)
+
+                # check if it is time to update
+                if (update_counter + 1) % update_frequency == 0:
+                    if update_errormsg := self.update():
+                        _raise_or_warn_update_failure(update_errormsg, raises)
+                    self.on_udpate()
+
+                # increase counters
+                returns[episode] += r
+                timestep += 1
+                update_counter += 1
+                update_counter %= update_frequency
+                previous_state, previous_action, state = state, action, next_state
+
+            self.on_episode_end(env, episode)
+
+        self.on_training_end(env)
+        return returns
+
+
