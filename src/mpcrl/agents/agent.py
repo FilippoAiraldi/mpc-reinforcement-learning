@@ -12,7 +12,6 @@ from typing import (
     TypeVar,
     Union,
 )
-from warnings import warn
 
 import casadi as cs
 import numpy as np
@@ -22,7 +21,7 @@ from csnlp.util.io import SupportsDeepcopyAndPickle
 from csnlp.wrappers import Mpc
 from typing_extensions import TypeAlias
 
-from mpcrl.core.errors import MpcSolverError, MpcSolverWarning
+from mpcrl.core.errors import raise_or_warn_on_mpc_failure
 from mpcrl.core.exploration import ExplorationStrategy, NoExploration
 from mpcrl.core.random import generate_seeds
 from mpcrl.util.named import Named
@@ -43,14 +42,6 @@ def _update_dicts(sinks: Iterable[Dict], source: Dict) -> Iterator[Dict]:
 def _get_action(mpc: Mpc, sol: Solution) -> cs.DM:
     """Internal utility to get the first optimal MPC action from a solution."""
     return cs.vertcat(*(sol.vals[u][:, 0] for u in mpc.actions))
-
-
-def _raise_or_warn_mpc_failure(msg: str, raises: bool) -> None:
-    """Internal utility to raise errors or warnings with a message for MPC failures."""
-    if raises:
-        raise MpcSolverError(msg)
-    else:
-        warn(msg, MpcSolverWarning)
 
 
 class Agent(Named, SupportsDeepcopyAndPickle, Generic[SymType]):
@@ -375,7 +366,7 @@ class Agent(Named, SupportsDeepcopyAndPickle, Generic[SymType]):
             while not (truncated or terminated):
                 sol = self.state_value(state, deterministic)
                 if not sol.success:
-                    _raise_or_warn_mpc_failure(
+                    raise_or_warn_on_mpc_failure(
                         f"Solver failed with status: {sol.status}.", raises
                     )
                 action = _get_action(self._V, sol)

@@ -1,20 +1,12 @@
 from abc import ABC, abstractmethod
 from typing import Collection, Dict, Generic, Iterable, Literal, Optional, Tuple, Union
-from warnings import warn
 
 import numpy as np
 import numpy.typing as npt
 from csnlp import Solution
 from csnlp.wrappers import Mpc
 
-from mpcrl.agents.agent import (
-    ActType,
-    Agent,
-    ObsType,
-    SymType,
-    _raise_or_warn_mpc_failure,
-)
-from mpcrl.core.errors import UpdateError, UpdateWarning
+from mpcrl.agents.agent import ActType, Agent, ObsType, SymType
 from mpcrl.core.experience import ExperienceReplay
 from mpcrl.core.exploration import ExplorationStrategy
 from mpcrl.core.parameters import LearnableParametersDict
@@ -26,13 +18,7 @@ ExpType = Tuple[
 ]
 
 
-def _raise_or_warn_update_failure(msg: str, raises: bool) -> None:
-    """Internal utility to raise errors or warnings with a message for update
-    failures."""
-    if raises:
-        raise UpdateError(msg)
-    else:
-        warn(msg, UpdateWarning)
+
 
 
 class LearningAgent(Agent[SymType], ABC, Generic[SymType]):

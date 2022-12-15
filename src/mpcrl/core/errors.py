@@ -1,3 +1,6 @@
+from warnings import warn
+
+
 class MpcSolverError(RuntimeError):
     """Exception class for raising errors when MPC solvers fails."""
 
@@ -22,3 +25,47 @@ class UpdateWarning(RuntimeWarning):
     def from_exception(cls, ex: UpdateError) -> "UpdateWarning":
         """Creates a warning from the corresponding error."""
         return cls(*ex.args)
+
+
+def raise_or_warn_on_update_failure(msg: str, raises: bool) -> None:
+    """Raises errors or warnings with a message for update failures.
+
+    Parameters
+    ----------
+    msg : str
+        The exception or warning message.
+    raises : bool
+        If `True`, raises an exception; otherwise, throws a warning.
+
+    Raises
+    ------
+    UpdateError
+        Raises `UpdateError` if `raises=True`; otherwise raises
+        `UpdateWarning`.
+    """
+    if raises:
+        raise UpdateError(msg)
+    else:
+        warn(msg, UpdateWarning)
+
+
+def raise_or_warn_on_mpc_failure(msg: str, raises: bool) -> None:
+    """Raises errors or warnings with a message for MPC failures.
+
+    Parameters
+    ----------
+    msg : str
+        The exception or warning message.
+    raises : bool
+        If `True`, raises an exception; otherwise, throws a warning.
+
+    Raises
+    ------
+    UpdateError
+        Raises `MpcSolverError` if `raises=True`; otherwise raises
+        `MpcSolverWarning`.
+    """
+    if raises:
+        raise MpcSolverError(msg)
+    else:
+        warn(msg, MpcSolverWarning)
