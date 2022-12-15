@@ -1,5 +1,15 @@
 from abc import ABC, abstractmethod
-from typing import Collection, Dict, Generic, Iterable, Literal, Optional, Tuple, Union
+from typing import (
+    Any,
+    Collection,
+    Dict,
+    Generic,
+    Iterable,
+    Literal,
+    Optional,
+    Tuple,
+    Union,
+)
 
 import numpy as np
 import numpy.typing as npt
@@ -183,6 +193,7 @@ class LearningAgent(Agent[SymType], ABC, Generic[SymType]):
         update_frequency: int,
         seed: Union[None, int, Iterable[int]] = None,
         raises: bool = True,
+        env_reset_options: Optional[Dict[str, Any]] = None,
     ) -> npt.NDArray[np.double]:
         """Train the agent on an environment.
 
@@ -200,6 +211,9 @@ class LearningAgent(Agent[SymType], ABC, Generic[SymType]):
         raises : bool, optional
             If `True`, when any of the MPC solver runs fails, or when an update fails,
             the corresponding error is raised; otherwise, only a warning is raised.
+        env_reset_options : dict, optional
+            Additional information to specify how the environment is reset at each
+            training episode (optional, depending on the specific environment).
 
         Returns
         -------

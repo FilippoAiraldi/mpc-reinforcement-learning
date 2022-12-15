@@ -326,6 +326,7 @@ class Agent(Named, SupportsDeepcopyAndPickle, Generic[SymType]):
         deterministic: bool = True,
         seed: Union[None, int, Iterable[int]] = None,
         raises: bool = True,
+        env_reset_options: Optional[Dict[str, Any]] = None,
     ) -> npt.NDArray[np.double]:
         """Evaluates the agent in a given environment.
 
@@ -346,6 +347,9 @@ class Agent(Named, SupportsDeepcopyAndPickle, Generic[SymType]):
         raises : bool, optional
             If `True`, when any of the MPC solver runs fails, or when an update fails,
             the corresponding error is raised; otherwise, only a warning is raised.
+        env_reset_options : dict, optional
+            Additional information to specify how the environment is reset at each
+            evalution episode (optional, depending on the specific environment).
 
         Returns
         -------
@@ -360,7 +364,7 @@ class Agent(Named, SupportsDeepcopyAndPickle, Generic[SymType]):
 
         for episode, current_seed in zip(range(episodes), generate_seeds(seed)):
             self.reset()
-            state, _ = env.reset(seed=current_seed)
+            state, _ = env.reset(seed=current_seed, options=env_reset_options)
             truncated, terminated = False, False
 
             while not (truncated or terminated):
