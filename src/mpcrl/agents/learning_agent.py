@@ -7,13 +7,12 @@ from typing import (
     Iterable,
     Literal,
     Optional,
-    Tuple,
+    TypeVar,
     Union,
 )
 
 import numpy as np
 import numpy.typing as npt
-from csnlp import Solution
 from csnlp.wrappers import Mpc
 
 from mpcrl.agents.agent import ActType, Agent, ObsType, SymType
@@ -22,12 +21,10 @@ from mpcrl.core.exploration import ExplorationStrategy
 from mpcrl.core.parameters import LearnableParametersDict
 from mpcrl.util.types import GymEnvLike
 
-ExpType = Tuple[
-    ObsType, ActType, float, ObsType, Solution[SymType], Optional[Solution[SymType]]
-]
+ExpType = TypeVar("ExpType")
 
 
-class LearningAgent(Agent[SymType], ABC, Generic[SymType]):
+class LearningAgent(Agent[SymType], ABC, Generic[SymType, ExpType]):
     """Base class for a learning agent with MPC as policy provider where the main method
     `update`, which is called to update the learnable parameters of the MPC according to
     the underlying learning methodology (e.g., Bayesian Optimization, RL, etc.) is
