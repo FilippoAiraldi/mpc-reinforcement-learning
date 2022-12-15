@@ -166,7 +166,7 @@ class LearningAgent(Agent[SymType], ABC, Generic[SymType, ExpType]):
             Time instant of the current training episode.
         """
 
-    def on_udpate(self) -> None:
+    def on_update(self) -> None:
         """Callaback called after each `agent.update`. Use this callback for, e.g.,
         decaying exploration probabilities or learning rates."""
 
