@@ -172,7 +172,7 @@ class EpsilonGreedyExploration(GreedyExploration):
     def step(self) -> None:
         """Updates the exploration probability and strength according to their
         schedulers."""
-        super().step()  # decays only the strength
+        self.strength_scheduler.step()
         self.epsilon_scheduler.step()
 
     def __repr__(self) -> str:
