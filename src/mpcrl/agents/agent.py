@@ -24,7 +24,7 @@ from typing_extensions import TypeAlias
 
 from mpcrl.core.errors import MpcSolverError, MpcSolverWarning
 from mpcrl.core.exploration import ExplorationStrategy, NoExploration
-from mpcrl.core.random import make_seeds
+from mpcrl.core.random import generate_seeds
 from mpcrl.util.named import Named
 from mpcrl.util.types import GymEnvLike
 
@@ -367,7 +367,7 @@ class Agent(Named, SupportsDeepcopyAndPickle, Generic[SymType]):
         """
         returns = np.zeros(episodes)
 
-        for episode, current_seed in zip(range(episodes), make_seeds(seed)):
+        for episode, current_seed in zip(range(episodes), generate_seeds(seed)):
             self.reset()
             state, _ = env.reset(seed=current_seed)
             truncated, terminated = False, False

@@ -18,7 +18,7 @@ from mpcrl.core.errors import UpdateError, UpdateWarning
 from mpcrl.core.experience import ExperienceReplay
 from mpcrl.core.exploration import ExplorationStrategy
 from mpcrl.core.parameters import LearnableParametersDict
-from mpcrl.core.random import make_seeds
+from mpcrl.core.random import generate_seeds
 from mpcrl.util.types import GymEnvLike
 
 ExpType = Tuple[
@@ -277,7 +277,7 @@ class LearningAgent(Agent[SymType], ABC, Generic[SymType]):
         update_counter = 0
         returns = np.zeros(episodes)
 
-        for episode, current_seed in zip(range(episodes), make_seeds(seed)):
+        for episode, current_seed in zip(range(episodes), generate_seeds(seed)):
             self.on_episode_start(env, episode)
 
             # reset agent and env

@@ -11,7 +11,7 @@ from parameterized import parameterized
 from mpcrl import ExperienceReplay, LearnableParameter, LearnableParametersDict
 from mpcrl import exploration as E
 from mpcrl import schedulers as S
-from mpcrl.core.random import make_seeds, np_random
+from mpcrl.core.random import generate_seeds, np_random
 
 
 def do_test_str_and_repr(testcase: unittest.TestCase, scheduler: S.Scheduler):
@@ -93,7 +93,7 @@ class TestRandom(unittest.TestCase):
             expected_seeds = [seed + i for i in range(N)]
         else:
             expected_seeds = seed
-        seeds1, seeds2 = list(zip(*zip(expected_seeds, make_seeds(seed))))
+        seeds1, seeds2 = list(zip(*zip(expected_seeds, generate_seeds(seed))))
         self.assertListEqual(list(seeds1), list(seeds2))
 
 

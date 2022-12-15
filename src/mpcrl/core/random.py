@@ -35,7 +35,7 @@ def np_random(seed: Optional[int] = None) -> Tuple[np.random.Generator, int]:
     return rng, np_seed  # type: ignore
 
 
-def make_seeds(
+def generate_seeds(
     starting_seed: Union[None, int, Iterable[int]]
 ) -> Generator[Optional[int], None, None]:
     """Given a starting seed, converts it into a generator of seeds, where each seed is
