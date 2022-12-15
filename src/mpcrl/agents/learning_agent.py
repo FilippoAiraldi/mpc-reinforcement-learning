@@ -9,7 +9,9 @@ from typing import (
     Optional,
     TypeVar,
     Union,
+    Callable,
 )
+from functools import wraps
 
 import numpy as np
 import numpy.typing as npt
@@ -22,6 +24,13 @@ from mpcrl.core.parameters import LearnableParametersDict
 from mpcrl.util.types import GymEnvLike
 
 ExpType = TypeVar("ExpType")
+
+_STEP_ON_METHODS = {
+    "agent-update": "on_update",
+    "env-step": "on_env_step",
+    "ep-start": "on_episode_start",
+}
+"""Mapping between `step_on` type and target method to wrap."""
 
 
 class LearningAgent(Agent[SymType], ABC, Generic[SymType, ExpType]):
@@ -45,6 +54,7 @@ class LearningAgent(Agent[SymType], ABC, Generic[SymType, ExpType]):
         exploration: Optional[ExplorationStrategy] = None,
         experience: Optional[ExperienceReplay[ExpType]] = None,
         warmstart: Literal["last", "last-successful"] = "last-successful",
+        step_on: Literal["agent-update", "env-step", "ep-start"] = "agent-update",
         name: Optional[str] = None,
     ) -> None:
         """Instantiates the learning agent.
@@ -79,6 +89,13 @@ class LearningAgent(Agent[SymType], ABC, Generic[SymType, ExpType]):
             The warmstart strategy for the MPC's NLP. If 'last-successful', the last
             successful solution is used to warm start the solver for the next iteration.
             If 'last', the last solution is used, regardless of success or failure.
+        step_on : {'agent-update', 'env-step', 'ep-start'}, optional
+            Specifies to the algorithm when to step its schedulers (e.g., for learning
+            rate and/or exploration decay), either after
+             - each agent's update ('agent-update')
+             - each environment's step ('env-step')
+             - each episode's start ('ep-start').
+            By default, 'agent-update' is selected.
         name : str, optional
             Name of the agent. If `None`, one is automatically created from a counter of
             the class' instancies.
@@ -88,6 +105,7 @@ class LearningAgent(Agent[SymType], ABC, Generic[SymType, ExpType]):
             ExperienceReplay(maxlen=1) if experience is None else experience
         )
         self._learnable_pars = learnable_parameters
+        self._decorate_method_with_step(step_on)
 
     @property
     def experience(self) -> ExperienceReplay[ExpType]:
@@ -98,6 +116,11 @@ class LearningAgent(Agent[SymType], ABC, Generic[SymType, ExpType]):
     def learnable_parameters(self) -> LearnableParametersDict[SymType]:
         """Gets the parameters of the MPC that can be learnt by the agent."""
         return self._learnable_pars
+
+    def step(self) -> None:
+        """Steps the exploration strength/chance for the agent (usually, this decays
+        over time)."""
+        self._exploration.step()
 
     def store_experience(self, item: ExpType) -> None:
         """Stores the given item in the agent's memory for later experience replay. If
@@ -225,3 +248,22 @@ class LearningAgent(Agent[SymType], ABC, Generic[SymType, ExpType]):
         UpdateError or UpdateWarning
             Raises the error or the warning (depending on `raises`) if the update fails.
         """
+
+    def _decorate_method_with_step(
+        self, step_on: Literal["agent-update", "env-step", "ep-start"]
+    ) -> None:
+        """Internal decorator to call `step` each time the selected method is called."""
+        methodname = _STEP_ON_METHODS.get(step_on)
+        if methodname is None:
+            raise ValueError(f"Unrecognized step strategy `step_on`; got {step_on}.")
+
+        def get_decorator(method: Callable) -> Callable:
+            @wraps(method)
+            def wrapper(*args, **kwargs):
+                out = method(*args, **kwargs)
+                self.step()
+                return out
+
+            return wrapper
+
+        setattr(self, methodname, get_decorator(getattr(self, methodname)))
