@@ -168,7 +168,7 @@ class Agent(Named, SupportsDeepcopyAndPickle, Generic[SymType]):
         vals0: Union[
             None, Dict[str, npt.ArrayLike], Iterable[Dict[str, npt.ArrayLike]]
         ] = None,
-    ) -> Solution:
+    ) -> Solution[SymType]:
         """Solves the agent's specific MPC optimal control problem.
 
         Parameters
@@ -246,7 +246,7 @@ class Agent(Named, SupportsDeepcopyAndPickle, Generic[SymType]):
         vals0: Union[
             None, Dict[str, npt.ArrayLike], Iterable[Dict[str, npt.ArrayLike]]
         ] = None,
-    ) -> Solution:
+    ) -> Solution[SymType]:
         """Computes the state value function `V(s)` approximated by the MPC.
 
         Parameters
@@ -287,7 +287,7 @@ class Agent(Named, SupportsDeepcopyAndPickle, Generic[SymType]):
         vals0: Union[
             None, Dict[str, npt.ArrayLike], Iterable[Dict[str, npt.ArrayLike]]
         ] = None,
-    ) -> Solution:
+    ) -> Solution[SymType]:
         """Computes the action value function `Q(s,a)` approximated by the MPC.
 
         Parameters
