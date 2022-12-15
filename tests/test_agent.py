@@ -89,7 +89,7 @@ class DummyLearningAgent(LearningAgent):
     def update(self, *args, **kwargs):
         return
 
-    def solve_iteration(self, *args, **kwargs):
+    def train(self, *args, **kwargs):
         return
 
 

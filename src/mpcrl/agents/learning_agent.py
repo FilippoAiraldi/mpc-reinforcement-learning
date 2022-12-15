@@ -10,15 +10,11 @@ from mpcrl.agents.agent import ActType, Agent, ObsType, SymType
 from mpcrl.core.experience import ExperienceReplay
 from mpcrl.core.exploration import ExplorationStrategy
 from mpcrl.core.parameters import LearnableParametersDict
-from mpcrl.core.random import generate_seeds
 from mpcrl.util.types import GymEnvLike
 
 ExpType = Tuple[
     ObsType, ActType, float, ObsType, Solution[SymType], Optional[Solution[SymType]]
 ]
-
-
-
 
 
 class LearningAgent(Agent[SymType], ABC, Generic[SymType]):
@@ -168,46 +164,6 @@ class LearningAgent(Agent[SymType], ABC, Generic[SymType]):
         decaying exploration probabilities or learning rates."""
 
     @abstractmethod
-    def solve_iteration(
-        self,
-        state: ObsType,
-        previous_state: Optional[ObsType],
-        previous_action: Optional[ActType],
-    ) -> Tuple[ActType, Solution[SymType], Optional[Solution[SymType]], Optional[str]]:
-        """Computes the state value function `V(s)` and, optionally the action value
-        function `Q(s,a)`, for the current iteration, returning the action to apply to
-        the environment.
-
-        Parameters
-        ----------
-        state : array_like or dict[str, array_like]
-            Current state of the environment, and for which to solve `V(s)` and,
-            possibly, `Q(s,a)`. The returned action type should be compatible with the
-            training environment.
-        previous_state : array_like or dict[str, array_like] or None
-            The previous state of the environment. At the first timestep it is `None`.
-        previous_action : array_like or dict[str, array_like] or None
-            The previous action applied to the environment. At the first timestep it is
-            `None`.
-
-        Returns
-        -------
-        action : array_like or dict[str, array_like]
-            The next action to take in the environment.
-        solution_V : Solution[casadi.SX or MX]
-            The solution to the state value function `V(s)` at the current state.
-        solution_Q : Solution[casadi.SX or MX] or None
-            The solution to the action value function `Q(s,a)` at the previous state and
-            action. Can be `None` if this value function is not needed by the learning
-            algorithm.
-        errormsg : str or None
-            `None` is returned in case all the MPC solvers ran succesfully, and the
-            current transition shall be saved in the experience memory; otherwise, a
-            string containing an error message is returned to be raised as error or
-            warning and the transition will NOT be saved.
-        """
-
-    @abstractmethod
     def update(self) -> Optional[str]:
         """Updates the learnable parameters of the MPC according to the agent's learning
         algorithm.
@@ -219,6 +175,7 @@ class LearningAgent(Agent[SymType], ABC, Generic[SymType]):
             or warning; otherwise, `None` is returned.
         """
 
+    @abstractmethod
     def train(
         self,
         env: GymEnvLike[ObsType, ActType],
@@ -257,54 +214,3 @@ class LearningAgent(Agent[SymType], ABC, Generic[SymType]):
         UpdateError or UpdateWarning
             Raises the error or the warning (depending on `raises`) if the update fails.
         """
-        self.on_training_start(env)
-
-        # prepare for training start
-        update_counter = 0
-        returns = np.zeros(episodes)
-
-        for episode, current_seed in zip(range(episodes), generate_seeds(seed)):
-            self.on_episode_start(env, episode)
-
-            # reset agent and env
-            self.reset()
-            previous_state, previous_action = None, None
-            state, _ = env.reset(seed=current_seed)
-            truncated, terminated, timestep = False, False, 0
-
-            while not (truncated or terminated):
-                # solve V and Q at this iteration
-                action, solV, solQ, mpc_errormsg = self.solve_iteration(
-                    state, previous_state, previous_action
-                )
-                if mpc_errormsg:
-                    _raise_or_warn_mpc_failure(mpc_errormsg, raises)
-
-                # apply action to env
-                next_state, r, truncated, terminated, _ = env.step(action)
-                self.on_env_step(env, episode, timestep)
-
-                # store the experience only if the mpc solver did not fail
-                if not mpc_errormsg and solV.success and (solQ is None or solQ.success):
-                    experience = (state, action, r, next_state, solV, solQ)
-                    self.store_experience(experience)
-
-                # check if it is time to update
-                if (update_counter + 1) % update_frequency == 0:
-                    if update_errormsg := self.update():
-                        _raise_or_warn_update_failure(update_errormsg, raises)
-                    self.on_udpate()
-
-                # increase counters
-                returns[episode] += r
-                timestep += 1
-                update_counter += 1
-                update_counter %= update_frequency
-                previous_state, previous_action, state = state, action, next_state
-
-            self.on_episode_end(env, episode)
-
-        self.on_training_end(env)
-        return returns
-
-
