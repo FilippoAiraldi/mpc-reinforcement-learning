@@ -39,11 +39,6 @@ def _update_dicts(sinks: Iterable[Dict], source: Dict) -> Iterator[Dict]:
         yield sink
 
 
-def _get_action(mpc: Mpc, sol: Solution) -> cs.DM:
-    """Internal utility to get the first optimal MPC action from a solution."""
-    return cs.vertcat(*(sol.vals[u][:, 0] for u in mpc.actions))
-
-
 class Agent(Named, SupportsDeepcopyAndPickle, Generic[SymType]):
     """Simple MPC-based agent with a fixed (i.e., non-learnable) MPC controller.
 
@@ -373,7 +368,7 @@ class Agent(Named, SupportsDeepcopyAndPickle, Generic[SymType]):
                     raise_or_warn_on_mpc_failure(
                         f"Solver failed with status: {sol.status}.", raises
                     )
-                action = _get_action(self._V, sol)
+                action = self._get_action_from_solution(sol)
 
                 state, r, truncated, terminated, _ = env.step(action)
                 returns[episode] += r
@@ -408,3 +403,7 @@ class Agent(Named, SupportsDeepcopyAndPickle, Generic[SymType]):
         """Internal utility to retrieve parameters of the MPC in order to solve it.
         `Agent` has no learnable parameter, so only fixed parameters are returned."""
         return self._fixed_pars
+
+    def _get_action_from_solution(self, sol: Solution) -> cs.DM:
+        """Internal utility to get the first optimal MPC action from a solution."""
+        return cs.vertcat(*(sol.vals[u][:, 0] for u in self._V.actions.keys()))
