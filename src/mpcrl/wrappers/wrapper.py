@@ -4,7 +4,7 @@ from typing import Any, Generic, Iterator, Type
 from csnlp.util.io import SupportsDeepcopyAndPickle
 
 from mpcrl.agents.agent import Agent, SymType
-from mpcrl.agents.learning_agent import LearningAgent
+from mpcrl.agents.learning_agent import ExpType, LearningAgent
 
 
 class Wrapper(SupportsDeepcopyAndPickle, Generic[SymType]):
@@ -73,13 +73,13 @@ class Wrapper(SupportsDeepcopyAndPickle, Generic[SymType]):
         return f"<{self.__class__.__name__}: {self.agent.__repr__()}>"
 
 
-class LearningWrapper(Wrapper[SymType]):
+class LearningWrapper(Wrapper[SymType], Generic[SymType, ExpType]):
     """Identical to `Wrapper`, but for learning agents."""
 
-    def __init__(self, agent: LearningAgent[SymType]) -> None:
+    def __init__(self, agent: LearningAgent[SymType, ExpType]) -> None:
         super().__init__(agent)
-        self.agent: LearningAgent[SymType]
+        self.agent: LearningAgent[SymType, ExpType]
 
     @property
-    def unwrapped(self) -> LearningAgent[SymType]:
+    def unwrapped(self) -> LearningAgent[SymType, ExpType]:
         return self.agent.unwrapped
