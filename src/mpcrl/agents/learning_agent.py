@@ -139,16 +139,14 @@ class LearningAgent(Agent[SymType], ABC, Generic[SymType, ExpType]):
         self._exploration.step()
 
     def store_experience(self, item: ExpType) -> None:
-        """Stores the given item in the agent's memory for later experience replay. If
-        the agent has no memory, then the method does nothing.
+        """Stores the given item in the agent's memory for later experience replay.
 
         Parameters
         ----------
         item : experience-type
             Item to be stored in memory.
         """
-        if self._experience is not None:
-            self._experience.append(item)
+        self._experience.append(item)
 
     def sample_experience(self) -> Iterator[ExpType]:
         """Samples the experience memory.
