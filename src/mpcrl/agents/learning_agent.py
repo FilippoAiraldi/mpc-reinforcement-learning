@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
+from functools import wraps
 from typing import (
     Any,
+    Callable,
     Collection,
     Dict,
     Generic,
@@ -9,9 +11,7 @@ from typing import (
     Optional,
     TypeVar,
     Union,
-    Callable,
 )
-from functools import wraps
 
 import numpy as np
 import numpy.typing as npt
