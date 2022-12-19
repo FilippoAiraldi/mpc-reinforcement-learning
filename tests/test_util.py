@@ -1,6 +1,8 @@
 import unittest
 
-from mpcrl.util import named
+import numpy as np
+
+from mpcrl.util import math, named
 
 
 class DummyAgent(named.Named):
@@ -26,6 +28,22 @@ class TestNamedAgent(unittest.TestCase):
         S = dummy.__repr__()
         self.assertIn(name, S)
         self.assertIn(DummyAgent.__name__, S)
+
+
+class TestMath(unittest.TestCase):
+    def test_cholesky_added_multiple_identities__performs_correct_factorization(self):
+        n = 5
+        A = np.random.rand(n, n) + np.eye(n) * 5
+        A = 0.5 * (A + A.T)
+        L = math.cholesky_added_multiple_identities(A)
+        np.testing.assert_allclose(A, L @ L.T)
+
+    def test_cholesky_added_multiple_identities__raises__max_iterations_reached(self):
+        n = 5
+        A = np.random.rand(n, n) - np.eye(n) * 5
+        A = 0.5 * (A + A.T)
+        with self.assertRaisesRegex(ValueError, "Maximum iterations reached."):
+            math.cholesky_added_multiple_identities(A, maxiter=1)
 
 
 if __name__ == "__main__":
