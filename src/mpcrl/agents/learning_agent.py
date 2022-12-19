@@ -7,6 +7,7 @@ from typing import (
     Dict,
     Generic,
     Iterable,
+    Iterator,
     Literal,
     Optional,
     TypeVar,
@@ -42,7 +43,12 @@ class LearningAgent(Agent[SymType], ABC, Generic[SymType, ExpType]):
     Note: this class makes no assumptions on the learning methodology used to update the
     MPC's learnable parameters."""
 
-    __slots__ = ("_experience", "_learnable_pars")
+    __slots__ = (
+        "_experience",
+        "_learnable_pars",
+        "experience_sample_size",
+        "experience_sample_include_last",
+    )
 
     def __init__(
         self,
@@ -53,6 +59,8 @@ class LearningAgent(Agent[SymType], ABC, Generic[SymType, ExpType]):
         ] = None,
         exploration: Optional[ExplorationStrategy] = None,
         experience: Optional[ExperienceReplay[ExpType]] = None,
+        experience_sample_size: Union[int, float] = 1,
+        experience_sample_include_last: Union[int, float] = 0,
         warmstart: Literal["last", "last-successful"] = "last-successful",
         step_on: Literal["agent-update", "env-step", "ep-start"] = "agent-update",
         name: Optional[str] = None,
@@ -85,6 +93,12 @@ class LearningAgent(Agent[SymType], ABC, Generic[SymType, ExpType]):
             The container for experience replay memory. If `None` is passed, then a
             memory wtih length 1 is created, i.e., it keeps only the latest memoery
             transition.
+        experience_sample_size : int or float, optional
+            Size (or percentage of replay `maxlen`) of the experience replay items to
+            draw when performing an update. By default, one item per sampling is drawn.
+        experience_sample_include_last : int or float, optional
+            Size (or percentage of sample size) dedicated to including the latest
+            experience transitions. By default, 0, i.e., no last item is included.
         warmstart: 'last' or 'last-successful', optional
             The warmstart strategy for the MPC's NLP. If 'last-successful', the last
             successful solution is used to warm start the solver for the next iteration.
@@ -101,10 +115,12 @@ class LearningAgent(Agent[SymType], ABC, Generic[SymType, ExpType]):
             the class' instancies.
         """
         super().__init__(mpc, fixed_parameters, exploration, warmstart, name)
+        self._learnable_pars = learnable_parameters
         self._experience = (
             ExperienceReplay(maxlen=1) if experience is None else experience
         )
-        self._learnable_pars = learnable_parameters
+        self.experience_sample_size = experience_sample_size
+        self.experience_sample_include_last = experience_sample_include_last
         self._decorate_method_with_step(step_on)
 
     @property
@@ -128,11 +144,23 @@ class LearningAgent(Agent[SymType], ABC, Generic[SymType, ExpType]):
 
         Parameters
         ----------
-        item : tuple of state-action-reward-new_state-V(s)-Q(s,a) (last can be `None`)
+        item : experience-type
             Item to be stored in memory.
         """
         if self._experience is not None:
             self._experience.append(item)
+
+    def sample_experience(self) -> Iterator[ExpType]:
+        """Samples the experience memory.
+
+        Yields
+        ------
+        sample : iterator of experience-type
+            An iterator over the sampled experience.
+        """
+        return self.experience.sample(
+            self.experience_sample_size, self.experience_sample_include_last
+        )
 
     def on_training_start(self, env: GymEnvLike[ObsType, ActType]) -> None:
         """Callback called at the beginning of the training process.

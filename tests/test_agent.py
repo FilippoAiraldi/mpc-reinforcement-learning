@@ -354,7 +354,7 @@ class TestAgent(unittest.TestCase):
 
 
 class TestLearningAgent(unittest.TestCase):
-    def test__init__creates_default_experience_and_exploration(self):
+    def test_init__creates_default_experience_and_exploration(self):
         learnable_parameters = LearnableParametersDict()
         agent = DummyLearningAgent(
             mpc=get_mpc(3, False), learnable_parameters=learnable_parameters
@@ -363,7 +363,7 @@ class TestLearningAgent(unittest.TestCase):
         self.assertIsInstance(agent.experience, ExperienceReplay)
         self.assertIs(agent.learnable_parameters, learnable_parameters)
 
-    def test__store_experience__appends_experience(self):
+    def test_store_experience__appends_experience(self):
         experience = MagicMock()
         experience.append = Mock()
         item = object()
@@ -373,6 +373,23 @@ class TestLearningAgent(unittest.TestCase):
         self.assertIs(agent.experience, experience)
         agent.store_experience(item)
         experience.append.assert_called_once_with(item)
+
+    def test_sample_experience__calls_experience_sampling_correctly(self):
+        sample_expected = object()
+        sample_size = object()
+        sample_include_last = object()
+        experience = MagicMock()
+        experience.sample = Mock(return_value=sample_expected)
+        agent = DummyLearningAgent(
+            mpc=get_mpc(3, False),
+            learnable_parameters={},
+            experience=experience,
+            experience_sample_size=sample_size,
+            experience_sample_include_last=sample_include_last,
+        )
+        sample_actual = agent.sample_experience()
+        self.assertIs(sample_expected, sample_actual)
+        experience.sample.assert_called_once_with(sample_size, sample_include_last)
 
 
 if __name__ == "__main__":

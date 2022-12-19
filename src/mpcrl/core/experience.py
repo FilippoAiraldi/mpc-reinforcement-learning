@@ -1,5 +1,5 @@
 from itertools import chain
-from typing import Deque, Generator, Iterable, Optional, TypeVar, Union
+from typing import Deque, Iterable, Iterator, Optional, TypeVar, Union
 
 from mpcrl.core.random import np_random
 
@@ -37,7 +37,7 @@ class ExperienceReplay(Deque[ExpType]):
 
     def sample(
         self, n: Union[int, float], last_n: Union[int, float] = 0
-    ) -> Generator[ExpType, None, None]:
+    ) -> Iterator[ExpType]:
         """
         Samples the experience memory and yields the sampled items.
 
@@ -51,7 +51,7 @@ class ExperienceReplay(Deque[ExpType]):
 
         Returns
         -------
-        sample : Iterable of T
+        sample : iterator of T
             An iterable sample is yielded.
 
         Raises
