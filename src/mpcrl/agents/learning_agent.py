@@ -18,7 +18,7 @@ import numpy as np
 import numpy.typing as npt
 from csnlp.wrappers import Mpc
 
-from mpcrl.agents.agent import ActType, Agent, ObsType, SymType
+from mpcrl.agents.agent import ActType, Agent, ObsType, SymType, _update_dicts
 from mpcrl.core.experience import ExperienceReplay
 from mpcrl.core.exploration import ExplorationStrategy
 from mpcrl.core.parameters import LearnableParametersDict
@@ -293,3 +293,17 @@ class LearningAgent(Agent[SymType], ABC, Generic[SymType, ExpType]):
             return wrapper
 
         setattr(self, methodname, get_decorator(getattr(self, methodname)))
+
+    def _get_parameters(
+        self,
+    ) -> Union[None, Dict[str, npt.ArrayLike], Collection[Dict[str, npt.ArrayLike]]]:
+        """Internal utility to retrieve parameters of the MPC in order to solve it.
+        `LearningAgent` returns both fixed and learnable parameters."""
+        learnable_pars = self._learnable_pars.value_as_dict
+        fixed_pars = self._fixed_pars
+        if fixed_pars is None:
+            return learnable_pars  # type: ignore
+        if isinstance(fixed_pars, dict):
+            fixed_pars.update(learnable_pars)
+            return fixed_pars
+        return tuple(_update_dicts(self._fixed_pars, learnable_pars))  # type: ignore
