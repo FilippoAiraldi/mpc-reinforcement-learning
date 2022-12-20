@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 import numpy as np
 import numpy.typing as npt
@@ -17,9 +17,8 @@ class RecordUpdates(LearningWrapper[SymType, ExpType]):
             p.name: [p.value] for p in agent.learnable_parameters.values()
         }
 
-    def update(self) -> Optional[str]:
-        """See `LearningAgent.update`."""
-        out = self.agent.update()
+    def on_update(self) -> None:
+        """See `LearningAgent.on_update`."""
+        self.agent.on_update()
         for par in self.agent.learnable_parameters.values():
             self.learnable_parameters_history[par.name].append(par.value)
-        return out

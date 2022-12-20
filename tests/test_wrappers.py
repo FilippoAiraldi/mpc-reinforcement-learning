@@ -110,7 +110,7 @@ class TestRecordUpdates(unittest.TestCase):
         )
         iter = count(1)
         agent = MagicMixin()
-        agent.update = Mock(
+        agent.on_update = Mock(
             return_value=None,
             side_effect=lambda: agent.learnable_parameters.update_values(
                 pars[:, next(iter)]
@@ -120,9 +120,9 @@ class TestRecordUpdates(unittest.TestCase):
         wrapped = wrappers.RecordUpdates(agent)
 
         for _ in range(K):
-            wrapped.update()
+            wrapped.on_update()
 
-        agent.update.assert_has_calls([call()] * K)
+        agent.on_update.assert_has_calls([call()] * K)
         self.assertListEqual(
             [f"p{i}" for i in range(P)],
             list(wrapped.learnable_parameters_history.keys()),
