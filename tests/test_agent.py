@@ -314,6 +314,7 @@ class TestAgent(unittest.TestCase):
         )
         actions1 = np.random.randn(Ttot, 2, 1)
         actions2 = np.random.randn(Ttot, 3, 1)
+        actions = [cs.vertcat(u1, u2) for u1, u2 in zip(actions1, actions2)]
         successes = [True] * (Ttot - 1) + [False]
         sols = map(
             lambda u1, u2, success: Solution(
@@ -328,7 +329,7 @@ class TestAgent(unittest.TestCase):
             successes,
         )
         agent = Agent(mpc=get_mpc(3, False))
-        agent.state_value = Mock(side_effect=sols)
+        agent.state_value = Mock(side_effect=zip(actions, sols))
         deterministic = object()
 
         with catch_warnings(record=True) as cw:
