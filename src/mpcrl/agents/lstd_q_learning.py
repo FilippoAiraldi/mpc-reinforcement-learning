@@ -92,7 +92,7 @@ class LstdQLearningAgent(LearningAgent[SymType, ExpType]):
             `perturbation_parameter`, `action_parameter` and `action_constraint`.
         discount_factor : float
             In RL, the factor that discounts future rewards in favor of immediate
-            rewards. Usually denoted via as \gamma. Should be a number in (0, 1).
+            rewards. Usually denoted as `\\gamma`. Should be a number in (0, 1).
         learning_rate : Scheduler of array
             The learning rate of the algorithm, in general, a small number. A scheduler
             can be passed so that the learning rate is decayed after every step (see
