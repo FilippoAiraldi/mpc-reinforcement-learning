@@ -246,7 +246,7 @@ class Agent(Named, SupportsDeepcopyAndPickle, Generic[SymType]):
         vals0: Union[
             None, Dict[str, npt.ArrayLike], Iterable[Dict[str, npt.ArrayLike]]
         ] = None,
-    ) -> Solution[SymType]:
+    ) -> Tuple[cs.DM, Solution[SymType]]:
         """Computes the state value function `V(s)` approximated by the MPC.
 
         Parameters
@@ -268,6 +268,8 @@ class Agent(Named, SupportsDeepcopyAndPickle, Generic[SymType]):
 
         Returns
         -------
+        casadi.DM
+            The first optimal action according to the solution of `V(s)`.
         Solution
             The solution of the MPC approximating `V(s)` at the given state.
         """
@@ -278,7 +280,9 @@ class Agent(Named, SupportsDeepcopyAndPickle, Generic[SymType]):
                 self.cost_perturbation_method,
                 size=self.V.parameters[self.cost_perturbation_parameter].shape,
             )
-        return self.solve_mpc(self._V, state, perturbation=perturbation, vals0=vals0)
+        sol = self.solve_mpc(self._V, state, perturbation=perturbation, vals0=vals0)
+        first_action = cs.vertcat(*(sol.vals[u][:, 0] for u in self._V.actions.keys()))
+        return first_action, sol
 
     def action_value(
         self,
@@ -363,12 +367,11 @@ class Agent(Named, SupportsDeepcopyAndPickle, Generic[SymType]):
             truncated, terminated = False, False
 
             while not (truncated or terminated):
-                sol = self.state_value(state, deterministic)
+                action, sol = self.state_value(state, deterministic)
                 if not sol.success:
                     raise_or_warn_on_mpc_failure(
                         f"Solver failed with status: {sol.status}.", raises
                     )
-                action = self._get_action_from_solution(sol)
 
                 state, r, truncated, terminated, _ = env.step(action)
                 returns[episode] += r
@@ -403,7 +406,3 @@ class Agent(Named, SupportsDeepcopyAndPickle, Generic[SymType]):
         """Internal utility to retrieve parameters of the MPC in order to solve it.
         `Agent` has no learnable parameter, so only fixed parameters are returned."""
         return self._fixed_pars
-
-    def _get_action_from_solution(self, sol: Solution) -> cs.DM:
-        """Internal utility to get the first optimal MPC action from a solution."""
-        return cs.vertcat(*(sol.vals[u][:, 0] for u in self._V.actions.keys()))

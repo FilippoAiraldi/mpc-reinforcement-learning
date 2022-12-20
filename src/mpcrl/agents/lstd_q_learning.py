@@ -214,14 +214,13 @@ class LstdQLearningAgent(LearningAgent[SymType, ExpType]):
             truncated, terminated, timestep = False, False, 0
 
             # solve for the first action
-            solV = self.state_value(state, deterministic=False)
+            action, solV = self.state_value(state, deterministic=False)
             if not solV.success:
                 raise_or_warn_on_mpc_failure(
                     f"MPC solver failed at episode {episode}, time -1, "
                     f"status: {solV.status}.",
                     raises,
                 )
-            action = self._get_action_from_solution(solV)
 
             while not (truncated or terminated):
                 # compute Q(s,a)
@@ -232,7 +231,7 @@ class LstdQLearningAgent(LearningAgent[SymType, ExpType]):
                 self.on_env_step(env, episode, timestep)
 
                 # compute V(s+)
-                solV = self.state_value(state, deterministic=False)
+                action, solV = self.state_value(state, deterministic=False)
                 if solQ.success and solV.success:
                     self.store_experience(r, solQ, solV)
                 else:
@@ -241,7 +240,6 @@ class LstdQLearningAgent(LearningAgent[SymType, ExpType]):
                         f"status: {solV.status}.",
                         raises,
                     )
-                action = self._get_action_from_solution(solV)
 
                 # check if it is time to update
                 if (update_counter + 1) % update_frequency == 0:

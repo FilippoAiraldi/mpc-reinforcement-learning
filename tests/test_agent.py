@@ -242,8 +242,13 @@ class TestAgent(unittest.TestCase):
         if vector:
             state = cs.DM(state.values())
 
-        sol = agent.state_value(state=state, vals0=None, deterministic=deterministic)
+        action, sol = agent.state_value(
+            state=state, vals0=None, deterministic=deterministic
+        )
         self.assertTrue(sol.success)
+        np.testing.assert_array_equal(
+            action, cs.vertcat(sol.vals["u1"][:, 0], sol.vals["u2"][:, 0])
+        )
         np.testing.assert_allclose(sol.f, RESULTS["state_value_f"].item(), rtol=1e-3)
         np.testing.assert_allclose(
             sol.vals["u1"],
