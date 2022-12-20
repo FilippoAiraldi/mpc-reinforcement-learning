@@ -151,6 +151,11 @@ class LearnableParametersDict(
         return np.concatenate(tuple(p.value for p in self.values()))
 
     @cached_property
+    def value_as_dict(self) -> Dict[str, npt.NDArray[np.double]]:
+        """Gets the values of all the learnable parameters, in a dict."""
+        return {} if len(self) == 0 else {p.name: p.value for p in self.values()}
+
+    @cached_property
     def sym(self) -> Dict[str, Optional[SymType]]:
         """Gets symbols of all the learnable parameters, in a dict. If one parameter
         does not possess the symbol, `None` is put."""
