@@ -191,76 +191,6 @@ class LstdQLearningAgent(LearningAgent[SymType, ExpType]):
         H = dQ @ dQ.T - td_error * ddQ
         return super().store_experience((g, H))
 
-    def train(
-        self,
-        env: GymEnvLike[ObsType, ActType],
-        episodes: int,
-        update_frequency: int,
-        seed: Union[None, int, Iterable[int]] = None,
-        raises: bool = True,
-        env_reset_options: Optional[Dict[str, Any]] = None,
-    ) -> npt.NDArray[np.double]:
-        # prepare for training start
-        update_counter = 0
-        returns = np.zeros(episodes)
-        self.on_training_start(env)
-
-        for episode, current_seed in zip(range(episodes), generate_seeds(seed)):
-            self.on_episode_start(env, episode)
-
-            # reset agent and env
-            self.reset()
-            state, _ = env.reset(seed=current_seed, options=env_reset_options)
-            truncated, terminated, timestep = False, False, 0
-
-            # solve for the first action
-            action, solV = self.state_value(state, deterministic=False)
-            if not solV.success:
-                raise_or_warn_on_mpc_failure(
-                    f"MPC solver failed at episode {episode}, time -1, "
-                    f"status: {solV.status}.",
-                    raises,
-                )
-
-            while not (truncated or terminated):
-                # compute Q(s,a)
-                solQ = self.action_value(state, action)
-
-                # step the system with action computed at the previous iteration
-                state, r, truncated, terminated, _ = env.step(action)
-                self.on_env_step(env, episode, timestep)
-
-                # compute V(s+)
-                action, solV = self.state_value(state, deterministic=False)
-                if solQ.success and solV.success:
-                    self.store_experience(r, solQ, solV)
-                else:
-                    raise_or_warn_on_mpc_failure(
-                        f"MPC solver failed at episode {episode}, time {timestep}, "
-                        f"status: {solV.status}.",
-                        raises,
-                    )
-
-                # check if it is time to update
-                if (update_counter + 1) % update_frequency == 0:
-                    if update_errormsg := self.update():
-                        raise_or_warn_on_update_failure(
-                            f"Update failed at episode {episode}, time {timestep}, "
-                            f"status: {update_errormsg}.",
-                            raises,
-                        )
-                    self.on_update()
-
-                # increase counters
-                returns[episode] += r
-                timestep += 1
-                update_counter = (update_counter + 1) % update_frequency
-
-            self.on_episode_end(env, episode)
-
-        self.on_training_end(env)
-        return returns
-
     def update(self) -> Optional[str]:
         lr = self._learning_rate_scheduler.value
         sample = self.sample_experience()
@@ -283,6 +213,77 @@ class LstdQLearningAgent(LearningAgent[SymType, ExpType]):
         self._learnable_pars.update_values(sol["x"].full().reshape(-1))
         stats = solver.stats()
         return None if stats["success"] else stats["return_status"]
+
+    @staticmethod
+    def train(
+        agent: "LstdQLearningAgent[SymType]",
+        env: GymEnvLike[ObsType, ActType],
+        episodes: int,
+        update_frequency: int,
+        seed: Union[None, int, Iterable[int]] = None,
+        raises: bool = True,
+        env_reset_options: Optional[Dict[str, Any]] = None,
+    ) -> npt.NDArray[np.double]:
+        # prepare for training start
+        update_counter = 0
+        returns = np.zeros(episodes)
+        agent.on_training_start(env)
+
+        for episode, current_seed in zip(range(episodes), generate_seeds(seed)):
+            agent.on_episode_start(env, episode)
+
+            # reset agent and env
+            agent.reset()
+            state, _ = env.reset(seed=current_seed, options=env_reset_options)
+            truncated, terminated, timestep = False, False, 0
+
+            # solve for the first action
+            action, solV = agent.state_value(state, deterministic=False)
+            if not solV.success:
+                raise_or_warn_on_mpc_failure(
+                    f"MPC solver failed at episode {episode}, time -1, "
+                    f"status: {solV.status}.",
+                    raises,
+                )
+
+            while not (truncated or terminated):
+                # compute Q(s,a)
+                solQ = agent.action_value(state, action)
+
+                # step the system with action computed at the previous iteration
+                state, r, truncated, terminated, _ = env.step(action)
+                agent.on_env_step(env, episode, timestep)
+
+                # compute V(s+)
+                action, solV = agent.state_value(state, deterministic=False)
+                if solQ.success and solV.success:
+                    agent.store_experience(r, solQ, solV)
+                else:
+                    raise_or_warn_on_mpc_failure(
+                        f"MPC solver failed at episode {episode}, time {timestep}, "
+                        f"status: {solV.status}.",
+                        raises,
+                    )
+
+                # check if it is time to update
+                if (update_counter + 1) % update_frequency == 0:
+                    if update_errormsg := agent.update():
+                        raise_or_warn_on_update_failure(
+                            f"Update failed at episode {episode}, time {timestep}, "
+                            f"status: {update_errormsg}.",
+                            raises,
+                        )
+                    agent.on_update()
+
+                # increase counters
+                returns[episode] += r
+                timestep += 1
+                update_counter = (update_counter + 1) % update_frequency
+
+            agent.on_episode_end(env, episode)
+
+        agent.on_training_end(env)
+        return returns
 
     def _init_Q_derivatives(
         self, hessian_type: Literal["approx", "full"]

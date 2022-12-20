@@ -231,9 +231,10 @@ class LearningAgent(Agent[SymType], ABC, Generic[SymType, ExpType]):
             or warning; otherwise, `None` is returned.
         """
 
+    @staticmethod
     @abstractmethod
     def train(
-        self,
+        agent: "LearningAgent[SymType, ExpType]",
         env: GymEnvLike[ObsType, ActType],
         episodes: int,
         update_frequency: int,
@@ -245,6 +246,8 @@ class LearningAgent(Agent[SymType], ABC, Generic[SymType, ExpType]):
 
         Parameters
         ----------
+        agent : LearningAgent or inheriting
+            The agent to train.
         env : GymEnvLike[ObsType, ActType]
             A gym-like environment where to train the agent in.
         episodes : int

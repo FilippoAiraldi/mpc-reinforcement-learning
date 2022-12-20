@@ -125,10 +125,10 @@ class TestRecordUpdates(unittest.TestCase):
         agent.on_update.assert_has_calls([call()] * K)
         self.assertListEqual(
             [f"p{i}" for i in range(P)],
-            list(wrapped.learnable_parameters_history.keys()),
+            list(wrapped.updates_history.keys()),
         )
         np.testing.assert_equal(
-            np.stack(list(wrapped.learnable_parameters_history.values())).squeeze(),
+            np.stack(list(wrapped.updates_history.values())).squeeze(),
             pars,
         )
 
