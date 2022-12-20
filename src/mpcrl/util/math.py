@@ -1,4 +1,5 @@
 from typing import Optional, Tuple
+
 import numpy as np
 import numpy.typing as npt
 from scipy.linalg import solve_discrete_are
