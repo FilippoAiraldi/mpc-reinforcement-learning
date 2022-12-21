@@ -1,8 +1,7 @@
 from typing import (
-    Any,
     Collection,
     Dict,
-    Iterable,
+    Iterator,
     Literal,
     Optional,
     SupportsFloat,
@@ -23,7 +22,6 @@ from mpcrl.agents.learning_agent import LearningAgent
 from mpcrl.core.experience import ExperienceReplay
 from mpcrl.core.exploration import ExplorationStrategy
 from mpcrl.core.parameters import LearnableParametersDict
-from mpcrl.core.random import generate_seeds
 from mpcrl.core.schedulers import Scheduler
 from mpcrl.util.math import cholesky_added_multiple_identities
 from mpcrl.util.types import GymEnvLike
@@ -211,63 +209,48 @@ class LstdQLearningAgent(LearningAgent[SymType, ExpType]):
         return None if stats["success"] else stats["return_status"]
 
     @staticmethod
-    def train(
+    def train_one_episode(
         agent: "LstdQLearningAgent[SymType]",
         env: GymEnvLike[ObsType, ActType],
-        episodes: int,
-        update_frequency: int,
-        seed: Union[None, int, Iterable[int]] = None,
+        episode: int,
+        init_state: ObsType,
+        update_cycle: Iterator[bool],
         raises: bool = True,
-        env_reset_options: Optional[Dict[str, Any]] = None,
-    ) -> npt.NDArray[np.double]:
-        # prepare for training start
-        update_counter = 0
-        returns = np.zeros(episodes)
-        agent.on_training_start(env)
+    ) -> float:
+        truncated = terminated = False
+        timestep = rewards = 0
+        state = init_state
 
-        for episode, current_seed in zip(range(episodes), generate_seeds(seed)):
-            agent.on_episode_start(env, episode)
+        # solve for the first action
+        action, solV = agent.state_value(state, deterministic=False)
+        if not solV.success:
+            agent.on_mpc_failure(episode, -1, solV.status, raises)
 
-            # reset agent and env
-            agent.reset()
-            state, _ = env.reset(seed=current_seed, options=env_reset_options)
-            truncated, terminated, timestep = False, False, 0
+        while not (truncated or terminated):
+            # compute Q(s,a)
+            solQ = agent.action_value(state, action)
 
-            # solve for the first action
+            # step the system with action computed at the previous iteration
+            state, r, truncated, terminated, _ = env.step(action)
+            agent.on_env_step(env, episode, timestep)
+
+            # compute V(s+)
             action, solV = agent.state_value(state, deterministic=False)
-            if not solV.success:
-                agent.on_mpc_failure(episode, -1, solV.status, raises)
+            if solQ.success and solV.success:
+                agent.store_experience(r, solQ, solV)
+            else:
+                agent.on_mpc_failure(episode, timestep, solV.status, raises)
 
-            while not (truncated or terminated):
-                # compute Q(s,a)
-                solQ = agent.action_value(state, action)
+            # check if it is time to update
+            if next(update_cycle):
+                if update_msg := agent.update():
+                    agent.on_update_failure(episode, timestep, update_msg, raises)
+                agent.on_update()
 
-                # step the system with action computed at the previous iteration
-                state, r, truncated, terminated, _ = env.step(action)
-                agent.on_env_step(env, episode, timestep)
-
-                # compute V(s+)
-                action, solV = agent.state_value(state, deterministic=False)
-                if solQ.success and solV.success:
-                    agent.store_experience(r, solQ, solV)
-                else:
-                    agent.on_mpc_failure(episode, timestep, solV.status, raises)
-
-                # check if it is time to update
-                if (update_counter + 1) % update_frequency == 0:
-                    if update_msg := agent.update():
-                        agent.on_update_failure(episode, timestep, update_msg, raises)
-                    agent.on_update()
-
-                # increase counters
-                returns[episode] += r
-                timestep += 1
-                update_counter = (update_counter + 1) % update_frequency
-
-            agent.on_episode_end(env, episode, returns[episode])
-
-        agent.on_training_end(env, returns)
-        return returns
+            # increase counters
+            rewards += r  # type: ignore
+            timestep += 1
+        return rewards
 
     def _init_Q_derivatives(
         self, hessian_type: Literal["approx", "full"]
@@ -311,3 +294,7 @@ class LstdQLearningAgent(LearningAgent[SymType, ExpType]):
         }
         opts = {"print_iter": False, "print_header": False}
         return cs.qpsol(f"qpsol_{self.name}", "qrqp", qp, opts)
+
+
+# TODO:
+# max update percentage

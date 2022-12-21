@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from functools import wraps
+from itertools import chain, cycle, repeat
 from typing import (
     Any,
     Callable,
@@ -18,6 +19,7 @@ import numpy as np
 import numpy.typing as npt
 from csnlp.wrappers import Mpc
 
+from mpcrl.core.random import generate_seeds
 from mpcrl.agents.agent import ActType, Agent, ObsType, SymType, _update_dicts
 from mpcrl.core.callbacks import LearningAgentCallbacks
 from mpcrl.core.experience import ExperienceReplay
@@ -176,8 +178,6 @@ class LearningAgent(
             or warning; otherwise, `None` is returned.
         """
 
-    @staticmethod
-    @abstractmethod
     def train(
         agent: "LearningAgent[SymType, ExpType]",
         env: GymEnvLike[ObsType, ActType],
@@ -213,6 +213,70 @@ class LearningAgent(
         -------
         array of doubles
             The cumulative returns for each training episode.
+
+        Raises
+        ------
+        MpcSolverError or MpcSolverWarning
+            Raises the error or the warning (depending on `raises`) if any of the MPC
+            solvers fail.
+        UpdateError or UpdateWarning
+            Raises the error or the warning (depending on `raises`) if the update fails.
+        """
+        # prepare for training start
+        update_cycle = cycle(chain(repeat(False, update_frequency - 1), (True,)))
+        returns = np.zeros(episodes, dtype=float)
+        agent.on_training_start(env)
+
+        for episode, current_seed in zip(range(episodes), generate_seeds(seed)):
+            agent.on_episode_start(env, episode)
+            agent.reset()
+            state, _ = env.reset(seed=current_seed, options=env_reset_options)
+            returns[episode] = agent.train_one_episode(
+                agent=agent,
+                env=env,
+                episode=episode,
+                init_state=state,
+                update_cycle=update_cycle,
+                raises=raises,
+            )
+            agent.on_episode_end(env, episode, returns[episode])
+
+        agent.on_training_end(env, returns)
+        return returns
+
+    @staticmethod
+    @abstractmethod
+    def train_one_episode(
+        agent: "LearningAgent[SymType, ExpType]",
+        env: GymEnvLike[ObsType, ActType],
+        episode: int,
+        init_state: ObsType,
+        update_cycle: Iterator[bool],
+        raises: bool = True,
+    ) -> float:
+        """Train the agent on an environment for one episode.
+
+        Parameters
+        ----------
+        agent : LearningAgent or inheriting
+            The agent to train.
+        env : GymEnvLike[ObsType, ActType]
+            A gym-like environment where to train the agent in.
+        episode : int
+            Number of the current training episode.
+        init_state : observation type
+            Initial state/observation of the environment.
+        update_cycle : itertools.cycle of bool
+            Update cycle. When this iterator returns true, then an update should be
+            performed. Should be an infinite iterator to avoid exceptions.
+        raises : bool, optional
+            If `True`, when any of the MPC solver runs fails, or when an update fails,
+            the corresponding error is raised; otherwise, only a warning is raised.
+
+        Returns
+        -------
+        float
+            The cumulative rewards for this training episode.
 
         Raises
         ------
