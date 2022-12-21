@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
 from functools import wraps
-from itertools import chain, cycle, repeat
 from typing import (
     Any,
     Callable,
@@ -25,6 +24,7 @@ from mpcrl.core.experience import ExperienceReplay
 from mpcrl.core.exploration import ExplorationStrategy
 from mpcrl.core.parameters import LearnableParametersDict
 from mpcrl.core.random import generate_seeds
+from mpcrl.util.iters import bool_cycle
 from mpcrl.util.types import GymEnvLike
 
 ExpType = TypeVar("ExpType")
@@ -223,7 +223,7 @@ class LearningAgent(
             Raises the error or the warning (depending on `raises`) if the update fails.
         """
         # prepare for training start
-        update_cycle = cycle(chain(repeat(False, update_frequency - 1), (True,)))
+        update_cycle = bool_cycle(update_frequency)
         returns = np.zeros(episodes, dtype=float)
         agent.on_training_start(env)
 

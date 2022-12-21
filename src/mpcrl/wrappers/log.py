@@ -6,10 +6,9 @@ import numpy as np
 import numpy.typing as npt
 
 from mpcrl.agents.agent import Agent
+from mpcrl.util.iters import bool_cycle
 from mpcrl.util.types import ActType, GymEnvLike, ObsType
 from mpcrl.wrappers.wrapper import SymType, Wrapper
-from mpcrl.util.iters import bool_cycle
-
 
 _FALSE_ITER = repeat(False)
 
