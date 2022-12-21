@@ -1,6 +1,6 @@
 import logging
-from itertools import chain, cycle, repeat
-from typing import Optional
+from itertools import repeat
+from typing import Dict, Optional
 
 import numpy as np
 import numpy.typing as npt
@@ -8,12 +8,16 @@ import numpy.typing as npt
 from mpcrl.agents.agent import Agent
 from mpcrl.util.types import ActType, GymEnvLike, ObsType
 from mpcrl.wrappers.wrapper import SymType, Wrapper
+from mpcrl.util.iters import bool_cycle
+
+
+_FALSE_ITER = repeat(False)
 
 
 class Log(Wrapper[SymType]):
     """A wrapper class for logging information about an agent."""
 
-    __slots__ = ("logger", "precision", "on_env_step_log_cycle")
+    __slots__ = ("logger", "precision", "log_frequencies")
 
     def __init__(
         self,
@@ -23,7 +27,7 @@ class Log(Wrapper[SymType]):
         to_file: bool = False,
         mode: str = "a",
         precision: int = 3,
-        on_env_step_log_frequency: int = 1,
+        log_frequencies: Optional[Dict[str, int]] = None,
     ) -> None:
         """Creates a logger wrapper.
 
@@ -42,8 +46,15 @@ class Log(Wrapper[SymType]):
             The mode for opening the logging faile, in case `to_file=True`.
         precision : int, optional
             Precision for printing floats, by default 3.
-        on_env_step_log_frequency : int, optional
-            Logging frequency of the `on_env_step` callback.
+        log_frequencies : int, optional
+            Dict containing for each logging call its corresponding frequency. The calls
+            for which a frequency can be set are:
+             - `on_episode_start`
+             - `on_episode_end`
+             - `on_env_step`
+             - `on_update`.
+            If an entry is not found in the dict, it is assumed that its call is never
+            logged.
 
         Returns
         -------
@@ -67,9 +78,12 @@ class Log(Wrapper[SymType]):
             fh.setFormatter(formatter)
             self.logger.addHandler(fh)
         self.precision = precision
-        self.on_env_step_log_cycle = cycle(
-            chain(repeat(False, on_env_step_log_frequency - 1), (True,))
-        )
+        if log_frequencies is None:
+            self.log_frequencies = {}
+        else:
+            self.log_frequencies = {
+                name: bool_cycle(freq) for name, freq in log_frequencies.items()
+            }
         self.logger.info("logger created.")
 
     # callbacks for Agent
@@ -97,23 +111,25 @@ class Log(Wrapper[SymType]):
 
     def on_episode_start(self, env: GymEnvLike[ObsType, ActType], episode: int) -> None:
         """See `agent.on_episode_start`."""
-        self.logger.debug(f"episode {episode} started.")
+        if next(self.log_frequencies.get("on_episode_start", _FALSE_ITER)):
+            self.logger.debug(f"episode {episode} started.")
         self.agent.on_episode_start(env, episode)
 
     def on_episode_end(
         self, env: GymEnvLike[ObsType, ActType], episode: int, rewards: float
     ) -> None:
         """See `agent.on_episode_end`."""
-        self.logger.info(
-            f"episode {episode} ended with rewards={rewards:.{self.precision}f}."
-        )
+        if next(self.log_frequencies.get("on_episode_end", _FALSE_ITER)):
+            self.logger.info(
+                f"episode {episode} ended with rewards={rewards:.{self.precision}f}."
+            )
         self.agent.on_episode_end(env, episode, rewards)
 
     def on_env_step(
         self, env: GymEnvLike[ObsType, ActType], episode: int, timestep: int
     ) -> None:
         """See `agent.on_env_step`."""
-        if next(self.on_env_step_log_cycle):
+        if next(self.log_frequencies.get("on_env_step", _FALSE_ITER)):
             self.logger.debug(f"episode {episode} stepped at time {timestep}.")
         self.agent.on_env_step(env, episode, timestep)
 
@@ -143,6 +159,7 @@ class Log(Wrapper[SymType]):
     def on_update(self) -> None:
         """See `learningagent.on_update`."""
         # assert isinstance(self.agent, LearningAgent)
-        parsstr = self.agent.learnable_parameters.stringify()
-        self.logger.info(f"updated parameters: {parsstr}.")
+        if next(self.log_frequencies.get("on_update", _FALSE_ITER)):
+            S = self.agent.learnable_parameters.stringify()
+            self.logger.info(f"updated parameters: {S}.")
         self.agent.on_update()
