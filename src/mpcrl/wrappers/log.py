@@ -1,7 +1,9 @@
 import logging
 from typing import Optional
-import numpy.typing as npt
+
 import numpy as np
+import numpy.typing as npt
+
 from mpcrl.agents.agent import Agent
 from mpcrl.util.types import ActType, GymEnvLike, ObsType
 from mpcrl.wrappers.wrapper import SymType, Wrapper
@@ -17,7 +19,7 @@ class Log(Wrapper[SymType]):
         agent: Agent[SymType],
         log_name: Optional[str] = None,
         level: int = logging.INFO,
-        to_file: bool = True,
+        to_file: bool = False,
         mode: str = "a",
         precision: int = 3,
     ) -> None:
@@ -33,7 +35,7 @@ class Log(Wrapper[SymType]):
             The logging level, by default `DEBUG`.
         to_file : bool, optional
             Whether to write the log also to a file in the current directory. By
-            default, `True`.
+            default, `False`.
         mode : str, optional
             The mode for opening the logging faile, in case `to_file=True`.
         precision : int, optional
@@ -48,7 +50,9 @@ class Log(Wrapper[SymType]):
         name = log_name if log_name is not None else agent.name
         self.logger = logging.getLogger(name)
         self.logger.setLevel(level)
-        formatter = logging.Formatter("%(message)s")
+        formatter = logging.Formatter(
+            fmt="%(name)s@%(asctime)s> %(message)s", datefmt="%Y-%m-%d,%H:%M:%S"
+        )
         ch = logging.StreamHandler()
         ch.setLevel(level)
         ch.setFormatter(formatter)
@@ -59,7 +63,7 @@ class Log(Wrapper[SymType]):
             fh.setFormatter(formatter)
             self.logger.addHandler(fh)
         self.precision = precision
-        self.logger.info(f"{name}> logger created.")
+        self.logger.info("logger created.")
 
     # callbacks for Agent
 
@@ -73,9 +77,7 @@ class Log(Wrapper[SymType]):
 
     def on_validation_start(self, env: GymEnvLike[ObsType, ActType]) -> None:
         """See `agent.on_validation_start`."""
-        self.logger.debug(
-            f"{self.logger.name}> validation on {env.__class__.__name__} started."
-        )
+        self.logger.debug(f"validation on {env.__class__.__name__} started.")
         self.agent.on_validation_start(env)
 
     def on_validation_end(
@@ -83,14 +85,14 @@ class Log(Wrapper[SymType]):
     ) -> None:
         """See `agent.on_validation_end`."""
         self.logger.info(
-            f"{self.logger.name}> validation on {env.__class__.__name__} concluded with"
-            f" returns={np.array2string(returns, precision=self.precision)}."
+            f"validation on {env.__class__.__name__} concluded with "
+            f"returns={np.array2string(returns, precision=self.precision)}."
         )
         self.agent.on_validation_end(env, returns)
 
     def on_episode_start(self, env: GymEnvLike[ObsType, ActType], episode: int) -> None:
         """See `agent.on_episode_start`."""
-        self.logger.debug(f"{self.logger.name}> episode {episode} started.")
+        self.logger.debug(f"episode {episode} started.")
         self.agent.on_episode_start(env, episode)
 
     def on_episode_end(
@@ -98,8 +100,7 @@ class Log(Wrapper[SymType]):
     ) -> None:
         """See `agent.on_episode_end`."""
         self.logger.info(
-            f"{self.logger.name}> episode {episode} ended with "
-            f"rewards={rewards:.{self.precision}f}."
+            f"episode {episode} ended with rewards={rewards:.{self.precision}f}."
         )
         self.on_episode_end(env, episode, rewards)
 
@@ -107,9 +108,7 @@ class Log(Wrapper[SymType]):
         self, env: GymEnvLike[ObsType, ActType], episode: int, timestep: int
     ) -> None:
         """See `agent.on_env_step`."""
-        self.logger.debug(
-            f"{self.logger.name}> episode {episode} stepped at time {timestep}."
-        )
+        self.logger.debug(f"episode {episode} stepped at time {timestep}.")
         self.on_env_step(env, episode, timestep)
 
     # callbacks for LearningAgent
@@ -124,9 +123,7 @@ class Log(Wrapper[SymType]):
 
     def on_training_start(self, env: GymEnvLike[ObsType, ActType]) -> None:
         """See `learningagent.on_training_start`."""
-        self.logger.debug(
-            f"{self.logger.name}> training on {env.__class__.__name__} started."
-        )
+        self.logger.debug(f"training on {env.__class__.__name__} started.")
         self.agent.on_training_start(env)
 
     def on_training_end(
@@ -134,8 +131,8 @@ class Log(Wrapper[SymType]):
     ) -> None:
         """See `learningagent.on_training_end`."""
         self.logger.info(
-            f"{self.logger.name}> training on {env.__class__.__name__} concluded with"
-            f" returns={np.array2string(returns, precision=self.precision)}."
+            f"training on {env.__class__.__name__} concluded with "
+            f"returns={np.array2string(returns, precision=self.precision)}."
         )
         self.agent.on_training_end(env, returns)
 
@@ -143,5 +140,5 @@ class Log(Wrapper[SymType]):
         """See `learningagent.on_update`."""
         # assert isinstance(self.agent, LearningAgent)
         parsstr = self.agent.learnable_parameters.stringify()
-        self.logger.info(f"{self.logger.name}> updated parameters: {parsstr}.")
+        self.logger.info(f"updated parameters: {parsstr}.")
         self.agent.on_update()
