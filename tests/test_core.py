@@ -350,6 +350,16 @@ class TestParameters(unittest.TestCase):
 
         check(pars, PARS)
 
+    def test_parameters_dict__stringify(self):
+        p1 = LearnableParameter[None]("p1", 1, 1)
+        p2 = LearnableParameter[None]("p2", 1, 2.0)
+        p3 = LearnableParameter[None]("p3", 100, np.random.randint(0, 100, size=100))
+        p4 = LearnableParameter[None]("p4", 100, np.random.rand(100))
+        pars = LearnableParametersDict((p1, p2, p3, p4))
+        S = pars.stringify()
+        for p in [p1, p2, p3, p4]:
+            self.assertIn(p.name, S)
+
 
 if __name__ == "__main__":
     unittest.main()

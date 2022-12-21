@@ -270,8 +270,47 @@ class LearnableParametersDict(
                 es.enter_context(par.pickleable())
             yield
 
+    def stringify(
+        self, summarize: bool = True, precision: int = 3, ddof: int = 0
+    ) -> str:
+        """Returns a string representing the dict of learnable parameters.
+
+        Parameters
+        ----------
+        summarize : bool, optional
+            If `True` (default), array parameters are summarized; otherwise, the entire
+            array is printed.
+        precision : int, optional
+            The printing precision of floating point numbers.
+        ddof : int, optional
+            Degrees of freedom for computing standard deviations (see `numpy.std`).
+
+        Returns
+        -------
+        str
+            A string representing the dict and its parameters.
+        """
+        P = precision
+
+        def p2s(p: LearnableParameter) -> str:
+            if p.size == 1:
+                return f"{p.name}={p.value.item():.{P}f}"
+            if summarize:
+                n = p.size
+                mean = p.value.mean()
+                std = p.value.std(ddof=ddof)
+                min = p.value.min()
+                max = p.value.max()
+                return (
+                    f"{p.name}: n={n} x∈[{min:.{P}f}, {max:.{P}f}] "
+                    f"μ={mean:.{P}f} σ={std:.{P}f}"
+                )
+            return np.array2string(p.value, precision=P)
+
+        return "; ".join(p2s(p) for p in self.values())
+
     def __str__(self) -> str:
-        return f"<{self.__class__.__name__}: {super().__str__()}>"
+        return self.stringify()
 
     def __repr__(self) -> str:
         return f"<{self.__class__.__name__}: {super().__repr__()}>"
