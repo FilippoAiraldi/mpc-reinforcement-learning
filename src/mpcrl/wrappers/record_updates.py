@@ -17,7 +17,7 @@ class RecordUpdates(LearningWrapper[SymType, ExpType]):
 
         Parameters
         ----------
-        agent : LearningAgent[SymType, ExpType]
+        agent : LearningAgent or inheriting
             The agent whose updates need recording.
         """
         super().__init__(agent)
@@ -26,7 +26,7 @@ class RecordUpdates(LearningWrapper[SymType, ExpType]):
         }
 
     def on_update(self) -> None:
-        """See `LearningAgent.on_update`."""
+        """See `agent.on_update`."""
         self.agent.on_update()
         for par in self.agent.learnable_parameters.values():
             self.updates_history[par.name].append(par.value)
