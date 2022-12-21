@@ -5,7 +5,7 @@ from mpcrl.core.errors import (
     raise_or_warn_on_mpc_failure,
     raise_or_warn_on_update_failure,
 )
-from mpcrl.util.types import GymEnvLike, ActType, ObsType
+from mpcrl.util.types import ActType, GymEnvLike, ObsType
 
 
 class AgentCallbacks:
