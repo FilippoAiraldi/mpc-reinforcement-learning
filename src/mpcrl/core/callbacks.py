@@ -1,19 +1,11 @@
-from typing import Dict, TypeVar, Union
-
-import casadi as cs
 import numpy as np
 import numpy.typing as npt
-from typing_extensions import TypeAlias
 
 from mpcrl.core.errors import (
     raise_or_warn_on_mpc_failure,
     raise_or_warn_on_update_failure,
 )
-from mpcrl.util.types import GymEnvLike
-
-SymType = TypeVar("SymType", cs.SX, cs.MX)
-ActType: TypeAlias = Union[npt.ArrayLike, Dict[str, npt.ArrayLike]]
-ObsType: TypeAlias = Union[npt.ArrayLike, Dict[str, npt.ArrayLike]]
+from mpcrl.util.types import GymEnvLike, ActType, ObsType
 
 
 class AgentCallbacks:
@@ -104,7 +96,7 @@ class AgentCallbacks:
         """
 
 
-class LearningAgentCallbacks(AgentCallbacks):
+class LearningAgentCallbacks:
     def on_update_failure(
         self, episode: int, timestep: int, errormsg: str, raises: bool
     ) -> None:
