@@ -19,6 +19,7 @@ import numpy.typing as npt
 from csnlp.wrappers import Mpc
 
 from mpcrl.agents.agent import ActType, Agent, ObsType, SymType, _update_dicts
+from mpcrl.core.errors import raise_or_warn_on_update_failure
 from mpcrl.core.experience import ExperienceReplay
 from mpcrl.core.exploration import ExplorationStrategy
 from mpcrl.core.parameters import LearnableParametersDict
@@ -158,6 +159,27 @@ class LearningAgent(Agent[SymType], ABC, Generic[SymType, ExpType]):
         """
         return self.experience.sample(
             self.experience_sample_size, self.experience_sample_include_last
+        )
+
+    def on_update_failure(
+        self, episode: int, timestep: int, errormsg: str, raises: bool
+    ) -> None:
+        """Callback in case of update failure.
+
+        Parameters
+        ----------
+        episode : int
+            Number of the episode when the failure happened.
+        timestep : int
+            Timestep of the current episode when the failure happened.
+        errormsg : str
+            Error message of the update failure.
+        raises : bool
+            Whether the failure should be raised as exception.
+        """
+        raise_or_warn_on_update_failure(
+            f"Update failed at episode {episode}, time {timestep}, status: {errormsg}.",
+            raises,
         )
 
     def on_training_start(self, env: GymEnvLike[ObsType, ActType]) -> None:

@@ -159,6 +159,27 @@ class Agent(Named, SupportsDeepcopyAndPickle, Generic[SymType]):
         """Resets the agent's internal variables."""
         self._last_solution: Optional[Solution[SymType]] = None
 
+    def on_mpc_failure(
+        self, episode: int, timestep: int, status: str, raises: bool
+    ) -> None:
+        """Callback in case of MPC failure.
+
+        Parameters
+        ----------
+        episode : int
+            Number of the episode when the failure happened.
+        timestep : int
+            Timestep of the current episode when the failure happened.
+        status : str
+            Status of the solver that failed.
+        raises : bool
+            Whether the failure should be raised as exception.
+        """
+        raise_or_warn_on_mpc_failure(
+            f"MPC failure at episode {episode}, time {timestep}, status: {status}.",
+            raises,
+        )
+
     def solve_mpc(
         self,
         mpc: Mpc[SymType],
@@ -364,17 +385,16 @@ class Agent(Named, SupportsDeepcopyAndPickle, Generic[SymType]):
         for episode, current_seed in zip(range(episodes), generate_seeds(seed)):
             self.reset()
             state, _ = env.reset(seed=current_seed, options=env_reset_options)
-            truncated, terminated = False, False
+            truncated, terminated, timestep = False, False, 0
 
             while not (truncated or terminated):
                 action, sol = self.state_value(state, deterministic)
                 if not sol.success:
-                    raise_or_warn_on_mpc_failure(
-                        f"Solver failed with status: {sol.status}.", raises
-                    )
+                    self.on_mpc_failure(episode, timestep, sol.status, raises)
 
                 state, r, truncated, terminated, _ = env.step(action)
                 returns[episode] += r
+                timestep += 1
         return returns
 
     def _setup_V_and_Q(self, mpc: Mpc[SymType]) -> Tuple[Mpc[SymType], Mpc[SymType]]:

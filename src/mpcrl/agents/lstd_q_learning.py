@@ -20,10 +20,6 @@ from typing_extensions import TypeAlias
 
 from mpcrl.agents.agent import ActType, ObsType, SymType
 from mpcrl.agents.learning_agent import LearningAgent
-from mpcrl.core.errors import (
-    raise_or_warn_on_mpc_failure,
-    raise_or_warn_on_update_failure,
-)
 from mpcrl.core.experience import ExperienceReplay
 from mpcrl.core.exploration import ExplorationStrategy
 from mpcrl.core.parameters import LearnableParametersDict
@@ -240,11 +236,7 @@ class LstdQLearningAgent(LearningAgent[SymType, ExpType]):
             # solve for the first action
             action, solV = agent.state_value(state, deterministic=False)
             if not solV.success:
-                raise_or_warn_on_mpc_failure(
-                    f"MPC solver failed at episode {episode}, time -1, "
-                    f"status: {solV.status}.",
-                    raises,
-                )
+                agent.on_mpc_failure(episode, -1, solV.status, raises)
 
             while not (truncated or terminated):
                 # compute Q(s,a)
