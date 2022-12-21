@@ -319,8 +319,9 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbacks, Generic[SymType]):
         """
         return self.solve_mpc(self._Q, state, action=action, vals0=vals0)
 
+    @staticmethod
     def evaluate(
-        self,
+        agent: "Agent[SymType]",
         env: GymEnvLike[ObsType, ActType],
         episodes: int,
         deterministic: bool = True,
@@ -336,6 +337,8 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbacks, Generic[SymType]):
 
         Parameters
         ----------
+        agent : Agent
+            The agent to evaluate.
         env : gym env
             A gym-like environment where to test the agent in.
         episodes : int
@@ -361,20 +364,28 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbacks, Generic[SymType]):
             Raises if the MPC optimization solver fails and `warns_on_exception=False`.
         """
         returns = np.zeros(episodes)
+        agent.on_validation_start(env)
 
         for episode, current_seed in zip(range(episodes), generate_seeds(seed)):
-            self.reset()
+            agent.on_episode_start(env, episode)
+            agent.reset()
             state, _ = env.reset(seed=current_seed, options=env_reset_options)
             truncated, terminated, timestep = False, False, 0
 
             while not (truncated or terminated):
-                action, sol = self.state_value(state, deterministic)
+                action, sol = agent.state_value(state, deterministic)
                 if not sol.success:
-                    self.on_mpc_failure(episode, timestep, sol.status, raises)
+                    agent.on_mpc_failure(episode, timestep, sol.status, raises)
 
                 state, r, truncated, terminated, _ = env.step(action)
+                agent.on_env_step(env, episode, timestep)
+
                 returns[episode] += r
                 timestep += 1
+
+            agent.on_episode_end(env, episode, returns[episode])
+
+        agent.on_validation_end(env, returns)
         return returns
 
     def _setup_V_and_Q(self, mpc: Mpc[SymType]) -> Tuple[Mpc[SymType], Mpc[SymType]]:
