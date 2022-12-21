@@ -1,4 +1,5 @@
 import logging
+from itertools import chain, cycle, repeat
 from typing import Optional
 
 import numpy as np
@@ -12,7 +13,7 @@ from mpcrl.wrappers.wrapper import SymType, Wrapper
 class Log(Wrapper[SymType]):
     """A wrapper class for logging information about an agent."""
 
-    __slots__ = ("logger", "precision")
+    __slots__ = ("logger", "precision", "on_env_step_log_cycle")
 
     def __init__(
         self,
@@ -22,6 +23,7 @@ class Log(Wrapper[SymType]):
         to_file: bool = False,
         mode: str = "a",
         precision: int = 3,
+        on_env_step_log_frequency: int = 1,
     ) -> None:
         """Creates a logger wrapper.
 
@@ -32,7 +34,7 @@ class Log(Wrapper[SymType]):
         log_name : str, optional
             Name of the logger. If not provided, the name of the agent is used.
         level : int, optional
-            The logging level, by default `DEBUG`.
+            The logging level, by default `INFO`.
         to_file : bool, optional
             Whether to write the log also to a file in the current directory. By
             default, `False`.
@@ -40,6 +42,8 @@ class Log(Wrapper[SymType]):
             The mode for opening the logging faile, in case `to_file=True`.
         precision : int, optional
             Precision for printing floats, by default 3.
+        on_env_step_log_frequency : int, optional
+            Logging frequency of the `on_env_step` callback.
 
         Returns
         -------
@@ -63,6 +67,9 @@ class Log(Wrapper[SymType]):
             fh.setFormatter(formatter)
             self.logger.addHandler(fh)
         self.precision = precision
+        self.on_env_step_log_cycle = cycle(
+            chain(repeat(False, on_env_step_log_frequency - 1), (True,))
+        )
         self.logger.info("logger created.")
 
     # callbacks for Agent
@@ -77,17 +84,15 @@ class Log(Wrapper[SymType]):
 
     def on_validation_start(self, env: GymEnvLike[ObsType, ActType]) -> None:
         """See `agent.on_validation_start`."""
-        self.logger.debug(f"validation on {env.__class__.__name__} started.")
+        self.logger.debug(f"validation on {env} started.")
         self.agent.on_validation_start(env)
 
     def on_validation_end(
         self, env: GymEnvLike[ObsType, ActType], returns: npt.NDArray[np.double]
     ) -> None:
         """See `agent.on_validation_end`."""
-        self.logger.info(
-            f"validation on {env.__class__.__name__} concluded with "
-            f"returns={np.array2string(returns, precision=self.precision)}."
-        )
+        S = np.array2string(returns, precision=self.precision)
+        self.logger.info(f"validation on {env} concluded with returns={S}.")
         self.agent.on_validation_end(env, returns)
 
     def on_episode_start(self, env: GymEnvLike[ObsType, ActType], episode: int) -> None:
@@ -102,14 +107,15 @@ class Log(Wrapper[SymType]):
         self.logger.info(
             f"episode {episode} ended with rewards={rewards:.{self.precision}f}."
         )
-        self.on_episode_end(env, episode, rewards)
+        self.agent.on_episode_end(env, episode, rewards)
 
     def on_env_step(
         self, env: GymEnvLike[ObsType, ActType], episode: int, timestep: int
     ) -> None:
         """See `agent.on_env_step`."""
-        self.logger.debug(f"episode {episode} stepped at time {timestep}.")
-        self.on_env_step(env, episode, timestep)
+        if next(self.on_env_step_log_cycle):
+            self.logger.debug(f"episode {episode} stepped at time {timestep}.")
+        self.agent.on_env_step(env, episode, timestep)
 
     # callbacks for LearningAgent
 
@@ -123,17 +129,15 @@ class Log(Wrapper[SymType]):
 
     def on_training_start(self, env: GymEnvLike[ObsType, ActType]) -> None:
         """See `learningagent.on_training_start`."""
-        self.logger.debug(f"training on {env.__class__.__name__} started.")
+        self.logger.debug(f"training on {env} started.")
         self.agent.on_training_start(env)
 
     def on_training_end(
         self, env: GymEnvLike[ObsType, ActType], returns: npt.NDArray[np.double]
     ) -> None:
         """See `learningagent.on_training_end`."""
-        self.logger.info(
-            f"training on {env.__class__.__name__} concluded with "
-            f"returns={np.array2string(returns, precision=self.precision)}."
-        )
+        S = np.array2string(returns, precision=self.precision)
+        self.logger.info(f"training on {env} concluded with returns={S}.")
         self.agent.on_training_end(env, returns)
 
     def on_update(self) -> None:
