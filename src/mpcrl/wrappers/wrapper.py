@@ -66,11 +66,11 @@ class Wrapper(SupportsDeepcopyAndPickle, Generic[SymType]):
 
     def __str__(self) -> str:
         """Returns the wrapped agent string."""
-        return f"<{self.__class__.__name__}: {self.agent.__str__()}>"
+        return f"<{self.__class__.__name__}{self.agent.__str__()}>"
 
     def __repr__(self) -> str:
         """Returns the wrapped agent representation."""
-        return f"<{self.__class__.__name__}: {self.agent.__repr__()}>"
+        return f"<{self.__class__.__name__}{self.agent.__repr__()}>"
 
 
 class LearningWrapper(Wrapper[SymType], Generic[SymType, ExpType]):

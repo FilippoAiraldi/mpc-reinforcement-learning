@@ -19,12 +19,12 @@ import numpy as np
 import numpy.typing as npt
 from csnlp.wrappers import Mpc
 
-from mpcrl.core.random import generate_seeds
 from mpcrl.agents.agent import ActType, Agent, ObsType, SymType, _update_dicts
 from mpcrl.core.callbacks import LearningAgentCallbacks
 from mpcrl.core.experience import ExperienceReplay
 from mpcrl.core.exploration import ExplorationStrategy
 from mpcrl.core.parameters import LearnableParametersDict
+from mpcrl.core.random import generate_seeds
 from mpcrl.util.types import GymEnvLike
 
 ExpType = TypeVar("ExpType")
