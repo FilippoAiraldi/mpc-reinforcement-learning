@@ -21,7 +21,7 @@ from csnlp.util.io import SupportsDeepcopyAndPickle
 from csnlp.wrappers import Mpc
 from typing_extensions import TypeAlias
 
-from mpcrl.core.errors import raise_or_warn_on_mpc_failure
+from mpcrl.core.callbacks import AgentCallbacks
 from mpcrl.core.exploration import ExplorationStrategy, NoExploration
 from mpcrl.core.random import generate_seeds
 from mpcrl.util.named import Named
@@ -39,7 +39,7 @@ def _update_dicts(sinks: Iterable[Dict], source: Dict) -> Iterator[Dict]:
         yield sink
 
 
-class Agent(Named, SupportsDeepcopyAndPickle, Generic[SymType]):
+class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbacks, Generic[SymType]):
     """Simple MPC-based agent with a fixed (i.e., non-learnable) MPC controller.
 
     In this agent, the MPC controller is used as policy provider, as well as to provide
@@ -106,6 +106,7 @@ class Agent(Named, SupportsDeepcopyAndPickle, Generic[SymType]):
         """
         Named.__init__(self, name)
         SupportsDeepcopyAndPickle.__init__(self)
+        AgentCallbacks.__init__(self)
         self._V, self._Q = self._setup_V_and_Q(mpc)
         self._fixed_pars = fixed_parameters
         self._exploration = NoExploration() if exploration is None else exploration
@@ -158,27 +159,6 @@ class Agent(Named, SupportsDeepcopyAndPickle, Generic[SymType]):
     def reset(self) -> None:
         """Resets the agent's internal variables."""
         self._last_solution: Optional[Solution[SymType]] = None
-
-    def on_mpc_failure(
-        self, episode: int, timestep: int, status: str, raises: bool
-    ) -> None:
-        """Callback in case of MPC failure.
-
-        Parameters
-        ----------
-        episode : int
-            Number of the episode when the failure happened.
-        timestep : int
-            Timestep of the current episode when the failure happened.
-        status : str
-            Status of the solver that failed.
-        raises : bool
-            Whether the failure should be raised as exception.
-        """
-        raise_or_warn_on_mpc_failure(
-            f"MPC failure at episode {episode}, time {timestep}, status: {status}.",
-            raises,
-        )
 
     def solve_mpc(
         self,
