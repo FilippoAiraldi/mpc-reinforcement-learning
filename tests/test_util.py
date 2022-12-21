@@ -1,8 +1,9 @@
 import unittest
 
 import numpy as np
+from parameterized import parameterized
 
-from mpcrl.util import math, named
+from mpcrl.util import iters, math, named
 
 
 class DummyAgent(named.Named):
@@ -60,6 +61,14 @@ class TestMath(unittest.TestCase):
         K, P = math.dlqr(A, B, Q, R)
         np.testing.assert_allclose(K, K_exp)
         np.testing.assert_allclose(P, P_exp)
+
+
+class TestIters(unittest.TestCase):
+    @parameterized.expand([(5,), (1,), (22,)])
+    def test_bool_cycle__raises__with_negative_freq(self, frequency: int):
+        T = frequency * 10
+        cycle = iters.bool_cycle(frequency)
+        self.assertEqual(T // frequency, sum((next(cycle) for _ in range(T))))
 
 
 if __name__ == "__main__":
