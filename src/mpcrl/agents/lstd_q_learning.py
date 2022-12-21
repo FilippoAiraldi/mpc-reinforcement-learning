@@ -251,20 +251,12 @@ class LstdQLearningAgent(LearningAgent[SymType, ExpType]):
                 if solQ.success and solV.success:
                     agent.store_experience(r, solQ, solV)
                 else:
-                    raise_or_warn_on_mpc_failure(
-                        f"MPC solver failed at episode {episode}, time {timestep}, "
-                        f"status: {solV.status}.",
-                        raises,
-                    )
+                    agent.on_mpc_failure(episode, timestep, solV.status, raises)
 
                 # check if it is time to update
                 if (update_counter + 1) % update_frequency == 0:
-                    if update_errormsg := agent.update():
-                        raise_or_warn_on_update_failure(
-                            f"Update failed at episode {episode}, time {timestep}, "
-                            f"status: {update_errormsg}.",
-                            raises,
-                        )
+                    if update_msg := agent.update():
+                        agent.on_update_failure(episode, timestep, update_msg, raises)
                     agent.on_update()
 
                 # increase counters
@@ -272,9 +264,9 @@ class LstdQLearningAgent(LearningAgent[SymType, ExpType]):
                 timestep += 1
                 update_counter = (update_counter + 1) % update_frequency
 
-            agent.on_episode_end(env, episode)
+            agent.on_episode_end(env, episode, returns[episode])
 
-        agent.on_training_end(env)
+        agent.on_training_end(env, returns)
         return returns
 
     def _init_Q_derivatives(
