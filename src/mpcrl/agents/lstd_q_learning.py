@@ -2,6 +2,7 @@ from typing import (
     Collection,
     Dict,
     Iterator,
+    List,
     Literal,
     Optional,
     SupportsFloat,
@@ -52,6 +53,7 @@ class LstdQLearningAgent(LearningAgent[SymType, ExpType]):
         "_update_solver",
         "_dQdtheta",
         "_d2Qdtheta2",
+        "td_errors",
     )
 
     def __init__(
@@ -70,6 +72,7 @@ class LstdQLearningAgent(LearningAgent[SymType, ExpType]):
         warmstart: Literal["last", "last-successful"] = "last-successful",
         hessian_type: Literal["approx", "full"] = "approx",
         stepping: Literal["on_update", "on_episode_start", "on_env_step"] = "on_update",
+        record_td_errors: bool = False,
         name: Optional[str] = None,
     ) -> None:
         """Instantiates the learning agent.
@@ -128,6 +131,9 @@ class LstdQLearningAgent(LearningAgent[SymType, ExpType]):
              - each episode's start ('ep-start')
              - each environment's step ('env-step').
             By default, 'on_update' is selected.
+        record_td_errors: bool, optional
+            If `True`, the TD errors are recorded in the field `td_errors`, which
+            otherwise is `None`. By default, does not record them.
         name : str, optional
             Name of the agent. If `None`, one is automatically created from a counter of
             the class' instancies.
@@ -152,6 +158,7 @@ class LstdQLearningAgent(LearningAgent[SymType, ExpType]):
         self.discount_factor = discount_factor
         self._dQdtheta, self._d2Qdtheta2 = self._init_Q_derivatives(hessian_type)
         self._update_solver = self._init_update_solver()
+        self.td_errors: Optional[List[float]] = [] if record_td_errors else None
 
     @property
     def learning_rate(self) -> npt.NDArray[np.double]:
@@ -183,6 +190,8 @@ class LstdQLearningAgent(LearningAgent[SymType, ExpType]):
         ddQ = solQ.value(self._d2Qdtheta2).full()
         g = -td_error * dQ
         H = dQ @ dQ.T - td_error * ddQ
+        if self.td_errors is not None:
+            self.td_errors.append(td_error)
         return super().store_experience((g, H))
 
     def update(self) -> Optional[str]:
