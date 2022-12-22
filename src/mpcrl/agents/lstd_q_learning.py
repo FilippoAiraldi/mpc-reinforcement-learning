@@ -69,7 +69,7 @@ class LstdQLearningAgent(LearningAgent[SymType, ExpType]):
         experience_sample_include_last: Union[int, float] = 0,
         warmstart: Literal["last", "last-successful"] = "last-successful",
         hessian_type: Literal["approx", "full"] = "approx",
-        step_on: Literal["agent-update", "env-step"] = "agent-update",
+        stepping: Literal["on_update", "on_env_step", "on_episode_start"] = "on_update",
         name: Optional[str] = None,
     ) -> None:
         """Instantiates the learning agent.
@@ -90,7 +90,7 @@ class LstdQLearningAgent(LearningAgent[SymType, ExpType]):
         learning_rate : Scheduler of array
             The learning rate of the algorithm, in general, a small number. A scheduler
             can be passed so that the learning rate is decayed after every step (see
-            `step_on`).
+            `stepping`).
         learnable_parameters : LearnableParametersDict
             A special dict containing the learnable parameters of the MPC, together with
             their bounds and values. This dict is complementary with `fixed_parameters`,
@@ -121,28 +121,28 @@ class LstdQLearningAgent(LearningAgent[SymType, ExpType]):
             The type of hessian to use in this second-order algorithm. If `approx`, an
             easier approximation of it is used; otherwise, the full hessian is computed
             but this is much more expensive.
-        step_on : {'agent-update', 'env-step', 'ep-start'}, optional
+        stepping : {'on_update', 'on_env_step', 'on_episode_start'}, optional
             Specifies to the algorithm when to step its schedulers (e.g., for learning
             rate and/or exploration decay), either after
              - each agent's update ('agent-update')
              - each environment's step ('env-step')
              - each episode's start ('ep-start').
-            By default, 'agent-update' is selected.
+            By default, 'on_update' is selected.
         name : str, optional
             Name of the agent. If `None`, one is automatically created from a counter of
             the class' instancies.
         """
         super().__init__(
-            mpc,
-            learnable_parameters,
-            fixed_parameters,
-            exploration,
-            experience,
-            experience_sample_size,
-            experience_sample_include_last,
-            warmstart,
-            step_on,
-            name,
+            mpc=mpc,
+            learnable_parameters=learnable_parameters,
+            fixed_parameters=fixed_parameters,
+            exploration=exploration,
+            experience=experience,
+            experience_sample_size=experience_sample_size,
+            experience_sample_include_last=experience_sample_include_last,
+            warmstart=warmstart,
+            stepping=stepping,
+            name=name,
         )
         self._learning_rate_scheduler = (
             learning_rate
