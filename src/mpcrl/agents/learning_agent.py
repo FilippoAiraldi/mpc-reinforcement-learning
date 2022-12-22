@@ -60,7 +60,7 @@ class LearningAgent(
         experience_sample_size: Union[int, float] = 1,
         experience_sample_include_last: Union[int, float] = 0,
         warmstart: Literal["last", "last-successful"] = "last-successful",
-        stepping: Literal["on_update", "on_env_step", "on_episode_start"] = "on_update",
+        stepping: Literal["on_update", "on_episode_start", "on_env_step"] = "on_update",
         name: Optional[str] = None,
     ) -> None:
         """Instantiates the learning agent.
@@ -101,12 +101,12 @@ class LearningAgent(
             The warmstart strategy for the MPC's NLP. If 'last-successful', the last
             successful solution is used to warm start the solver for the next iteration.
             If 'last', the last solution is used, regardless of success or failure.
-        stepping : {'on_update', 'on_env_step', 'on_episode_start'}, optional
+        stepping : {'on_update', 'on_episode_start', 'on_env_step'}, optional
             Specifies to the algorithm when to step its schedulers (e.g., for learning
             rate and/or exploration decay), either after
              - each agent's update ('agent-update')
-             - each environment's step ('env-step')
-             - each episode's start ('ep-start').
+             - each episode's start ('ep-start')
+             - each environment's step ('env-step').
             By default, 'on_update' is selected.
         name : str, optional
             Name of the agent. If `None`, one is automatically created from a counter of
@@ -158,18 +158,6 @@ class LearningAgent(
         return self.experience.sample(
             self.experience_sample_size, self.experience_sample_include_last
         )
-
-    @abstractmethod
-    def update(self) -> Optional[str]:
-        """Updates the learnable parameters of the MPC according to the agent's learning
-        algorithm.
-
-        Returns
-        -------
-        errormsg : str or None
-            In case the update fails, an error message is returned to be raised as error
-            or warning; otherwise, `None` is returned.
-        """
 
     def train(
         agent: "LearningAgent[SymType, ExpType]",
@@ -278,6 +266,18 @@ class LearningAgent(
             solvers fail.
         UpdateError or UpdateWarning
             Raises the error or the warning (depending on `raises`) if the update fails.
+        """
+
+    @abstractmethod
+    def update(self) -> Optional[str]:
+        """Updates the learnable parameters of the MPC according to the agent's learning
+        algorithm.
+
+        Returns
+        -------
+        errormsg : str or None
+            In case the update fails, an error message is returned to be raised as error
+            or warning; otherwise, `None` is returned.
         """
 
     def _decorate_method_with_step(self, methodname: str) -> None:

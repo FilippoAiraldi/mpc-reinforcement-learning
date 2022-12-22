@@ -69,7 +69,7 @@ class LstdQLearningAgent(LearningAgent[SymType, ExpType]):
         experience_sample_include_last: Union[int, float] = 0,
         warmstart: Literal["last", "last-successful"] = "last-successful",
         hessian_type: Literal["approx", "full"] = "approx",
-        stepping: Literal["on_update", "on_env_step", "on_episode_start"] = "on_update",
+        stepping: Literal["on_update", "on_episode_start", "on_env_step"] = "on_update",
         name: Optional[str] = None,
     ) -> None:
         """Instantiates the learning agent.
@@ -121,12 +121,12 @@ class LstdQLearningAgent(LearningAgent[SymType, ExpType]):
             The type of hessian to use in this second-order algorithm. If `approx`, an
             easier approximation of it is used; otherwise, the full hessian is computed
             but this is much more expensive.
-        stepping : {'on_update', 'on_env_step', 'on_episode_start'}, optional
+        stepping : {'on_update', 'on_episode_start', 'on_env_step'}, optional
             Specifies to the algorithm when to step its schedulers (e.g., for learning
             rate and/or exploration decay), either after
              - each agent's update ('agent-update')
-             - each environment's step ('env-step')
-             - each episode's start ('ep-start').
+             - each episode's start ('ep-start')
+             - each environment's step ('env-step').
             By default, 'on_update' is selected.
         name : str, optional
             Name of the agent. If `None`, one is automatically created from a counter of

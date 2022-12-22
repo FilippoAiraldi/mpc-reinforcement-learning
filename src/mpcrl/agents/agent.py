@@ -88,7 +88,9 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbacks, Generic[SymType]):
             `None`, then no fixed parameter is assumed.
         exploration : ExplorationStrategy, optional
             Exploration strategy for inducing exploration in the MPC policy. By default
-            `None`, in which case `NoExploration` is used in the fixed-MPC agent.
+            `None`, in which case `NoExploration` is used in the fixed-MPC agent. While
+            learning agents need exploration to ensure convergence to a good suboptimal
+            policy, fixed agents usually do not need it.
         warmstart: 'last' or 'last-successful', optional
             The warmstart strategy for the MPC's NLP. If 'last-successful', the last
             successful solution is used to warm start the solver for the next iteration.
