@@ -190,6 +190,16 @@ class TestExploration(unittest.TestCase):
         self.assertEqual(exploration.epsilon, epsilon)
         do_test_str_and_repr(self, exploration)
 
+    def test_epsilon_greedy_exploration__never_explores__with_zero_epsilon(self):
+        epsilon, epsilon_decay_rate = 0.0, 0.75
+        strength, strength_decay_rate = 0.5, 0.75
+        epsilon_scheduler = S.ExponentialScheduler(epsilon, epsilon_decay_rate)
+        strength_scheduler = S.ExponentialScheduler(strength, strength_decay_rate)
+        exploration = E.EpsilonGreedyExploration(
+            epsilon=epsilon_scheduler, strength=strength_scheduler, seed=42
+        )
+        self.assertFalse(any(exploration.can_explore() for _ in range(100)))
+
     def test_epsilon_greedy_exploration__sometimes_explores(self):
         epsilon, epsilon_decay_rate = 0.7, 0.75
         strength, strength_decay_rate = 0.5, 0.75
@@ -198,7 +208,7 @@ class TestExploration(unittest.TestCase):
         exploration = E.EpsilonGreedyExploration(
             epsilon=epsilon_scheduler, strength=strength_scheduler, seed=42
         )
-        self.assertTrue(exploration.can_explore())
+        self.assertFalse(exploration.can_explore())
         found_true, found_false = False, False
         for _ in range(100):
             explore = exploration.can_explore()

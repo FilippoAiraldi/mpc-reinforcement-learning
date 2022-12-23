@@ -167,7 +167,7 @@ class EpsilonGreedyExploration(GreedyExploration):
         return self.epsilon_scheduler.value
 
     def can_explore(self) -> bool:
-        return self.np_random.random() > self.epsilon_scheduler.value
+        return self.np_random.random() <= self.epsilon_scheduler.value
 
     def step(self) -> None:
         """Updates the exploration probability and strength according to their
