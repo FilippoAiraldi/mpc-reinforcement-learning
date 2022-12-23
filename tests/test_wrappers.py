@@ -63,7 +63,7 @@ class DummyLearningAgent(LearningAgent):
     def update(self, *args, **kwargs):
         return
 
-    def train(self, *args, **kwargs):
+    def train_one_episode(self, *args, **kwargs):
         return
 
 

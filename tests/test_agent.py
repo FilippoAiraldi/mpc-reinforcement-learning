@@ -89,7 +89,7 @@ class DummyLearningAgent(LearningAgent):
     def update(self, *args, **kwargs):
         return
 
-    def train(self, *args, **kwargs):
+    def train_one_episode(self, *args, **kwargs):
         return
 
 
@@ -333,7 +333,8 @@ class TestAgent(unittest.TestCase):
         deterministic = object()
 
         with catch_warnings(record=True) as cw:
-            returns = agent.evaluate(
+            returns = Agent.evaluate(
+                agent,
                 env,
                 episodes,
                 deterministic=deterministic,
