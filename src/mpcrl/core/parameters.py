@@ -164,7 +164,7 @@ class LearnableParametersDict(
             for parname, par in self.items()
         }
 
-    @invalidate_cache(value)
+    @invalidate_cache(value, value_as_dict)
     def update_values(
         self,
         new_values: Union[npt.ArrayLike, Dict[str, npt.ArrayLike]],
@@ -200,7 +200,7 @@ class LearnableParametersDict(
             for par, value in zip(self.values(), values_):
                 par._update_value(value, **is_close_kwargs)
 
-    __cache_decorator = invalidate_cache(size, lb, ub, value, sym)
+    __cache_decorator = invalidate_cache(size, lb, ub, value, value_as_dict, sym)
 
     @__cache_decorator
     def __setitem__(self, name: str, par: LearnableParameter) -> None:
