@@ -28,7 +28,7 @@ class AgentCallbacks:
             Whether the failure should be raised as exception.
         """
         raise_or_warn_on_mpc_failure(
-            f"MPC failure at episode {episode}, time {timestep}, status: {status}.",
+            f"mpc failure at episode {episode}, time {timestep}, status: {status}.",
             raises,
         )
 

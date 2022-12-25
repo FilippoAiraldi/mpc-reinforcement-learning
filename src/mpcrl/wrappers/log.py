@@ -92,7 +92,7 @@ class Log(Wrapper[SymType]):
     ) -> None:
         """See `agent.on_mpc_failure`."""
         m = self.logger.error if raises else self.logger.warning
-        m(f"MPC failure at episode {episode}, time {timestep}, status: {status}.")
+        m(f"mpc failure at episode {episode}, time {timestep}, status: {status}.")
         self.agent.on_mpc_failure(episode, timestep, status, raises)
 
     def on_validation_start(self, env: GymEnvLike[ObsType, ActType]) -> None:

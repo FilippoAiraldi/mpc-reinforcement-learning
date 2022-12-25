@@ -1136,7 +1136,7 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
                 if solQ.success and solV.success:
                     self.save_transition(r, solQ, solV)
                 else:
-                    raise MpcSolverError(f"{name}|{epoch_n}|{e}|{t}: MPC failed.")
+                    raise MpcSolverError(f"{name}|{epoch_n}|{e}|{t}: mpc failed.")
                 t += 1
             self.consolidate_episode_experience()
 
