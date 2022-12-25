@@ -54,6 +54,7 @@ class LstdQLearningAgent(LearningAgent[SymType, ExpType]):
         "_dQdtheta",
         "_d2Qdtheta2",
         "td_errors",
+        "chol_maxiter",
     )
 
     def __init__(
@@ -73,6 +74,7 @@ class LstdQLearningAgent(LearningAgent[SymType, ExpType]):
         hessian_type: Literal["approx", "full"] = "approx",
         stepping: Literal["on_update", "on_episode_start", "on_env_step"] = "on_update",
         record_td_errors: bool = False,
+        chol_maxiter: int = 1000,
         name: Optional[str] = None,
     ) -> None:
         """Instantiates the learning agent.
@@ -134,6 +136,10 @@ class LstdQLearningAgent(LearningAgent[SymType, ExpType]):
         record_td_errors: bool, optional
             If `True`, the TD errors are recorded in the field `td_errors`, which
             otherwise is `None`. By default, does not record them.
+        chol_maxiter : int, optional
+            Minor setting to change to maximum number of iterations in the Cholesky's
+            factorization with additive multiples of the identity to ensure positive
+            definiteness of the hessian. By default, 1000.
         name : str, optional
             Name of the agent. If `None`, one is automatically created from a counter of
             the class' instancies.
@@ -158,6 +164,7 @@ class LstdQLearningAgent(LearningAgent[SymType, ExpType]):
         self.discount_factor = discount_factor
         self._dQdtheta, self._d2Qdtheta2 = self._init_Q_derivatives(hessian_type)
         self._update_solver = self._init_update_solver()
+        self.chol_maxiter = chol_maxiter
         self.td_errors: Optional[List[float]] = [] if record_td_errors else None
 
     @property
@@ -199,7 +206,7 @@ class LstdQLearningAgent(LearningAgent[SymType, ExpType]):
         lr = self._learning_rate_scheduler.value
         sample = self.sample_experience()
         g, H = (np.mean(tuple(o), axis=0) for o in zip(*sample))
-        R = cholesky_added_multiple_identities(H)
+        R = cholesky_added_multiple_identities(H, maxiter=self.chol_maxiter)
         p = lr * cho_solve((R, True), g, check_finite=False).reshape(-1)
 
         theta = self._learnable_pars.value  # current values of parameters
