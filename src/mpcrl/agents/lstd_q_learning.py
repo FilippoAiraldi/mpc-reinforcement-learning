@@ -185,9 +185,10 @@ class LstdQLearningAgent(LearningAgent[SymType, ExpType]):
         solV : Solution[SymType]
             The solution to `V(s+)`.
         """
+        inp: cs.DM = solQ._get_value.keywords["new"]
+        dQ = self._dQdtheta(inp).full().reshape(-1, 1)
+        ddQ = self._d2Qdtheta2(inp).full()
         td_error = cost + self.discount_factor * solV.f - solQ.f
-        dQ = solQ.value(self._dQdtheta).full().reshape(-1, 1)
-        ddQ = solQ.value(self._d2Qdtheta2).full()
         g = -td_error * dQ
         H = dQ @ dQ.T - td_error * ddQ
         if self.td_errors is not None:
@@ -263,25 +264,29 @@ class LstdQLearningAgent(LearningAgent[SymType, ExpType]):
 
     def _init_Q_derivatives(
         self, hessian_type: Literal["approx", "full"]
-    ) -> Tuple[SymType, SymType]:
+    ) -> Tuple[cs.Function, cs.Function]:
         """Internal utility to compute the derivative of Q(s,a) w.r.t. the learnable
         parameters, a.k.a., theta."""
         theta = cs.vertcat(*self._learnable_pars.sym.values())
-
         nlp = NlpSensitivity(self._Q.nlp, target_parameters=theta)
         Lt = nlp.jacobians["L-p"]  # a.k.a., dQdtheta
-        Ltt = nlp.hessians["L-pp"]
-
+        Ltt = nlp.hessians["L-pp"]  # a.k.a., approximated d2Qdtheta2
         if hessian_type == "approx":
-            return Lt, Ltt
+            d2Qdtheta2 = Ltt
+        elif hessian_type == "full":
+            dydtheta, _ = nlp.parametric_sensitivity(second_order=False)
+            d2Qdtheta2 = dydtheta.T @ nlp.jacobians["K-p"] + Ltt
+        else:
+            raise ValueError(f"Invalid type of hessian; got {hessian_type}.")
 
-        if hessian_type == "full":
-            dydtheta, _ = nlp.parametric_sensitivity()
-            Kt = nlp.jacobians["K-p"]
-            d2Qdtheta2 = dydtheta.T @ Kt + Ltt
-            return Lt, d2Qdtheta2
-
-        raise ValueError(f"Invalid type of hessian; got {hessian_type}.")
+        # convert to functions (much faster runtime)
+        inp = cs.vertcat(nlp.p, nlp.x, nlp.lam_g, nlp.lam_h, nlp.lam_lbx, nlp.lam_ubx)
+        dQdtheta_ = cs.Function("dQdtheta", [inp], [Lt])
+        d2Qdtheta2_ = cs.Function("d2Qdtheta2", [inp], [d2Qdtheta2])
+        assert (
+            not dQdtheta_.has_free() and not d2Qdtheta2_.has_free()
+        ), "Internal error in Q derivatives."
+        return dQdtheta_, d2Qdtheta2_
 
     def _init_update_solver(self) -> Optional[cs.Function]:
         """Internal utility to initialize the update solver, generally a QP solver. If
