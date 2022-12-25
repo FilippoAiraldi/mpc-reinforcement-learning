@@ -173,7 +173,7 @@ agent = Log(
             learning_rate=5e-2,  # type: ignore
             hessian_type="approx",
             record_td_errors=True,
-         )
+        )
     ),
     level=logging.DEBUG,
     log_frequencies={"on_env_step": 1000},
