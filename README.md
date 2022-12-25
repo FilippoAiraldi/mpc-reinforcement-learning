@@ -23,7 +23,7 @@ This framework merges two powerful control techinques into a single data-driven 
 - and RL, a Machine Learning paradigm that showed many successes in recent years (with  games such as chess, Go, etc.) and is highly adaptable to unknown and complex-to-model environments.
 
 <div align="center">
-  <img src="./resources/mpcrl-diagram.png" alt="mpcrl-diagram" height="300">
+  <img src="https://raw.githubusercontent.com/FilippoAiraldi/mpc-reinforcement-learning/main/resources/mpcrl-diagram.png" alt="mpcrl-diagram" height="300">
 </div>
 
 The figure shows the main idea behind this learning-based control approach. The MPC controller, parametrized in $\vartheta$, acts both as policy provider (providing an action to the environment, given the current state) and as function approximation for the state and action value functions. Concurrently, an RL agent is employed to tune the parameters of the MPC in such a way to increase the controller's performance and achieve an (sub)optimal policy.
@@ -55,6 +55,20 @@ git clone https://github.com/FilippoAiraldi/mpc-reinforcement-learning.git
 ## Examples
 
 Our [examples](https://github.com/FilippoAiraldi/mpc-reinforcement-learning/tree/main/examples) subdirectory contains example applications of this package for Q-learning. In the future, an example for Deterministic Policy Gradient methods will be implemented.
+
+---
+
+## License
+
+The repository is provided under the MIT License. See the LICENSE file included with this repository.
+
+---
+
+## Author
+
+[Filippo Airaldi](https://www.tudelft.nl/staff/f.airaldi/), PhD Candidate [f.airaldi@tudelft.nl | filippoairaldi@gmail.com]
+
+> [Delft Center for Systems and Control](https://www.tudelft.nl/en/3me/about/departments/delft-center-for-systems-and-control/) in [Delft University of Technology](https://www.tudelft.nl/en/)
 
 ---
 
