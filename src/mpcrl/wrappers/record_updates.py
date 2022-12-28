@@ -3,7 +3,7 @@ from typing import Dict, List
 import numpy as np
 import numpy.typing as npt
 
-from mpcrl.agents.learning_agent import ExpType, LearningAgent
+from mpcrl.agents.learning_agents import ExpType, LearningAgent
 from mpcrl.wrappers.wrapper import LearningWrapper, SymType
 
 

@@ -14,6 +14,7 @@ from typing import (
     Union,
 )
 
+import casadi as cs
 import numpy as np
 import numpy.typing as npt
 from csnlp.wrappers import Mpc
@@ -24,6 +25,7 @@ from mpcrl.core.experience import ExperienceReplay
 from mpcrl.core.exploration import ExplorationStrategy
 from mpcrl.core.parameters import LearnableParametersDict
 from mpcrl.core.random import generate_seeds
+from mpcrl.core.schedulers import Scheduler
 from mpcrl.util.iters import bool_cycle
 from mpcrl.util.types import GymEnvLike
 
@@ -112,7 +114,14 @@ class LearningAgent(
             Name of the agent. If `None`, one is automatically created from a counter of
             the class' instancies.
         """
-        Agent.__init__(self, mpc, fixed_parameters, exploration, warmstart, name)
+        Agent.__init__(
+            self,
+            mpc=mpc,
+            fixed_parameters=fixed_parameters,
+            exploration=exploration,
+            warmstart=warmstart,
+            name=name,
+        )
         LearningAgentCallbacks.__init__(self)
         self._learnable_pars = learnable_parameters
         self._experience = (
@@ -307,3 +316,125 @@ class LearningAgent(
             fixed_pars.update(learnable_pars)
             return fixed_pars
         return tuple(_update_dicts(self._fixed_pars, learnable_pars))  # type: ignore
+
+
+class RlLearningAgent(LearningAgent[SymType, ExpType], ABC):
+    """Base class for learning agents that employe gradient-based RL strategies to
+    learn/improve the MPC policy."""
+
+    __slots__ = ("_learning_rate_scheduler", "discount_factor", "_update_solver")
+
+    def __init__(
+        self,
+        mpc: Mpc[SymType],
+        discount_factor: float,
+        learning_rate: Union[Scheduler[npt.NDArray[np.double]], npt.NDArray[np.double]],
+        learnable_parameters: LearnableParametersDict[SymType],
+        fixed_parameters: Union[
+            None, Dict[str, npt.ArrayLike], Collection[Dict[str, npt.ArrayLike]]
+        ] = None,
+        exploration: Optional[ExplorationStrategy] = None,
+        experience: Optional[ExperienceReplay[ExpType]] = None,
+        experience_sample_size: Union[int, float] = 1,
+        experience_sample_include_last: Union[int, float] = 0,
+        warmstart: Literal["last", "last-successful"] = "last-successful",
+        stepping: Literal["on_update", "on_episode_start", "on_env_step"] = "on_update",
+        name: Optional[str] = None,
+    ) -> None:
+        """Instantiates the RL learning agent.
+
+        Parameters
+        ----------
+        mpc : Mpc[casadi.SX or MX]
+            The MPC controller used as policy provider by this agent. The instance is
+            modified in place to create the approximations of the state function `V(s)`
+            and action value function `Q(s,a)`, so it is recommended not to modify it
+            further after initialization of the agent. Moreover, some parameter and
+            constraint names will need to be created, so an error is thrown if these
+            names are already in use in the mpc. These names are under the attributes
+            `perturbation_parameter`, `action_parameter` and `action_constraint`.
+        discount_factor : float
+            In RL, the factor that discounts future rewards in favor of immediate
+            rewards. Usually denoted as `\\gamma`. Should be a number in (0, 1).
+        learning_rate : Scheduler of array
+            The learning rate of the algorithm, in general, a small number. A scheduler
+            can be passed so that the learning rate is decayed after every step (see
+            `stepping`).
+        learnable_parameters : LearnableParametersDict
+            A special dict containing the learnable parameters of the MPC, together with
+            their bounds and values. This dict is complementary with `fixed_parameters`,
+            which contains the MPC parameters that are not learnt by the agent.
+        fixed_parameters : dict[str, array_like] or collection of, optional
+            A dict (or collection of dict, in case of `csnlp.MultistartNlp`) whose keys
+            are the names of the MPC parameters and the values are their corresponding
+            values. Use this to specify fixed parameters, that is, non-learnable. If
+            `None`, then no fixed parameter is assumed.
+        exploration : ExplorationStrategy, optional
+            Exploration strategy for inducing exploration in the MPC policy. By default
+            `None`, in which case `NoExploration` is used in the fixed-MPC agent.
+        experience : ExperienceReplay, optional
+            The container for experience replay memory. If `None` is passed, then a
+            memory wtih length 1 is created, i.e., it keeps only the latest memoery
+            transition.
+        experience_sample_size : int or float, optional
+            Size (or percentage of replay `maxlen`) of the experience replay items to
+            draw when performing an update. By default, one item per sampling is drawn.
+        experience_sample_include_last : int or float, optional
+            Size (or percentage of sample size) dedicated to including the latest
+            experience transitions. By default, 0, i.e., no last item is included.
+        warmstart: 'last' or 'last-successful', optional
+            The warmstart strategy for the MPC's NLP. If 'last-successful', the last
+            successful solution is used to warm start the solver for the next iteration.
+            If 'last', the last solution is used, regardless of success or failure.
+        stepping : {'on_update', 'on_episode_start', 'on_env_step'}, optional
+            Specifies to the algorithm when to step its schedulers (e.g., for learning
+            rate and/or exploration decay), either after
+             - each agent's update ('agent-update')
+             - each episode's start ('ep-start')
+             - each environment's step ('env-step').
+            By default, 'on_update' is selected.
+        name : str, optional
+            Name of the agent. If `None`, one is automatically created from a counter of
+            the class' instancies.
+        """
+        super().__init__(
+            mpc=mpc,
+            learnable_parameters=learnable_parameters,
+            fixed_parameters=fixed_parameters,
+            exploration=exploration,
+            experience=experience,
+            experience_sample_size=experience_sample_size,
+            experience_sample_include_last=experience_sample_include_last,
+            warmstart=warmstart,
+            stepping=stepping,
+            name=name,
+        )
+        self._learning_rate_scheduler = (
+            learning_rate
+            if isinstance(learning_rate, Scheduler)
+            else Scheduler(learning_rate)
+        )
+        self.discount_factor = discount_factor
+        self._update_solver = self._init_update_solver()
+
+    def _init_update_solver(self) -> Optional[cs.Function]:
+        """Internal utility to initialize the update solver, in particular, a QP solver.
+        If the update is unconstrained, then no solver is initialized, i.e., `None` is
+        returned."""
+        lb = self._learnable_pars.lb
+        ub = self._learnable_pars.ub
+        if np.isneginf(lb).all() and np.isposinf(ub).all():
+            return None
+
+        n_p = self._learnable_pars.size
+        theta: cs.SX = cs.SX.sym("theta", n_p, 1)
+        theta_new: cs.SX = cs.SX.sym("theta+", n_p, 1)
+        dtheta = theta_new - theta
+        p: cs.SX = cs.SX.sym("p", n_p, 1)
+        qp = {
+            "x": theta_new,
+            "f": 0.5 * cs.dot(dtheta, dtheta) + cs.dot(p, dtheta),
+            "p": cs.vertcat(theta, p),
+        }
+        opts = {"print_iter": False, "print_header": False}
+        return cs.qpsol(f"qpsol_{self.name}", "qrqp", qp, opts)

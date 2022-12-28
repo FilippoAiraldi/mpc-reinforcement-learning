@@ -19,7 +19,7 @@ from scipy.linalg import cho_solve
 from typing_extensions import TypeAlias
 
 from mpcrl.agents.agent import ActType, ObsType, SymType
-from mpcrl.agents.learning_agent import LearningAgent
+from mpcrl.agents.learning_agents import RlLearningAgent
 from mpcrl.core.experience import ExperienceReplay
 from mpcrl.core.exploration import ExplorationStrategy
 from mpcrl.core.parameters import LearnableParametersDict
@@ -30,13 +30,14 @@ from mpcrl.util.types import GymEnvLike
 ExpType: TypeAlias = Tuple[npt.NDArray[np.double], npt.NDArray[np.double]]
 
 
-class LstdQLearningAgent(LearningAgent[SymType, ExpType]):
+class LstdQLearningAgent(RlLearningAgent[SymType, ExpType]):
     """Second-order Least-Squares Temporal Difference (LSTD) Q-learning agent, as first
     proposed in a simpler format in [1], and then in [2].
 
     The Q-learning agent uses an MPC controller as policy provider and function
     approximation, and adjusts its parametrization according to the temporal-difference
-    error, with the goal of improving the policy.
+    error, with the goal of improving the policy, in an indirect fashion by learning the
+    action value function.
 
     References
     ----------
@@ -47,15 +48,7 @@ class LstdQLearningAgent(LearningAgent[SymType, ExpType]):
         132-137. IEEE.
     """
 
-    __slots__ = (
-        "_learning_rate_scheduler",
-        "discount_factor",
-        "_update_solver",
-        "_dQdtheta",
-        "_d2Qdtheta2",
-        "td_errors",
-        "chol_maxiter",
-    )
+    __slots__ = ("_dQdtheta", "_d2Qdtheta2", "td_errors", "chol_maxiter")
 
     def __init__(
         self,
@@ -71,8 +64,8 @@ class LstdQLearningAgent(LearningAgent[SymType, ExpType]):
         experience_sample_size: Union[int, float] = 1,
         experience_sample_include_last: Union[int, float] = 0,
         warmstart: Literal["last", "last-successful"] = "last-successful",
-        hessian_type: Literal["approx", "full"] = "approx",
         stepping: Literal["on_update", "on_episode_start", "on_env_step"] = "on_update",
+        hessian_type: Literal["approx", "full"] = "approx",
         record_td_errors: bool = False,
         chol_maxiter: int = 1000,
         name: Optional[str] = None,
@@ -122,10 +115,6 @@ class LstdQLearningAgent(LearningAgent[SymType, ExpType]):
             The warmstart strategy for the MPC's NLP. If 'last-successful', the last
             successful solution is used to warm start the solver for the next iteration.
             If 'last', the last solution is used, regardless of success or failure.
-        hessian_type : 'approx' or 'full', optional
-            The type of hessian to use in this second-order algorithm. If `approx`, an
-            easier approximation of it is used; otherwise, the full hessian is computed
-            but this is much more expensive.
         stepping : {'on_update', 'on_episode_start', 'on_env_step'}, optional
             Specifies to the algorithm when to step its schedulers (e.g., for learning
             rate and/or exploration decay), either after
@@ -133,6 +122,10 @@ class LstdQLearningAgent(LearningAgent[SymType, ExpType]):
              - each episode's start ('ep-start')
              - each environment's step ('env-step').
             By default, 'on_update' is selected.
+        hessian_type : 'approx' or 'full', optional
+            The type of hessian to use in this second-order algorithm. If `approx`, an
+            easier approximation of it is used; otherwise, the full hessian is computed
+            but this is much more expensive.
         record_td_errors: bool, optional
             If `True`, the TD errors are recorded in the field `td_errors`, which
             otherwise is `None`. By default, does not record them.
@@ -146,6 +139,8 @@ class LstdQLearningAgent(LearningAgent[SymType, ExpType]):
         """
         super().__init__(
             mpc=mpc,
+            discount_factor=discount_factor,
+            learning_rate=learning_rate,
             learnable_parameters=learnable_parameters,
             fixed_parameters=fixed_parameters,
             exploration=exploration,
@@ -156,14 +151,7 @@ class LstdQLearningAgent(LearningAgent[SymType, ExpType]):
             stepping=stepping,
             name=name,
         )
-        self._learning_rate_scheduler = (
-            learning_rate
-            if isinstance(learning_rate, Scheduler)
-            else Scheduler(learning_rate)
-        )
-        self.discount_factor = discount_factor
         self._dQdtheta, self._d2Qdtheta2 = self._init_Q_derivatives(hessian_type)
-        self._update_solver = self._init_update_solver()
         self.chol_maxiter = chol_maxiter
         self.td_errors: Optional[List[float]] = [] if record_td_errors else None
 
@@ -294,27 +282,6 @@ class LstdQLearningAgent(LearningAgent[SymType, ExpType]):
             not dQdtheta_.has_free() and not d2Qdtheta2_.has_free()
         ), "Internal error in Q derivatives."
         return dQdtheta_, d2Qdtheta2_
-
-    def _init_update_solver(self) -> Optional[cs.Function]:
-        """Internal utility to initialize the update solver, generally a QP solver. If
-        the update is unconstrained, then no solver is initialized, i.e., `None`."""
-        lb = self._learnable_pars.lb
-        ub = self._learnable_pars.ub
-        if np.isneginf(lb).all() and np.isposinf(ub).all():
-            return None
-
-        n_p = self._learnable_pars.size
-        theta: cs.SX = cs.SX.sym("theta", n_p, 1)
-        theta_new: cs.SX = cs.SX.sym("theta+", n_p, 1)
-        dtheta = theta_new - theta
-        p: cs.SX = cs.SX.sym("p", n_p, 1)
-        qp = {
-            "x": theta_new,
-            "f": 0.5 * cs.dot(dtheta, dtheta) + cs.dot(p, dtheta),
-            "p": cs.vertcat(theta, p),
-        }
-        opts = {"print_iter": False, "print_header": False}
-        return cs.qpsol(f"qpsol_{self.name}", "qrqp", qp, opts)
 
 
 # TODO:
