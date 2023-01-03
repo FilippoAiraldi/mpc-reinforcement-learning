@@ -33,7 +33,7 @@ class ExperienceReplay(Deque[ExpType]):
             Seed for the random number generator. By default, `None`.
         """
         super().__init__(iterable, maxlen=maxlen)
-        self.np_random, _ = np_random(seed)
+        self.np_random = np_random(seed)
 
     def sample(
         self, n: Union[int, float], last_n: Union[int, float] = 0

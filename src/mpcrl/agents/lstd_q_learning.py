@@ -54,7 +54,12 @@ class LstdQLearningAgent(RlLearningAgent[SymType, ExpType]):
         self,
         mpc: Mpc[SymType],
         discount_factor: float,
-        learning_rate: Union[Scheduler[npt.NDArray[np.double]], npt.NDArray[np.double]],
+        learning_rate: Union[
+            Scheduler[npt.NDArray[np.double]],
+            Scheduler[float],
+            npt.NDArray[np.double],
+            float,
+        ],
         learnable_parameters: LearnableParametersDict[SymType],
         fixed_parameters: Union[
             None, Dict[str, npt.ArrayLike], Collection[Dict[str, npt.ArrayLike]]
@@ -85,10 +90,11 @@ class LstdQLearningAgent(RlLearningAgent[SymType, ExpType]):
         discount_factor : float
             In RL, the factor that discounts future rewards in favor of immediate
             rewards. Usually denoted as `\\gamma`. Should be a number in (0, 1).
-        learning_rate : Scheduler of array
+        learning_rate : Scheduler of array or float
             The learning rate of the algorithm, in general, a small number. A scheduler
             can be passed so that the learning rate is decayed after every step (see
-            `stepping`).
+            `stepping`). The rate can be a single float, or an array of rates for each
+            parameter.
         learnable_parameters : LearnableParametersDict
             A special dict containing the learnable parameters of the MPC, together with
             their bounds and values. This dict is complementary with `fixed_parameters`,
@@ -155,18 +161,13 @@ class LstdQLearningAgent(RlLearningAgent[SymType, ExpType]):
         self.chol_maxiter = chol_maxiter
         self.td_errors: Optional[List[float]] = [] if record_td_errors else None
 
-    @property
-    def learning_rate(self) -> npt.NDArray[np.double]:
-        """Gets the learning rate of the Q-learning agent."""
-        return self._learning_rate_scheduler.value
-
     def step(self) -> None:
         """Steps the learning rate and exploration strength/chance for the agent
         (usually, these decay over time)."""
         self._learning_rate_scheduler.step()
         super().step()
 
-    def store_experience(  # type: ignore
+    def store_experience(  # type: ignore[override]
         self, cost: SupportsFloat, solQ: Solution[SymType], solV: Solution[SymType]
     ) -> None:
         """Stores the gradient and hessian for the current transition in memoru.
@@ -223,7 +224,8 @@ class LstdQLearningAgent(RlLearningAgent[SymType, ExpType]):
         raises: bool = True,
     ) -> float:
         truncated = terminated = False
-        timestep = rewards = 0
+        timestep = 0
+        rewards = 0.0
         state = init_state
 
         # solve for the first action
@@ -253,7 +255,7 @@ class LstdQLearningAgent(RlLearningAgent[SymType, ExpType]):
                 agent.on_update()
 
             # increase counters
-            rewards += r  # type: ignore
+            rewards += float(r)
             timestep += 1
         return rewards
 
@@ -282,7 +284,3 @@ class LstdQLearningAgent(RlLearningAgent[SymType, ExpType]):
             not dQdtheta_.has_free() and not d2Qdtheta2_.has_free()
         ), "Internal error in Q derivatives."
         return dQdtheta_, d2Qdtheta2_
-
-
-# TODO:
-# max update percentage

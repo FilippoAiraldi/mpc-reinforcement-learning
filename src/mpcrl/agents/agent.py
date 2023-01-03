@@ -232,7 +232,7 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbacks, Generic[SymType]):
         elif isinstance(pars, dict):
             pars.update(additional_pars)
         else:  # iterable of dict
-            pars = _update_dicts(pars, additional_pars)  # type: ignore
+            pars = _update_dicts(pars, additional_pars)   # type: ignore[assignment]
         if vals0 is None and self._last_solution is not None:
             vals0 = self._last_solution.vals
 

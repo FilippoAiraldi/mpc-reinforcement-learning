@@ -322,11 +322,13 @@ class LearningAgent(
         learnable_pars = self._learnable_pars.value_as_dict
         fixed_pars = self._fixed_pars
         if fixed_pars is None:
-            return learnable_pars  # type: ignore
+            return learnable_pars  # type: ignore[return-value]
         if isinstance(fixed_pars, dict):
             fixed_pars.update(learnable_pars)
             return fixed_pars
-        return tuple(_update_dicts(self._fixed_pars, learnable_pars))  # type: ignore
+        return tuple(
+            _update_dicts(self._fixed_pars, learnable_pars)  # type: ignore[arg-type]
+        )
 
 
 class RlLearningAgent(LearningAgent[SymType, ExpType], ABC):
@@ -339,7 +341,12 @@ class RlLearningAgent(LearningAgent[SymType, ExpType], ABC):
         self,
         mpc: Mpc[SymType],
         discount_factor: float,
-        learning_rate: Union[Scheduler[npt.NDArray[np.double]], npt.NDArray[np.double]],
+        learning_rate: Union[
+            Scheduler[npt.NDArray[np.double]],
+            Scheduler[float],
+            npt.NDArray[np.double],
+            float,
+        ],
         learnable_parameters: LearnableParametersDict[SymType],
         fixed_parameters: Union[
             None, Dict[str, npt.ArrayLike], Collection[Dict[str, npt.ArrayLike]]
@@ -367,10 +374,11 @@ class RlLearningAgent(LearningAgent[SymType, ExpType], ABC):
         discount_factor : float
             In RL, the factor that discounts future rewards in favor of immediate
             rewards. Usually denoted as `\\gamma`. Should be a number in (0, 1).
-        learning_rate : Scheduler of array
+        learning_rate : Scheduler of array or float
             The learning rate of the algorithm, in general, a small number. A scheduler
             can be passed so that the learning rate is decayed after every step (see
-            `stepping`).
+            `stepping`). The rate can be a single float, or an array of rates for each
+            parameter.
         learnable_parameters : LearnableParametersDict
             A special dict containing the learnable parameters of the MPC, together with
             their bounds and values. This dict is complementary with `fixed_parameters`,
@@ -428,6 +436,11 @@ class RlLearningAgent(LearningAgent[SymType, ExpType], ABC):
         self.discount_factor = discount_factor
         self._update_solver = self._init_update_solver()
 
+    @property
+    def learning_rate(self) -> Union[float, npt.NDArray[np.double]]:
+        """Gets the learning rate of the Q-learning agent."""
+        return self._learning_rate_scheduler.value
+
     def _init_update_solver(self) -> Optional[cs.Function]:
         """Internal utility to initialize the update solver, in particular, a QP solver.
         If the update is unconstrained, then no solver is initialized, i.e., `None` is
@@ -449,3 +462,7 @@ class RlLearningAgent(LearningAgent[SymType, ExpType], ABC):
         }
         opts = {"print_iter": False, "print_header": False}
         return cs.qpsol(f"qpsol_{self.name}", "qrqp", qp, opts)
+
+
+# TODO:
+# max update percentage

@@ -87,7 +87,7 @@ class GreedyExploration(ExplorationStrategy):
         if not isinstance(strength, Scheduler):
             strength = Scheduler(strength)
         self.strength_scheduler = strength
-        self.np_random = np_random(seed)[0]
+        self.np_random = np_random(seed)
 
     @property
     def strength(self) -> npt.NDArray[np.double]:

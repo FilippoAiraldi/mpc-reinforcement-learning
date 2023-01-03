@@ -77,12 +77,8 @@ class TestRandom(unittest.TestCase):
 
     @parameterized.expand([(69,), (None,)])
     def test_np_random__initializes_rng_with_correct_seed(self, seed: Optional[int]):
-        rng, actual_seed = np_random(seed)
+        rng = np_random(seed)
         self.assertIsInstance(rng, np.random.Generator)
-        if seed is not None:
-            self.assertEqual(seed, actual_seed)
-        else:
-            self.assertIsInstance(actual_seed, int)
 
     @parameterized.expand([(5,), (None,), (range(100),)])
     def test_make_seeds__returns_expected(self, seed: Union[None, int, Iterable[int]]):

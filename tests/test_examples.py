@@ -32,8 +32,11 @@ class TestExamples(unittest.TestCase):
             U: List[float] = []
             R: List[float] = []
 
-            def reset(  # type: ignore
-                self, *, seed: Optional[int] = None, options: Dict[str, Any]
+            def reset(
+                self,
+                *,
+                seed: Optional[int] = None,
+                options: Optional[Dict[str, Any]] = None,
             ) -> Tuple[np.ndarray, Dict[str, Any]]:
                 super().reset(seed=seed, options=options)
                 self.x = np.asarray([0, 0.15]).reshape(self.nx, 1)

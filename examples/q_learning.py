@@ -41,8 +41,11 @@ class LtiSystem(gym.Env[npt.NDArray[np.double], float]):
     U: List[float] = []
     R: List[float] = []
 
-    def reset(  # type: ignore
-        self, *, seed: Optional[int] = None, options: Dict[str, Any]
+    def reset(
+        self,
+        *,
+        seed: Optional[int] = None,
+        options: Optional[Dict[str, Any]] = None,
     ) -> Tuple[npt.NDArray[np.double], Dict[str, Any]]:
         """Resets the state of the LTI system."""
         super().reset(seed=seed, options=options)
@@ -122,7 +125,9 @@ class LinearMpc(Mpc[cs.SX]):
 
         # objective
         A_init, B_init = self.learnable_pars_init["A"], self.learnable_pars_init["B"]
-        S = cs.DM(dlqr(A_init, B_init, 0.5 * np.eye(nx), 0.25)[1])  # type: ignore
+        S = cs.DM(
+            dlqr(A_init, B_init, 0.5 * np.eye(nx), 0.25)[1]  # type: ignore[arg-type]
+        )
         gammapowers = cs.DM(gamma ** np.arange(N)).T
         self.minimize(
             V0
@@ -154,7 +159,7 @@ learnable_pars = LearnableParametersDict[cs.SX](
     (
         LearnableParameter(
             name=name,
-            size=np.prod(val.shape),  # type: ignore
+            size=int(np.prod(val.shape)),
             value=val.flatten(order="F"),
             sym=cs.vec(mpc.parameters[name]),
         )
@@ -168,7 +173,7 @@ agent = Log(
             mpc=mpc,
             learnable_parameters=learnable_pars,
             discount_factor=mpc.discount_factor,
-            learning_rate=5e-2,  # type: ignore
+            learning_rate=5e-2,
             hessian_type="approx",
             record_td_errors=True,
         )

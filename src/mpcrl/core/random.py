@@ -1,10 +1,10 @@
 from itertools import count, repeat
-from typing import Generator, Iterable, Optional, Tuple, Union
+from typing import Generator, Iterable, Optional, Union
 
 import numpy as np
 
 
-def np_random(seed: Optional[int] = None) -> Tuple[np.random.Generator, int]:
+def np_random(seed: Optional[int] = None) -> np.random.Generator:
     """Generates a random number generator from the seed and returns the Generator and
     seed.
 
@@ -19,8 +19,8 @@ def np_random(seed: Optional[int] = None) -> Tuple[np.random.Generator, int]:
 
     Returns
     -------
-    Tuple[Generator, int]
-        The generator and resulting seed.
+    Generator
+        The generator initialized with the given seed.
 
     Raises
     ------
@@ -30,9 +30,7 @@ def np_random(seed: Optional[int] = None) -> Tuple[np.random.Generator, int]:
     if seed is not None and not (isinstance(seed, int) and seed >= 0):
         raise ValueError(f"Seed must be a non-negative integer or omitted, not {seed}.")
     seed_seq = np.random.SeedSequence(seed)
-    np_seed = seed_seq.entropy
-    rng = np.random.Generator(np.random.PCG64(seed_seq))
-    return rng, np_seed  # type: ignore
+    return np.random.Generator(np.random.PCG64(seed_seq))
 
 
 def generate_seeds(

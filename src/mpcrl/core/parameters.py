@@ -203,7 +203,7 @@ class LearnableParametersDict(
     __cache_decorator = invalidate_cache(size, lb, ub, value, value_as_dict, sym)
 
     @__cache_decorator
-    def __setitem__(self, name: str, par: LearnableParameter) -> None:
+    def __setitem__(self, name: str, par: LearnableParameter[SymType]) -> None:
         assert name == par.name, f"Key '{name}' must match parameter name '{par.name}'."
         return super().__setitem__(name, par)
 

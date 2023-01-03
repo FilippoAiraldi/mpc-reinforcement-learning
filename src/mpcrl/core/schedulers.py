@@ -4,7 +4,8 @@ from typing import Generic, TypeVar
 
 import numpy as np
 
-ScType = TypeVar("ScType")  # supports basic algebraic operations
+ScType = TypeVar("ScType")
+ScType.__doc__ = "A type that supports basic algebraic operations."
 
 
 class Scheduler(Generic[ScType]):
@@ -92,7 +93,7 @@ class LinearScheduler(Scheduler):
             `final_value`.
         """
         super().__init__(init_value)
-        increment = (final_value - init_value) / total_steps  # type: ignore
+        increment = (final_value - init_value) / total_steps  # type: ignore[operator]
         self.init_value = init_value
         self.final_value = final_value
         self.total_steps = total_steps
@@ -121,7 +122,9 @@ class LogLinearScheduler(ExponentialScheduler):
     def __init__(
         self, init_value: ScType, final_value: ScType, total_steps: int
     ) -> None:
-        factor = np.exp(np.log(final_value / init_value) / total_steps)  # type: ignore
+        factor = np.exp(
+            np.log(final_value / init_value) / total_steps  # type: ignore[operator]
+        )
         super().__init__(init_value, factor)
         self.init_value = init_value
         self.final_value = final_value

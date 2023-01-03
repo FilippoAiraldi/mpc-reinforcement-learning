@@ -4,7 +4,7 @@ ObsType = TypeVar("ObsType")
 ActType = TypeVar("ActType")
 
 
-class GymEnvLike(Protocol[ObsType, ActType]):  # type: ignore
+class GymEnvLike(Protocol[ObsType, ActType]):  # type: ignore[misc]
     """Class that exposes an API similar to OpenAI's Gym environments, with methods for
     - resetting the env
     - stepping the env.
