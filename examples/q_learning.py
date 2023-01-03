@@ -146,7 +146,6 @@ class LinearMpc(Mpc[cs.SX]):
             },
         }
         self.init_solver(opts, solver="ipopt")
-        # self.init_solver({"print_iter": False, "print_header": False}, solver="qp")
 
 
 # now, let's create the instances of such classes and start the training
@@ -162,7 +161,6 @@ learnable_pars = LearnableParametersDict[cs.SX](
         for name, val in mpc.learnable_pars_init.items()
     )
 )
-
 env = TimeLimit(LtiSystem(), max_episode_steps=int(5e3))
 agent = Log(
     RecordUpdates(

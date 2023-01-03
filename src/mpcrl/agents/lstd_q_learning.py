@@ -70,7 +70,7 @@ class LstdQLearningAgent(RlLearningAgent[SymType, ExpType]):
         chol_maxiter: int = 1000,
         name: Optional[str] = None,
     ) -> None:
-        """Instantiates the learning agent.
+        """Instantiates the LSTD Q-learning agent.
 
         Parameters
         ----------
