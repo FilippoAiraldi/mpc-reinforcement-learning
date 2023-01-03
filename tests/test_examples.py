@@ -1,4 +1,5 @@
 import logging
+import pickle
 import unittest
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -17,7 +18,7 @@ from mpcrl.wrappers import Log, RecordUpdates
 
 
 class TestExamples(unittest.TestCase):
-    def test_q_learning(self):
+    def test_q_learning__with_copy_and_pickle(self):
         class LtiSystem(gym.Env[np.ndarray, float]):
             nx = 2  # number of states
             nu = 1  # number of inputs
@@ -147,6 +148,7 @@ class TestExamples(unittest.TestCase):
             level=logging.DEBUG,
             log_frequencies={"on_env_step": 100},
         )
+        agent = agent.copy()
         J = LstdQLearningAgent.train(
             agent,
             env=env,
@@ -154,6 +156,10 @@ class TestExamples(unittest.TestCase):
             update_frequency=1,
             seed=69,
         ).item()
+
+        with agent.pickleable():
+            agent = pickle.loads(pickle.dumps(agent))
+
         X = np.concatenate(env.X, axis=-1).squeeze()
         U = np.squeeze(env.U)
         R = np.squeeze(env.R)

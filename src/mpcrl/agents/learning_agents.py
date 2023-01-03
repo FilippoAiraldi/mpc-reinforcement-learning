@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from contextlib import contextmanager
 from functools import wraps
 from typing import (
     Any,
@@ -288,6 +289,16 @@ class LearningAgent(
             In case the update fails, an error message is returned to be raised as error
             or warning; otherwise, `None` is returned.
         """
+
+    @contextmanager
+    def fullstate(self) -> Iterator[None]:
+        with super().fullstate(), self._learnable_pars.fullstate():
+            yield
+
+    @contextmanager
+    def pickleable(self) -> Iterator[None]:
+        with super().pickleable(), self._learnable_pars.pickleable():
+            yield
 
     def _decorate_method_with_step(self, methodname: str) -> None:
         """Internal decorator to call `step` each time the selected method is called."""
