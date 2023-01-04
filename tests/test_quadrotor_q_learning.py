@@ -41,6 +41,11 @@ from mpcrl.util.math import cholesky_added_multiple_identities
 from mpcrl.wrappers import RecordUpdates
 
 
+# ==================================================================================== #
+# ---------------------------------- START OLD CODE ---------------------------------- #
+# ==================================================================================== #
+
+
 @dataclass
 class QuadRotorEnvConfig:
     T: float = 0.1
@@ -160,7 +165,7 @@ class QuadRotorEnv:
         seed: int = None,
         x0: np.ndarray = None,
         xf: np.ndarray = None,
-        options: Dict[str, Any] = None,
+        options: Optional[Dict[str, Any]] = None,
     ) -> Tuple[np.ndarray, Dict[str, Any]]:
         seed_seq = np.random.SeedSequence(seed)
         self.np_random = np.random.Generator(np.random.PCG64(seed_seq))
@@ -1213,7 +1218,9 @@ class RecordLearningData(Generic[AgentType]):
         return getattr(self.agent, name)
 
 
-# =================================== end old code =================================== #
+# ==================================================================================== #
+# ----------------------------------- END OLD CODE ----------------------------------- #
+# ==================================================================================== #
 
 
 class QuadRotorMpcActual(Mpc):
