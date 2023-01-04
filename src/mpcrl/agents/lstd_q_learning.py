@@ -48,7 +48,13 @@ class LstdQLearningAgent(RlLearningAgent[SymType, ExpType]):
         132-137. IEEE.
     """
 
-    __slots__ = ("_dQdtheta", "_d2Qdtheta2", "td_errors", "chol_maxiter")
+    __slots__ = (
+        "_dQdtheta",
+        "_d2Qdtheta2",
+        "td_errors",
+        "cho_maxiter",
+        "cho_solve_check_finite",
+    )
 
     def __init__(
         self,
@@ -72,7 +78,8 @@ class LstdQLearningAgent(RlLearningAgent[SymType, ExpType]):
         stepping: Literal["on_update", "on_episode_start", "on_env_step"] = "on_update",
         hessian_type: Literal["approx", "full"] = "approx",
         record_td_errors: bool = False,
-        chol_maxiter: int = 1000,
+        cho_maxiter: int = 1000,
+        cho_solve_check_finite: bool = False,
         name: Optional[str] = None,
     ) -> None:
         """Instantiates the LSTD Q-learning agent.
@@ -135,10 +142,13 @@ class LstdQLearningAgent(RlLearningAgent[SymType, ExpType]):
         record_td_errors: bool, optional
             If `True`, the TD errors are recorded in the field `td_errors`, which
             otherwise is `None`. By default, does not record them.
-        chol_maxiter : int, optional
-            Minor setting to change to maximum number of iterations in the Cholesky's
-            factorization with additive multiples of the identity to ensure positive
-            definiteness of the hessian. By default, 1000.
+        cho_maxiter : int, optional
+            Maximum number of iterations in the Cholesky's factorization with additive
+            multiples of the identity to ensure positive definiteness of the hessian. By
+            default, `1000`.
+        cho_solve_check_finite : bool, optional
+            Whether to check that the input matrices to `scipy.cho_solve` contain only
+            finite numbers. By default, `False`.
         name : str, optional
             Name of the agent. If `None`, one is automatically created from a counter of
             the class' instancies.
@@ -158,7 +168,8 @@ class LstdQLearningAgent(RlLearningAgent[SymType, ExpType]):
             name=name,
         )
         self._dQdtheta, self._d2Qdtheta2 = self._init_Q_derivatives(hessian_type)
-        self.chol_maxiter = chol_maxiter
+        self.cho_maxiter = cho_maxiter
+        self.cho_solve_check_finite = cho_solve_check_finite
         self.td_errors: Optional[List[float]] = [] if record_td_errors else None
 
     def step(self) -> None:
@@ -181,10 +192,10 @@ class LstdQLearningAgent(RlLearningAgent[SymType, ExpType]):
         solV : Solution[SymType]
             The solution to `V(s+)`.
         """
-        inp: cs.DM = solQ._get_value.keywords["new"]
-        dQ = self._dQdtheta(inp).full().reshape(-1, 1)
-        ddQ = self._d2Qdtheta2(inp).full()
-        td_error = cost + self.discount_factor * solV.f - solQ.f
+        sol_values = solQ.all_vals
+        dQ: npt.NDArray[np.double] = self._dQdtheta(sol_values).full().reshape(-1, 1)
+        ddQ: npt.NDArray[np.double] = self._d2Qdtheta2(sol_values).full()
+        td_error: float = cost + self.discount_factor * solV.f - solQ.f
         g = -td_error * dQ
         H = dQ @ dQ.T - td_error * ddQ
         if self.td_errors is not None:
@@ -195,8 +206,10 @@ class LstdQLearningAgent(RlLearningAgent[SymType, ExpType]):
         lr = self._learning_rate_scheduler.value
         sample = self.sample_experience()
         g, H = (np.mean(tuple(o), axis=0) for o in zip(*sample))
-        R = cholesky_added_multiple_identities(H, maxiter=self.chol_maxiter)
-        p = lr * cho_solve((R, True), g, check_finite=False).reshape(-1)
+        R = cholesky_added_multiple_identities(H, maxiter=self.cho_maxiter)
+        p = lr * cho_solve(
+            (R, True), g, check_finite=self.cho_solve_check_finite
+        ).reshape(-1)
 
         theta = self._learnable_pars.value  # current values of parameters
         solver = self._update_solver
@@ -238,13 +251,13 @@ class LstdQLearningAgent(RlLearningAgent[SymType, ExpType]):
             solQ = agent.action_value(state, action)
 
             # step the system with action computed at the previous iteration
-            state, r, truncated, terminated, _ = env.step(action)
+            state, cost, truncated, terminated, _ = env.step(action)
             agent.on_env_step(env, episode, timestep)
 
             # compute V(s+)
             action, solV = agent.state_value(state, deterministic=False)
             if solQ.success and solV.success:
-                agent.store_experience(r, solQ, solV)
+                agent.store_experience(cost, solQ, solV)
             else:
                 agent.on_mpc_failure(episode, timestep, solV.status, raises)
 
@@ -255,7 +268,7 @@ class LstdQLearningAgent(RlLearningAgent[SymType, ExpType]):
                 agent.on_update()
 
             # increase counters
-            rewards += float(r)
+            rewards += float(cost)
             timestep += 1
         return rewards
 
@@ -265,21 +278,22 @@ class LstdQLearningAgent(RlLearningAgent[SymType, ExpType]):
         """Internal utility to compute the derivative of Q(s,a) w.r.t. the learnable
         parameters, a.k.a., theta."""
         theta = cs.vertcat(*self._learnable_pars.sym.values())
-        nlp = NlpSensitivity(self._Q.nlp, target_parameters=theta)
-        Lt = nlp.jacobians["L-p"]  # a.k.a., dQdtheta
-        Ltt = nlp.hessians["L-pp"]  # a.k.a., approximated d2Qdtheta2
+        nlp = self._Q.nlp
+        nlp_ = NlpSensitivity(nlp, target_parameters=theta)
+        Lt = nlp_.jacobians["L-p"]  # a.k.a., dQdtheta
+        Ltt = nlp_.hessians["L-pp"]  # a.k.a., approximated d2Qdtheta2
         if hessian_type == "approx":
             d2Qdtheta2 = Ltt
         elif hessian_type == "full":
-            dydtheta, _ = nlp.parametric_sensitivity(second_order=False)
-            d2Qdtheta2 = dydtheta.T @ nlp.jacobians["K-p"] + Ltt
+            dydtheta, _ = nlp_.parametric_sensitivity(second_order=False)
+            d2Qdtheta2 = dydtheta.T @ nlp_.jacobians["K-p"] + Ltt
         else:
             raise ValueError(f"Invalid type of hessian; got {hessian_type}.")
 
         # convert to functions (much faster runtime)
-        inp = cs.vertcat(nlp.p, nlp.x, nlp.lam_g, nlp.lam_h, nlp.lam_lbx, nlp.lam_ubx)
-        dQdtheta_ = cs.Function("dQdtheta", [inp], [Lt])
-        d2Qdtheta2_ = cs.Function("d2Qdtheta2", [inp], [d2Qdtheta2])
+        input = cs.vertcat(nlp.p, nlp.x, nlp.lam_g, nlp.lam_h, nlp.lam_lbx, nlp.lam_ubx)
+        dQdtheta_ = cs.Function("dQdtheta", [input], [Lt])
+        d2Qdtheta2_ = cs.Function("d2Qdtheta2", [input], [d2Qdtheta2])
         assert (
             not dQdtheta_.has_free() and not d2Qdtheta2_.has_free()
         ), "Internal error in Q derivatives."

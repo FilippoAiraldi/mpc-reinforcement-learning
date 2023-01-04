@@ -403,8 +403,7 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbacks, Generic[SymType]):
         a0 = Q.nlp.parameter(self.init_action_parameter, (na, 1))
         perturbation = V.nlp.parameter(self.cost_perturbation_parameter, (na, 1))
 
-        actions = mpc.actions
-        u0 = cs.vertcat(*(actions[k][:, 0] for k in actions.keys()))
+        u0 = cs.vertcat(*mpc.first_actions.values())
         f = V.nlp.f
         if mpc.is_wrapped(wrappers.NlpScaling):
             f = mpc.scale(f)
