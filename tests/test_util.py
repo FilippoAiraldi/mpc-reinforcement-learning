@@ -1,4 +1,5 @@
 import unittest
+from typing import Tuple
 
 import numpy as np
 from parameterized import parameterized
@@ -61,6 +62,39 @@ class TestMath(unittest.TestCase):
         K, P = math.dlqr(A, B, Q, R)
         np.testing.assert_allclose(K, K_exp)
         np.testing.assert_allclose(P, P_exp)
+
+    @parameterized.expand(
+        [
+            ((1, 1), 1),
+            ((5, 4), 5),
+            (
+                (np.arange(2, 11, 2), 4),
+                np.asarray(
+                    [
+                        [2, 4, 6, 8],
+                        [2, 4, 6, 10],
+                        [2, 4, 8, 10],
+                        [2, 6, 8, 10],
+                        [4, 6, 8, 10],
+                    ]
+                ),
+            ),
+            ((np.asarray([10, 20, 30]), 2), np.asarray([[10, 20], [10, 30], [20, 30]])),
+        ]
+    )
+    def test_nchoosek__computes_correct_combinations(
+        self, inp: Tuple[int, int], out: int
+    ):
+        out_ = math.nchoosek(*inp)
+        np.testing.assert_allclose(out_, out)
+
+    @parameterized.expand([(1, 4, 4), (10, 1, np.eye(10)), (4, 3, None)])
+    def test_monomial_powers__computes_correct_powers(self, n, k, out):
+        p = math.monomial_powers(n, k)
+        self.assertEqual(p.shape[1], n)
+        np.testing.assert_allclose(p.sum(axis=1), k)
+        if out is not None:
+            np.testing.assert_allclose(p, out)
 
 
 class TestIters(unittest.TestCase):
