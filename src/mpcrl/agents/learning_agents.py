@@ -44,12 +44,7 @@ class LearningAgent(
     Note: this class makes no assumptions on the learning methodology used to update the
     MPC's learnable parameters."""
 
-    __slots__ = (
-        "_experience",
-        "_learnable_pars",
-        "experience_sample_size",
-        "experience_sample_include_last",
-    )
+    __slots__ = ("_experience", "_learnable_pars")
 
     def __init__(
         self,
@@ -60,8 +55,6 @@ class LearningAgent(
         ] = None,
         exploration: Optional[ExplorationStrategy] = None,
         experience: Optional[ExperienceReplay[ExpType]] = None,
-        experience_sample_size: Union[int, float] = 1,
-        experience_sample_include_last: Union[int, float] = 0,
         warmstart: Literal["last", "last-successful"] = "last-successful",
         stepping: Literal["on_update", "on_episode_start", "on_env_step"] = "on_update",
         name: Optional[str] = None,
@@ -94,12 +87,6 @@ class LearningAgent(
             The container for experience replay memory. If `None` is passed, then a
             memory wtih length 1 is created, i.e., it keeps only the latest memoery
             transition.
-        experience_sample_size : int or float, optional
-            Size (or percentage of replay `maxlen`) of the experience replay items to
-            draw when performing an update. By default, one item per sampling is drawn.
-        experience_sample_include_last : int or float, optional
-            Size (or percentage of sample size) dedicated to including the latest
-            experience transitions. By default, 0, i.e., no last item is included.
         warmstart: 'last' or 'last-successful', optional
             The warmstart strategy for the MPC's NLP. If 'last-successful', the last
             successful solution is used to warm start the solver for the next iteration.
@@ -128,8 +115,6 @@ class LearningAgent(
         self._experience = (
             ExperienceReplay(maxlen=1) if experience is None else experience
         )
-        self.experience_sample_size = experience_sample_size
-        self.experience_sample_include_last = experience_sample_include_last
         self._decorate_method_with_step(stepping)
 
     @property
@@ -157,23 +142,34 @@ class LearningAgent(
         """
         self._experience.append(item)
 
-    def sample_experience(self) -> Iterator[ExpType]:
+    def sample_experience(
+        self, sample_size: Union[int, float], include_last: Union[int, float] = 0
+    ) -> Iterator[ExpType]:
         """Samples the experience memory.
+
+        Parameters
+        ----------
+        sample_size : int or float, optional
+            Size (or percentage of replay `maxlen`) of the experience replay items to
+            draw when performing an update. By default, one item per sampling is drawn.
+        include_last : int or float, optional
+            Size (or percentage of sample size) dedicated to including the latest
+            experience transitions. By default, 0, i.e., no last item is included.
 
         Yields
         ------
         sample : iterator of experience-type
             An iterator over the sampled experience.
         """
-        return self.experience.sample(
-            self.experience_sample_size, self.experience_sample_include_last
-        )
+        return self.experience.sample(sample_size, include_last)
 
     def train(
         agent: "LearningAgent[SymType, ExpType]",
         env: GymEnvLike[ObsType, ActType],
         episodes: int,
         update_frequency: int,
+        experience_sample_size: Union[int, float] = 1,
+        experience_sample_include_last: Union[int, float] = 0,
         seed: Union[None, int, Iterable[int]] = None,
         raises: bool = True,
         env_reset_options: Optional[Dict[str, Any]] = None,
@@ -191,6 +187,12 @@ class LearningAgent(
         update_frequency : int
             The frequency of timesteps (i.e., every `env.step`) at which to perform
             updates to the learning parameters.
+        experience_sample_size : int or float, optional
+            Size (or percentage of replay `maxlen`) of the experience replay items to
+            draw when performing an update. By default, one item per sampling is drawn.
+        experience_sample_include_last : int or float, optional
+            Size (or percentage of sample size) dedicated to including the latest
+            experience transitions. By default, 0, i.e., no last item is included.
         seed : int or iterable of ints, optional
             Each env's seed for RNG.
         raises : bool, optional
@@ -228,6 +230,8 @@ class LearningAgent(
                 episode=episode,
                 init_state=state,
                 update_cycle=update_cycle,
+                experience_sample_size=experience_sample_size,
+                experience_sample_include_last=experience_sample_include_last,
                 raises=raises,
             )
             agent.on_episode_end(env, episode, returns[episode])
@@ -243,6 +247,8 @@ class LearningAgent(
         episode: int,
         init_state: ObsType,
         update_cycle: Iterator[bool],
+        experience_sample_size: Union[int, float] = 1,
+        experience_sample_include_last: Union[int, float] = 0,
         raises: bool = True,
     ) -> float:
         """Train the agent on an environment for one episode.
@@ -260,6 +266,12 @@ class LearningAgent(
         update_cycle : itertools.cycle of bool
             Update cycle. When this iterator returns true, then an update should be
             performed. Should be an infinite iterator to avoid exceptions.
+        experience_sample_size : int or float, optional
+            Size (or percentage of replay `maxlen`) of the experience replay items to
+            draw when performing an update. By default, one item per sampling is drawn.
+        experience_sample_include_last : int or float, optional
+            Size (or percentage of sample size) dedicated to including the latest
+            experience transitions. By default, 0, i.e., no last item is included.
         raises : bool, optional
             If `True`, when any of the MPC solver runs fails, or when an update fails,
             the corresponding error is raised; otherwise, only a warning is raised.
@@ -279,9 +291,22 @@ class LearningAgent(
         """
 
     @abstractmethod
-    def update(self) -> Optional[str]:
+    def update(
+        self,
+        experience_sample_size: Union[int, float] = 1,
+        experience_sample_include_last: Union[int, float] = 0,
+    ) -> Optional[str]:
         """Updates the learnable parameters of the MPC according to the agent's learning
         algorithm.
+
+        Parameters
+        ----------
+        experience_sample_size : int or float, optional
+            Size (or percentage of replay `maxlen`) of the experience replay items to
+            draw when performing an update. By default, one item per sampling is drawn.
+        experience_sample_include_last : int or float, optional
+            Size (or percentage of sample size) dedicated to including the latest
+            experience transitions. By default, 0, i.e., no last item is included.
 
         Returns
         -------
@@ -353,8 +378,6 @@ class RlLearningAgent(LearningAgent[SymType, ExpType], ABC):
         ] = None,
         exploration: Optional[ExplorationStrategy] = None,
         experience: Optional[ExperienceReplay[ExpType]] = None,
-        experience_sample_size: Union[int, float] = 1,
-        experience_sample_include_last: Union[int, float] = 0,
         warmstart: Literal["last", "last-successful"] = "last-successful",
         stepping: Literal["on_update", "on_episode_start", "on_env_step"] = "on_update",
         name: Optional[str] = None,
@@ -395,12 +418,6 @@ class RlLearningAgent(LearningAgent[SymType, ExpType], ABC):
             The container for experience replay memory. If `None` is passed, then a
             memory wtih length 1 is created, i.e., it keeps only the latest memoery
             transition.
-        experience_sample_size : int or float, optional
-            Size (or percentage of replay `maxlen`) of the experience replay items to
-            draw when performing an update. By default, one item per sampling is drawn.
-        experience_sample_include_last : int or float, optional
-            Size (or percentage of sample size) dedicated to including the latest
-            experience transitions. By default, 0, i.e., no last item is included.
         warmstart: 'last' or 'last-successful', optional
             The warmstart strategy for the MPC's NLP. If 'last-successful', the last
             successful solution is used to warm start the solver for the next iteration.
@@ -420,8 +437,6 @@ class RlLearningAgent(LearningAgent[SymType, ExpType], ABC):
             fixed_parameters=fixed_parameters,
             exploration=exploration,
             experience=experience,
-            experience_sample_size=experience_sample_size,
-            experience_sample_include_last=experience_sample_include_last,
             warmstart=warmstart,
             stepping=stepping,
             name=name,

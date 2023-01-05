@@ -391,10 +391,8 @@ class TestLearningAgent(unittest.TestCase):
             mpc=get_mpc(3, False),
             learnable_parameters={},
             experience=experience,
-            experience_sample_size=sample_size,
-            experience_sample_include_last=sample_include_last,
         )
-        sample_actual = agent.sample_experience()
+        sample_actual = agent.sample_experience(sample_size, sample_include_last)
         self.assertIs(sample_expected, sample_actual)
         experience.sample.assert_called_once_with(sample_size, sample_include_last)
 

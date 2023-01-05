@@ -1368,7 +1368,6 @@ class TestQuadRotorQlearning(unittest.TestCase):
                     seed,
                 ),
                 experience=ExperienceReplay(maxlen=Tlimit),
-                experience_sample_size=1.0,
                 stepping="on_update",
             )
         )
@@ -1377,6 +1376,7 @@ class TestQuadRotorQlearning(unittest.TestCase):
             env=env,
             episodes=2,
             update_frequency=Tlimit,
+            experience_sample_size=1.0,
             seed=seed + 1,
         )
 

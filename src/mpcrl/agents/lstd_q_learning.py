@@ -72,8 +72,6 @@ class LstdQLearningAgent(RlLearningAgent[SymType, ExpType]):
         ] = None,
         exploration: Optional[ExplorationStrategy] = None,
         experience: Optional[ExperienceReplay[ExpType]] = None,
-        experience_sample_size: Union[int, float] = 1,
-        experience_sample_include_last: Union[int, float] = 0,
         warmstart: Literal["last", "last-successful"] = "last-successful",
         stepping: Literal["on_update", "on_episode_start", "on_env_step"] = "on_update",
         hessian_type: Literal["approx", "full"] = "approx",
@@ -118,12 +116,6 @@ class LstdQLearningAgent(RlLearningAgent[SymType, ExpType]):
             The container for experience replay memory. If `None` is passed, then a
             memory wtih length 1 is created, i.e., it keeps only the latest memoery
             transition.
-        experience_sample_size : int or float, optional
-            Size (or percentage of replay `maxlen`) of the experience replay items to
-            draw when performing an update. By default, one item per sampling is drawn.
-        experience_sample_include_last : int or float, optional
-            Size (or percentage of sample size) dedicated to including the latest
-            experience transitions. By default, 0, i.e., no last item is included.
         warmstart: 'last' or 'last-successful', optional
             The warmstart strategy for the MPC's NLP. If 'last-successful', the last
             successful solution is used to warm start the solver for the next iteration.
@@ -159,8 +151,6 @@ class LstdQLearningAgent(RlLearningAgent[SymType, ExpType]):
             fixed_parameters=fixed_parameters,
             exploration=exploration,
             experience=experience,
-            experience_sample_size=experience_sample_size,
-            experience_sample_include_last=experience_sample_include_last,
             warmstart=warmstart,
             stepping=stepping,
             name=name,
@@ -200,9 +190,15 @@ class LstdQLearningAgent(RlLearningAgent[SymType, ExpType]):
             self.td_errors.append(td_error)
         return super().store_experience((g, H))
 
-    def update(self) -> Optional[str]:
+    def update(
+        self,
+        experience_sample_size: Union[int, float] = 1,
+        experience_sample_include_last: Union[int, float] = 0,
+    ) -> Optional[str]:
+        sample = self.sample_experience(
+            experience_sample_size, experience_sample_include_last
+        )
         lr = self._learning_rate_scheduler.value
-        sample = self.sample_experience()
         g, H = (np.mean(tuple(o), axis=0) for o in zip(*sample))
         R = cholesky_added_multiple_identities(H, maxiter=self.cho_maxiter)
         p = lr * cho_solve(
@@ -232,6 +228,8 @@ class LstdQLearningAgent(RlLearningAgent[SymType, ExpType]):
         episode: int,
         init_state: ObsType,
         update_cycle: Iterator[bool],
+        experience_sample_size: Union[int, float] = 1,
+        experience_sample_include_last: Union[int, float] = 0,
         raises: bool = True,
     ) -> float:
         truncated = terminated = False
@@ -261,7 +259,9 @@ class LstdQLearningAgent(RlLearningAgent[SymType, ExpType]):
 
             # check if it is time to update
             if next(update_cycle):
-                if update_msg := agent.update():
+                if update_msg := agent.update(
+                    experience_sample_size, experience_sample_include_last
+                ):
                     agent.on_update_failure(episode, timestep, update_msg, raises)
                 agent.on_update()
 
