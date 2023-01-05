@@ -40,7 +40,6 @@ from mpcrl import schedulers as S
 from mpcrl.util.math import cholesky_added_multiple_identities
 from mpcrl.wrappers import RecordUpdates
 
-
 # ==================================================================================== #
 # ---------------------------------- START OLD CODE ---------------------------------- #
 # ==================================================================================== #
