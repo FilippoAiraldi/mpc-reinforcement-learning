@@ -115,7 +115,9 @@ class LstdQLearningAgent(RlLearningAgent[SymType, ExpType]):
         experience : ExperienceReplay, optional
             The container for experience replay memory. If `None` is passed, then a
             memory with length 1 is created, i.e., it keeps only the latest memory
-            transition.
+            transition. In the case of LSTD Q-learning, each memory item consists of the
+            action value function's gradient and hessian computed at each (succesful)
+            env's step.
         warmstart: 'last' or 'last-successful', optional
             The warmstart strategy for the MPC's NLP. If 'last-successful', the last
             successful solution is used to warm start the solver for the next iteration.
@@ -123,8 +125,8 @@ class LstdQLearningAgent(RlLearningAgent[SymType, ExpType]):
         stepping : {'on_update', 'on_episode_start', 'on_env_step'}, optional
             Specifies to the algorithm when to step its schedulers (e.g., for learning
             rate and/or exploration decay), either after 1) each agent's update, if
-            'agent-update'; 2) each episode's start, if 'ep-start'; 3) each
-            environment's step, if 'env-step'. By default, 'on_update' is selected.
+            'on_update'; 2) each episode's start, if 'on_episode_start'; 3) each
+            environment's step, if 'on_env_step'. By default, 'on_update' is selected.
         hessian_type : 'approx' or 'full', optional
             The type of hessian to use in this second-order algorithm. If `approx`, an
             easier approximation of it is used; otherwise, the full hessian is computed

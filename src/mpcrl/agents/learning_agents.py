@@ -93,11 +93,9 @@ class LearningAgent(
             If 'last', the last solution is used, regardless of success or failure.
         stepping : {'on_update', 'on_episode_start', 'on_env_step'}, optional
             Specifies to the algorithm when to step its schedulers (e.g., for learning
-            rate and/or exploration decay), either after
-             - each agent's update ('agent-update')
-             - each episode's start ('ep-start')
-             - each environment's step ('env-step').
-            By default, 'on_update' is selected.
+            rate and/or exploration decay), either after 1) each agent's update, if
+            'on_update'; 2) each episode's start, if 'on_episode_start'; 3) each
+            environment's step, if 'on_env_step'. By default, 'on_update' is selected.
         name : str, optional
             Name of the agent. If `None`, one is automatically created from a counter of
             the class' instancies.
@@ -373,8 +371,8 @@ class RlLearningAgent(LearningAgent[SymType, ExpType], ABC):
         stepping : {'on_update', 'on_episode_start', 'on_env_step'}, optional
             Specifies to the algorithm when to step its schedulers (e.g., for learning
             rate and/or exploration decay), either after 1) each agent's update, if
-            'agent-update'; 2) each episode's start, if 'ep-start'; 3) each
-            environment's step, if 'env-step'. By default, 'on_update' is selected.
+            'on_update'; 2) each episode's start, if 'on_episode_start'; 3) each
+            environment's step, if 'on_env_step'. By default, 'on_update' is selected.
         name : str, optional
             Name of the agent. If `None`, one is automatically created from a counter of
             the class' instancies.
@@ -426,4 +424,5 @@ class RlLearningAgent(LearningAgent[SymType, ExpType], ABC):
 
 
 # TODO:
-# max update percentage
+# - max update percentage
+# - updater on steps or on episodes
