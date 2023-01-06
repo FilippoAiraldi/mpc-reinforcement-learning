@@ -4,8 +4,8 @@ from typing import Any, Optional, Tuple, Union
 import numpy as np
 import numpy.typing as npt
 
-from mpcrl.core.random import np_random
 from mpcrl.core.schedulers import Scheduler
+from mpcrl.util.random import np_random
 
 
 class ExplorationStrategy(ABC):

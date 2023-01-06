@@ -1,7 +1,7 @@
 import pickle
 import unittest
 from itertools import product
-from typing import Iterable, Optional, Tuple, Union
+from typing import Tuple, Union
 from unittest.mock import Mock
 
 import casadi as cs
@@ -11,7 +11,6 @@ from parameterized import parameterized
 from mpcrl import ExperienceReplay, LearnableParameter, LearnableParametersDict
 from mpcrl import exploration as E
 from mpcrl import schedulers as S
-from mpcrl.core.random import generate_seeds, np_random
 
 
 def do_test_str_and_repr(testcase: unittest.TestCase, scheduler: S.Scheduler):
@@ -66,31 +65,6 @@ class TestExperienceReplay(unittest.TestCase):
             self.assertIn(item, mem)
         for item in range(N - Nlast, N):
             self.assertIn(item, sample)
-
-
-class TestRandom(unittest.TestCase):
-    def test_np_random__raises__with_invalid_seed(self):
-        with self.assertRaisesRegex(
-            ValueError, "Seed must be a non-negative integer or omitted, not -1."
-        ):
-            np_random(-1)
-
-    @parameterized.expand([(69,), (None,)])
-    def test_np_random__initializes_rng_with_correct_seed(self, seed: Optional[int]):
-        rng = np_random(seed)
-        self.assertIsInstance(rng, np.random.Generator)
-
-    @parameterized.expand([(5,), (None,), (range(100),)])
-    def test_make_seeds__returns_expected(self, seed: Union[None, int, Iterable[int]]):
-        N = 100
-        if seed is None:
-            expected_seeds = [None] * N
-        elif isinstance(seed, int):
-            expected_seeds = [seed + i for i in range(N)]
-        else:
-            expected_seeds = seed
-        seeds1, seeds2 = list(zip(*zip(expected_seeds, generate_seeds(seed))))
-        self.assertListEqual(list(seeds1), list(seeds2))
 
 
 class TestSchedulers(unittest.TestCase):

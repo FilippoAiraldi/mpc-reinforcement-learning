@@ -1,10 +1,10 @@
 import unittest
-from typing import Tuple
+from typing import Iterable, Optional, Tuple, Union
 
 import numpy as np
 from parameterized import parameterized
 
-from mpcrl.util import iters, math, named
+from mpcrl.util import iters, math, named, random
 
 
 class DummyAgent(named.Named):
@@ -95,6 +95,31 @@ class TestMath(unittest.TestCase):
         np.testing.assert_allclose(p.sum(axis=1), k)
         if out is not None:
             np.testing.assert_allclose(p, out)
+
+
+class TestRandom(unittest.TestCase):
+    def test_np_random__raises__with_invalid_seed(self):
+        with self.assertRaisesRegex(
+            ValueError, "Seed must be a non-negative integer or omitted, not -1."
+        ):
+            random.np_random(-1)
+
+    @parameterized.expand([(69,), (None,)])
+    def test_np_random__initializes_rng_with_correct_seed(self, seed: Optional[int]):
+        rng = random.np_random(seed)
+        self.assertIsInstance(rng, np.random.Generator)
+
+    @parameterized.expand([(5,), (None,), (range(100),)])
+    def test_make_seeds__returns_expected(self, seed: Union[None, int, Iterable[int]]):
+        N = 100
+        if seed is None:
+            expected_seeds = [None] * N
+        elif isinstance(seed, int):
+            expected_seeds = [seed + i for i in range(N)]
+        else:
+            expected_seeds = seed
+        seeds1, seeds2 = list(zip(*zip(expected_seeds, random.generate_seeds(seed))))
+        self.assertListEqual(list(seeds1), list(seeds2))
 
 
 class TestIters(unittest.TestCase):

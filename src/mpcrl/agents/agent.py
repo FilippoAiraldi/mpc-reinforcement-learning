@@ -23,8 +23,8 @@ from typing_extensions import TypeAlias
 
 from mpcrl.core.callbacks import AgentCallbacks
 from mpcrl.core.exploration import ExplorationStrategy, NoExploration
-from mpcrl.core.random import generate_seeds
 from mpcrl.util.named import Named
+from mpcrl.util.random import generate_seeds
 from mpcrl.util.types import GymEnvLike
 
 SymType = TypeVar("SymType", cs.SX, cs.MX)

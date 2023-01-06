@@ -25,9 +25,9 @@ from mpcrl.core.callbacks import LearningAgentCallbacks
 from mpcrl.core.experience import ExperienceReplay
 from mpcrl.core.exploration import ExplorationStrategy
 from mpcrl.core.parameters import LearnableParametersDict
-from mpcrl.core.random import generate_seeds
 from mpcrl.core.schedulers import Scheduler
 from mpcrl.util.iters import bool_cycle
+from mpcrl.util.random import generate_seeds
 from mpcrl.util.types import GymEnvLike
 
 ExpType = TypeVar("ExpType")
