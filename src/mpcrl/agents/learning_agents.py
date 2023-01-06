@@ -104,7 +104,6 @@ class LearningAgent(
             self,
             mpc=mpc,
             fixed_parameters=fixed_parameters,
-            exploration=exploration,
             warmstart=warmstart,
             name=name,
         )
@@ -113,7 +112,8 @@ class LearningAgent(
         self._experience = (
             ExperienceReplay(maxlen=1) if experience is None else experience
         )
-        self._decorate_method_with_step(stepping)
+        if exploration is not None:
+            self._exploration = exploration
 
     @property
     def experience(self) -> ExperienceReplay[ExpType]:

@@ -130,7 +130,8 @@ class TestAgent(unittest.TestCase):
         exploration = E.EpsilonGreedyExploration(
             epsilon=epsilon_scheduler, strength=strength_scheduler, seed=42
         )
-        agent1 = Agent(mpc=get_mpc(3, self.multistart_nlp), exploration=exploration)
+        agent1 = Agent(mpc=get_mpc(3, self.multistart_nlp))
+        agent1._exploration = exploration  # a bit of cheating
 
         if copy:
             agent2 = agent1.copy()
@@ -232,9 +233,8 @@ class TestAgent(unittest.TestCase):
         if self.multistart_nlp:
             fixed_pars = [fixed_pars.copy() for _ in range(starts)]
 
-        exploration = E.GreedyExploration(0)
         mpc = get_mpc(horizon, self.multistart_nlp)
-        agent = Agent(mpc=mpc, fixed_parameters=fixed_pars, exploration=exploration)
+        agent = Agent(mpc=mpc, fixed_parameters=fixed_pars)
 
         state = {"y": 0, "v": 0, "m": 5e5}
         vals0 = {"y": 0, "v": 0, "m": 5e5, "u1": 1e8, "u2": 0}
@@ -266,9 +266,8 @@ class TestAgent(unittest.TestCase):
         if self.multistart_nlp:
             fixed_pars = [fixed_pars.copy() for _ in range(starts)]
 
-        exploration = E.GreedyExploration(0)
         mpc = get_mpc(horizon, self.multistart_nlp)
-        agent = Agent(mpc=mpc, fixed_parameters=fixed_pars, exploration=exploration)
+        agent = Agent(mpc=mpc, fixed_parameters=fixed_pars)
 
         a_opt, a_subopt = 5e7, 1.42e7
         state = {"y": 0, "v": 0, "m": 5e5}

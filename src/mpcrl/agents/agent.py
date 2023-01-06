@@ -65,7 +65,6 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbacks, Generic[SymType]):
         fixed_parameters: Union[
             None, Dict[str, npt.ArrayLike], Collection[Dict[str, npt.ArrayLike]]
         ] = None,
-        exploration: Optional[ExplorationStrategy] = None,
         warmstart: Literal["last", "last-successful"] = "last-successful",
         name: Optional[str] = None,
     ) -> None:
@@ -86,11 +85,6 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbacks, Generic[SymType]):
             are the names of the MPC parameters and the values are their corresponding
             values. Use this to specify fixed parameters, that is, non-learnable. If
             `None`, then no fixed parameter is assumed.
-        exploration : ExplorationStrategy, optional
-            Exploration strategy for inducing exploration in the MPC policy. By default
-            `None`, in which case `NoExploration` is used in the fixed-MPC agent. While
-            learning agents need exploration to ensure convergence to a good suboptimal
-            policy, fixed agents usually do not need it.
         warmstart: 'last' or 'last-successful', optional
             The warmstart strategy for the MPC's NLP. If 'last-successful', the last
             successful solution is used to warm start the solver for the next iteration.
@@ -111,7 +105,7 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbacks, Generic[SymType]):
         AgentCallbacks.__init__(self)
         self._V, self._Q = self._setup_V_and_Q(mpc)
         self._fixed_pars = fixed_parameters
-        self._exploration = NoExploration() if exploration is None else exploration
+        self._exploration: ExplorationStrategy = NoExploration()
         self._store_last_successful = warmstart == "last-successful"
         self.reset()
 
