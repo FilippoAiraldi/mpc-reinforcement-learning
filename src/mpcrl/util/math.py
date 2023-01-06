@@ -7,6 +7,36 @@ from scipy.linalg import solve_discrete_are
 from scipy.special import comb
 
 
+def summarize_array(
+    a: npt.NDArray[np.double], precision: int = 3, ddof: int = 0
+) -> str:
+    """Summarizes the stats of a given array.
+
+    Parameters
+    ----------
+    a : array
+        The numerical array to summarize.
+    precision : int, optional
+        The decimal precision, by default 3.
+    ddof : int, optional
+        Degrees of freedom used to compute the standard deviation, by default 0.
+
+    Returns
+    -------
+    str
+        The summarizing string.
+    """
+    n = a.size
+    mean = a.mean()
+    std = a.std(ddof=ddof)
+    min = a.min()
+    max = a.max()
+    return (
+        f"n={n} x∈[{min:.{precision}f}, {max:.{precision}f}] "
+        f"μ={mean:.{precision}f} σ={std:.{precision}f}"
+    )
+
+
 def cholesky_added_multiple_identities(
     A: npt.NDArray[np.double], beta: float = 1e-3, maxiter: int = 1000
 ) -> npt.NDArray[np.double]:

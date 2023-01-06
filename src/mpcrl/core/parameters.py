@@ -8,6 +8,8 @@ import numpy.typing as npt
 from csnlp.core.cache import invalidate_cache
 from csnlp.util.io import SupportsDeepcopyAndPickle
 
+from mpcrl.util.math import summarize_array
+
 SymType = TypeVar("SymType")  # most likely, T is cs.SX or MX
 
 
@@ -290,22 +292,13 @@ class LearnableParametersDict(
         str
             A string representing the dict and its parameters.
         """
-        P = precision
 
         def p2s(p: LearnableParameter) -> str:
             if p.size == 1:
-                return f"{p.name}={p.value.item():.{P}f}"
+                return f"{p.name}={p.value.item():.{precision}f}"
             if summarize:
-                n = p.size
-                mean = p.value.mean()
-                std = p.value.std(ddof=ddof)
-                min = p.value.min()
-                max = p.value.max()
-                return (
-                    f"{p.name}: n={n} x∈[{min:.{P}f}, {max:.{P}f}] "
-                    f"μ={mean:.{P}f} σ={std:.{P}f}"
-                )
-            return np.array2string(p.value, precision=P)
+                return f"{p.name}: {summarize_array(p.value, precision, ddof)}"
+            return np.array2string(p.value, precision=precision)
 
         return "; ".join(p2s(p) for p in self.values())
 
