@@ -1,6 +1,7 @@
 from typing import (
     Collection,
     Dict,
+    Generic,
     Iterator,
     List,
     Literal,
@@ -19,9 +20,10 @@ from scipy.linalg import cho_solve
 from typing_extensions import TypeAlias
 
 from mpcrl.agents.agent import ActType, ObsType, SymType
-from mpcrl.agents.learning_agents import RlLearningAgent
+from mpcrl.agents.learning_agents import LrType, RlLearningAgent
 from mpcrl.core.experience import ExperienceReplay
 from mpcrl.core.exploration import ExplorationStrategy
+from mpcrl.core.learning_rate import LearningRate
 from mpcrl.core.parameters import LearnableParametersDict
 from mpcrl.core.schedulers import Scheduler
 from mpcrl.util.math import cholesky_added_multiple_identities
@@ -30,7 +32,9 @@ from mpcrl.util.types import GymEnvLike
 ExpType: TypeAlias = Tuple[npt.NDArray[np.double], npt.NDArray[np.double]]
 
 
-class LstdQLearningAgent(RlLearningAgent[SymType, ExpType]):
+class LstdQLearningAgent(
+    RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, LrType]
+):
     """Second-order Least-Squares Temporal Difference (LSTD) Q-learning agent, as first
     proposed in a simpler format in [1], and then in [2].
 
@@ -60,12 +64,7 @@ class LstdQLearningAgent(RlLearningAgent[SymType, ExpType]):
         self,
         mpc: Mpc[SymType],
         discount_factor: float,
-        learning_rate: Union[
-            Scheduler[npt.NDArray[np.double]],
-            Scheduler[float],
-            npt.NDArray[np.double],
-            float,
-        ],
+        learning_rate: Union[LrType, Scheduler[LrType], LearningRate[LrType]],
         learnable_parameters: LearnableParametersDict[SymType],
         fixed_parameters: Union[
             None, Dict[str, npt.ArrayLike], Collection[Dict[str, npt.ArrayLike]]
@@ -73,7 +72,6 @@ class LstdQLearningAgent(RlLearningAgent[SymType, ExpType]):
         exploration: Optional[ExplorationStrategy] = None,
         experience: Optional[ExperienceReplay[ExpType]] = None,
         warmstart: Literal["last", "last-successful"] = "last-successful",
-        stepping: Literal["on_update", "on_episode_start", "on_env_step"] = "on_update",
         hessian_type: Literal["approx", "full"] = "approx",
         record_td_errors: bool = False,
         cho_maxiter: int = 1000,
@@ -95,11 +93,12 @@ class LstdQLearningAgent(RlLearningAgent[SymType, ExpType]):
         discount_factor : float
             In RL, the factor that discounts future rewards in favor of immediate
             rewards. Usually denoted as `\\gamma`. Should be a number in (0, 1).
-        learning_rate : Scheduler of array or float
-            The learning rate of the algorithm, in general, a small number. A scheduler
-            can be passed so that the learning rate is decayed after every step (see
-            `stepping`). The rate can be a single float, or an array of rates for each
-            parameter.
+        learning_rate : float/array, scheduler or LearningRate
+            The learning rate of the algorithm. A float/array can be passed in case the
+            learning rate must stay constant; otherwise, a scheduler can be passed which
+            will be stepped `on_update` by default. Otherwise, a LearningRate can be
+            passed, allowing to specify both the scheduling and stepping strategies of
+            the learning rate.
         learnable_parameters : LearnableParametersDict
             A special dict containing the learnable parameters of the MPC, together with
             their bounds and values. This dict is complementary with `fixed_parameters`,
@@ -122,11 +121,6 @@ class LstdQLearningAgent(RlLearningAgent[SymType, ExpType]):
             The warmstart strategy for the MPC's NLP. If 'last-successful', the last
             successful solution is used to warm start the solver for the next iteration.
             If 'last', the last solution is used, regardless of success or failure.
-        stepping : {'on_update', 'on_episode_start', 'on_env_step'}, optional
-            Specifies to the algorithm when to step its schedulers (e.g., for learning
-            rate and/or exploration decay), either after 1) each agent's update, if
-            'on_update'; 2) each episode's start, if 'on_episode_start'; 3) each
-            environment's step, if 'on_env_step'. By default, 'on_update' is selected.
         hessian_type : 'approx' or 'full', optional
             The type of hessian to use in this second-order algorithm. If `approx`, an
             easier approximation of it is used; otherwise, the full hessian is computed
@@ -148,25 +142,18 @@ class LstdQLearningAgent(RlLearningAgent[SymType, ExpType]):
         super().__init__(
             mpc=mpc,
             discount_factor=discount_factor,
-            learning_rate=learning_rate,
+            learning_rate=learning_rate,  # type: ignore[arg-type]
             learnable_parameters=learnable_parameters,
             fixed_parameters=fixed_parameters,
             exploration=exploration,
             experience=experience,
             warmstart=warmstart,
-            stepping=stepping,
             name=name,
         )
         self._dQdtheta, self._d2Qdtheta2 = self._init_Q_derivatives(hessian_type)
         self.cho_maxiter = cho_maxiter
         self.cho_solve_check_finite = cho_solve_check_finite
         self.td_errors: Optional[List[float]] = [] if record_td_errors else None
-
-    def step(self) -> None:
-        """Steps the learning rate and exploration strength/chance for the agent
-        (usually, these decay over time)."""
-        self._learning_rate_scheduler.step()
-        super().step()
 
     def store_experience(  # type: ignore[override]
         self, cost: SupportsFloat, solQ: Solution[SymType], solV: Solution[SymType]
@@ -193,11 +180,10 @@ class LstdQLearningAgent(RlLearningAgent[SymType, ExpType]):
         return super().store_experience((g, H))
 
     def update(self) -> Optional[str]:
-        lr = self._learning_rate_scheduler.value
         sample = self.experience.sample()
         g, H = (np.mean(tuple(o), axis=0) for o in zip(*sample))
         R = cholesky_added_multiple_identities(H, maxiter=self.cho_maxiter)
-        p = lr * cho_solve(
+        p = self.learning_rate * cho_solve(
             (R, True), g, check_finite=self.cho_solve_check_finite
         ).reshape(-1)
 
@@ -219,7 +205,7 @@ class LstdQLearningAgent(RlLearningAgent[SymType, ExpType]):
 
     @staticmethod
     def train_one_episode(
-        agent: "LstdQLearningAgent[SymType]",
+        agent: "LstdQLearningAgent[SymType, LrType]",
         env: GymEnvLike[ObsType, ActType],
         episode: int,
         init_state: ObsType,

@@ -23,7 +23,8 @@ from csnlp.wrappers import Mpc
 from mpcrl.agents.agent import ActType, Agent, ObsType, SymType, _update_dicts
 from mpcrl.core.callbacks import LearningAgentCallbacks
 from mpcrl.core.experience import ExperienceReplay
-from mpcrl.core.exploration import ExplorationStrategy
+from mpcrl.core.exploration import ExplorationStrategy, NoExploration
+from mpcrl.core.learning_rate import LearningRate, LrType
 from mpcrl.core.parameters import LearnableParametersDict
 from mpcrl.core.schedulers import Scheduler
 from mpcrl.util.iters import bool_cycle
@@ -56,7 +57,6 @@ class LearningAgent(
         exploration: Optional[ExplorationStrategy] = None,
         experience: Optional[ExperienceReplay[ExpType]] = None,
         warmstart: Literal["last", "last-successful"] = "last-successful",
-        stepping: Literal["on_update", "on_episode_start", "on_env_step"] = "on_update",
         name: Optional[str] = None,
     ) -> None:
         """Instantiates the learning agent.
@@ -91,11 +91,6 @@ class LearningAgent(
             The warmstart strategy for the MPC's NLP. If 'last-successful', the last
             successful solution is used to warm start the solver for the next iteration.
             If 'last', the last solution is used, regardless of success or failure.
-        stepping : {'on_update', 'on_episode_start', 'on_env_step'}, optional
-            Specifies to the algorithm when to step its schedulers (e.g., for learning
-            rate and/or exploration decay), either after 1) each agent's update, if
-            'on_update'; 2) each episode's start, if 'on_episode_start'; 3) each
-            environment's step, if 'on_env_step'. By default, 'on_update' is selected.
         name : str, optional
             Name of the agent. If `None`, one is automatically created from a counter of
             the class' instancies.
@@ -114,6 +109,8 @@ class LearningAgent(
         )
         if exploration is not None:
             self._exploration = exploration
+            if not isinstance(self._exploration, NoExploration):
+                self._hook_callbacks(exploration.stepping_strategy, exploration.step)
 
     @property
     def experience(self) -> ExperienceReplay[ExpType]:
@@ -124,11 +121,6 @@ class LearningAgent(
     def learnable_parameters(self) -> LearnableParametersDict[SymType]:
         """Gets the parameters of the MPC that can be learnt by the agent."""
         return self._learnable_pars
-
-    def step(self) -> None:
-        """Steps the exploration strength/chance for the agent (usually, this decays
-        over time)."""
-        self._exploration.step()
 
     def store_experience(self, item: ExpType) -> None:
         """Stores the given item in the agent's memory for later experience replay.
@@ -271,19 +263,20 @@ class LearningAgent(
         with super().pickleable(), self._learnable_pars.pickleable():
             yield
 
-    def _decorate_method_with_step(self, methodname: str) -> None:
-        """Internal decorator to call `step` each time the selected method is called."""
+    def _hook_callbacks(self, callbackname: str, to_call: Callable) -> None:
+        """Internal decorator to hook, e.g., exploration decay, learning rate decay and
+        update strategy to the various callbacks."""
 
         def get_decorator(method: Callable) -> Callable:
             @wraps(method)
             def wrapper(*args, **kwargs):
                 out = method(*args, **kwargs)
-                self.step()
+                to_call()
                 return out
 
             return wrapper
 
-        setattr(self, methodname, get_decorator(getattr(self, methodname)))
+        setattr(self, callbackname, get_decorator(getattr(self, callbackname)))
 
     def _get_parameters(
         self,
@@ -302,22 +295,19 @@ class LearningAgent(
         )
 
 
-class RlLearningAgent(LearningAgent[SymType, ExpType], ABC):
+class RlLearningAgent(
+    LearningAgent[SymType, ExpType], ABC, Generic[SymType, ExpType, LrType]
+):
     """Base class for learning agents that employe gradient-based RL strategies to
     learn/improve the MPC policy."""
 
-    __slots__ = ("_learning_rate_scheduler", "discount_factor", "_update_solver")
+    __slots__ = ("_learning_rate", "discount_factor", "_update_solver")
 
     def __init__(
         self,
         mpc: Mpc[SymType],
         discount_factor: float,
-        learning_rate: Union[
-            Scheduler[npt.NDArray[np.double]],
-            Scheduler[float],
-            npt.NDArray[np.double],
-            float,
-        ],
+        learning_rate: Union[LrType, Scheduler[LrType], LearningRate[LrType]],
         learnable_parameters: LearnableParametersDict[SymType],
         fixed_parameters: Union[
             None, Dict[str, npt.ArrayLike], Collection[Dict[str, npt.ArrayLike]]
@@ -325,7 +315,6 @@ class RlLearningAgent(LearningAgent[SymType, ExpType], ABC):
         exploration: Optional[ExplorationStrategy] = None,
         experience: Optional[ExperienceReplay[ExpType]] = None,
         warmstart: Literal["last", "last-successful"] = "last-successful",
-        stepping: Literal["on_update", "on_episode_start", "on_env_step"] = "on_update",
         name: Optional[str] = None,
     ) -> None:
         """Instantiates the RL learning agent.
@@ -343,11 +332,12 @@ class RlLearningAgent(LearningAgent[SymType, ExpType], ABC):
         discount_factor : float
             In RL, the factor that discounts future rewards in favor of immediate
             rewards. Usually denoted as `\\gamma`. Should be a number in (0, 1).
-        learning_rate : Scheduler of array or float
-            The learning rate of the algorithm, in general, a small number. A scheduler
-            can be passed so that the learning rate is decayed after every step (see
-            `stepping`). The rate can be a single float, or an array of rates for each
-            parameter.
+        learning_rate : float/array, scheduler or LearningRate
+            The learning rate of the algorithm. A float/array can be passed in case the
+            learning rate must stay constant; otherwise, a scheduler can be passed which
+            will be stepped `on_update` by default. Otherwise, a LearningRate can be
+            passed, allowing to specify both the scheduling and stepping strategies of
+            the learning rate.
         learnable_parameters : LearnableParametersDict
             A special dict containing the learnable parameters of the MPC, together with
             their bounds and values. This dict is complementary with `fixed_parameters`,
@@ -384,21 +374,21 @@ class RlLearningAgent(LearningAgent[SymType, ExpType], ABC):
             exploration=exploration,
             experience=experience,
             warmstart=warmstart,
-            stepping=stepping,
             name=name,
         )
-        self._learning_rate_scheduler = (
-            learning_rate
-            if isinstance(learning_rate, Scheduler)
-            else Scheduler(learning_rate)
+        if not isinstance(learning_rate, LearningRate):
+            learning_rate = LearningRate[LrType](learning_rate)
+        self._learning_rate: LearningRate[LrType] = learning_rate
+        self._hook_callbacks(
+            self._learning_rate.stepping_strategy, self._learning_rate.step
         )
         self.discount_factor = discount_factor
         self._update_solver = self._init_update_solver()
 
     @property
-    def learning_rate(self) -> Union[float, npt.NDArray[np.double]]:
-        """Gets the learning rate of the Q-learning agent."""
-        return self._learning_rate_scheduler.value
+    def learning_rate(self) -> LrType:
+        """Gets the learning rate of the learning agent."""
+        return self._learning_rate.value
 
     def _init_update_solver(self) -> Optional[cs.Function]:
         """Internal utility to initialize the update solver, in particular, a QP solver.

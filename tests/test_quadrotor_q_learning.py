@@ -1365,10 +1365,9 @@ class TestQuadRotorQlearning(unittest.TestCase):
                 exploration=E.EpsilonGreedyExploration(
                     S.ExponentialScheduler(0.0, agent_config["perturbation_decay"]),
                     S.ExponentialScheduler(0.0, agent_config["perturbation_decay"]),
-                    seed,
+                    seed=seed,
                 ),
                 experience=ExperienceReplay(maxlen=Tlimit, sample_size=1.0),
-                stepping="on_update",
             )
         )
         results_actual = LstdQLearningAgent.train(
