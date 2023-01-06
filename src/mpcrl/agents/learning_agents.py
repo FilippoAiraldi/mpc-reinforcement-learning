@@ -85,7 +85,7 @@ class LearningAgent(
             `None`, in which case `NoExploration` is used in the fixed-MPC agent.
         experience : ExperienceReplay, optional
             The container for experience replay memory. If `None` is passed, then a
-            memory wtih length 1 is created, i.e., it keeps only the latest memoery
+            memory with length 1 is created, i.e., it keeps only the latest memory
             transition.
         warmstart: 'last' or 'last-successful', optional
             The warmstart strategy for the MPC's NLP. If 'last-successful', the last
@@ -416,7 +416,7 @@ class RlLearningAgent(LearningAgent[SymType, ExpType], ABC):
             `None`, in which case `NoExploration` is used in the fixed-MPC agent.
         experience : ExperienceReplay, optional
             The container for experience replay memory. If `None` is passed, then a
-            memory wtih length 1 is created, i.e., it keeps only the latest memoery
+            memory with length 1 is created, i.e., it keeps only the latest memory
             transition.
         warmstart: 'last' or 'last-successful', optional
             The warmstart strategy for the MPC's NLP. If 'last-successful', the last
