@@ -31,22 +31,22 @@ class TestExperienceReplay(unittest.TestCase):
         self.assertIsInstance(mem.np_random, np.random.Generator)
 
     def test_sample__raises__with_no_maxlen_and_percentage_size(self):
-        mem = ExperienceReplay[Tuple[np.ndarray, float]](maxlen=None)
+        mem = ExperienceReplay[Tuple[np.ndarray, float]](maxlen=None, sample_size=0.0)
         with self.assertRaises(AssertionError):
-            list(mem.sample(n=0.0))
+            list(mem.sample())
 
     @parameterized.expand([(0,), (float(0),)])
     def test_sample__with_zero_samples__returns_no_samples(self, n: Union[int, float]):
-        mem = ExperienceReplay[Tuple[np.ndarray, float]](maxlen=100)
-        self.assertListEqual(list(mem.sample(n)), [])
+        mem = ExperienceReplay[Tuple[np.ndarray, float]](maxlen=100, sample_size=n)
+        self.assertListEqual(list(mem.sample()), [])
 
     @parameterized.expand([(10,), (0.1,)])
     def test_sample__returns_right_sample_size(self, n: Union[int, float]):
         N = 100
         Nsample = 10
-        mem = ExperienceReplay[int](maxlen=N)
+        mem = ExperienceReplay[int](maxlen=N, sample_size=n)
         mem.extend(range(N))
-        sample = list(mem.sample(n=n))
+        sample = list(mem.sample())
         self.assertEqual(len(sample), Nsample)
         for item in sample:
             self.assertIn(item, mem)
@@ -58,9 +58,9 @@ class TestExperienceReplay(unittest.TestCase):
         N = 100
         Nsample = 20
         Nlast = 10
-        mem = ExperienceReplay[int](maxlen=N)
+        mem = ExperienceReplay[int](maxlen=N, sample_size=n, include_last=last_n)
         mem.extend(range(N))
-        sample = list(mem.sample(n=n, last_n=last_n))
+        sample = list(mem.sample())
         self.assertEqual(len(sample), Nsample)
         for item in sample:
             self.assertIn(item, mem)

@@ -190,15 +190,9 @@ class LstdQLearningAgent(RlLearningAgent[SymType, ExpType]):
             self.td_errors.append(td_error)
         return super().store_experience((g, H))
 
-    def update(
-        self,
-        experience_sample_size: Union[int, float] = 1,
-        experience_sample_include_last: Union[int, float] = 0,
-    ) -> Optional[str]:
-        sample = self.sample_experience(
-            experience_sample_size, experience_sample_include_last
-        )
+    def update(self) -> Optional[str]:
         lr = self._learning_rate_scheduler.value
+        sample = self.experience.sample()
         g, H = (np.mean(tuple(o), axis=0) for o in zip(*sample))
         R = cholesky_added_multiple_identities(H, maxiter=self.cho_maxiter)
         p = lr * cho_solve(
@@ -228,8 +222,6 @@ class LstdQLearningAgent(RlLearningAgent[SymType, ExpType]):
         episode: int,
         init_state: ObsType,
         update_cycle: Iterator[bool],
-        experience_sample_size: Union[int, float] = 1,
-        experience_sample_include_last: Union[int, float] = 0,
         raises: bool = True,
     ) -> float:
         truncated = terminated = False
@@ -259,9 +251,7 @@ class LstdQLearningAgent(RlLearningAgent[SymType, ExpType]):
 
             # check if it is time to update
             if next(update_cycle):
-                if update_msg := agent.update(
-                    experience_sample_size, experience_sample_include_last
-                ):
+                if update_msg := agent.update():
                     agent.on_update_failure(episode, timestep, update_msg, raises)
                 agent.on_update()
 

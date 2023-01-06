@@ -11,12 +11,14 @@ class ExperienceReplay(Deque[ExpType]):
     class inherits from `collections.deque`, adding a couple of simple functionalities
     to it for sampling transitions at random from past observed data."""
 
-    __slots__ = ("np_random",)
+    __slots__ = ("np_random", "sample_size", "include_last")
 
     def __init__(
         self,
         iterable: Iterable[ExpType] = (),
         maxlen: Optional[int] = None,
+        sample_size: Union[int, float] = 1,
+        include_last: Union[int, float] = 0,
         seed: Optional[int] = None,
     ) -> None:
         """
@@ -29,25 +31,23 @@ class ExperienceReplay(Deque[ExpType]):
         maxlen : int, optional
             Maximum length/capacity of the memory. If `None`, the deque has no maximum
             size, which is the default behaviour.
+        sample_size : int or float, optional
+            Size (or percentage of replay `maxlen`) of the experience replay items to
+            draw when performing an update. By default, one item per sampling is drawn.
+        include_last : int or float, optional
+            Size (or percentage of sample size) dedicated to including the latest
+            experience transitions. By default, 0, i.e., no last item is included.
         seed : int, optional
             Seed for the random number generator. By default, `None`.
         """
         super().__init__(iterable, maxlen=maxlen)
+        self.sample_size = sample_size
+        self.include_last = include_last
         self.np_random = np_random(seed)
 
-    def sample(
-        self, n: Union[int, float], last_n: Union[int, float] = 0
-    ) -> Iterator[ExpType]:
+    def sample(self) -> Iterator[ExpType]:
         """
         Samples the experience memory and yields the sampled items.
-
-        Parameters
-        n : int or float
-            Size of the sample to draw from memory, either as integer or percentage of
-            the maximum capacity (requires `maxlen != None`).
-        last_n : int or float, optional
-            Size or percentage of the sample (not of the total memory length) dedicated
-            to including the last items added to the memory. By default, `last_n = 0`.
 
         Returns
         -------
@@ -57,14 +57,17 @@ class ExperienceReplay(Deque[ExpType]):
         Raises
         ------
         TypeError
-            Raises if `n` is float (a percentage of the maximum length), but `maxlen` is
-            `None`.
+            Raises if `sample_size` is a float (a percentage of the maximum length), but
+            `maxlen` is `None`, since it is impossible to compute the percentage of an
+            unknown quantity.
         """
         L = len(self)
+        n = self.sample_size
+        last_n = self.include_last
         if isinstance(n, float):
             assert (
                 self.maxlen is not None
-            ), "Maxlen not set; cannot use sample percentages."
+            ), "Maxlen is `None`; cannot use sample percentages."
             n = int(self.maxlen * n)
         n = min(max(n, 0), L)
         if isinstance(last_n, float):

@@ -381,21 +381,6 @@ class TestLearningAgent(unittest.TestCase):
         agent.store_experience(item)
         experience.append.assert_called_once_with(item)
 
-    def test_sample_experience__calls_experience_sampling_correctly(self):
-        sample_expected = object()
-        sample_size = object()
-        sample_include_last = object()
-        experience = MagicMock()
-        experience.sample = Mock(return_value=sample_expected)
-        agent = DummyLearningAgent(
-            mpc=get_mpc(3, False),
-            learnable_parameters={},
-            experience=experience,
-        )
-        sample_actual = agent.sample_experience(sample_size, sample_include_last)
-        self.assertIs(sample_expected, sample_actual)
-        experience.sample.assert_called_once_with(sample_size, sample_include_last)
-
 
 if __name__ == "__main__":
     unittest.main()
