@@ -88,11 +88,11 @@ class Log(Wrapper[SymType]):
     # callbacks for Agent
 
     def on_mpc_failure(
-        self, episode: int, timestep: int, status: str, raises: bool
+        self, episode: int, timestep: Optional[int], status: str, raises: bool
     ) -> None:
         """See `agent.on_mpc_failure`."""
         m = self.logger.error if raises else self.logger.warning
-        m(f"mpc failure at episode {episode}, time {timestep}, status: {status}.")
+        m(f"Mpc failure at episode {episode}, time {timestep}, status: {status}.")
         self.agent.on_mpc_failure(episode, timestep, status, raises)
 
     def on_validation_start(self, env: GymEnvLike[ObsType, ActType]) -> None:
@@ -135,7 +135,7 @@ class Log(Wrapper[SymType]):
     # callbacks for LearningAgent
 
     def on_update_failure(
-        self, episode: int, timestep: int, errormsg: str, raises: bool
+        self, episode: int, timestep: Optional[int], errormsg: str, raises: bool
     ) -> None:
         """See `learningagent.on_update_failure`."""
         m = self.logger.error if raises else self.logger.warning

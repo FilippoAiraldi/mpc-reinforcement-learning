@@ -1,3 +1,5 @@
+from typing import Optional
+
 import numpy as np
 import numpy.typing as npt
 
@@ -12,7 +14,7 @@ class AgentCallbacks:
     """Callbacks for agents."""
 
     def on_mpc_failure(
-        self, episode: int, timestep: int, status: str, raises: bool
+        self, episode: int, timestep: Optional[int], status: str, raises: bool
     ) -> None:
         """Callback in case of MPC failure.
 
@@ -20,17 +22,22 @@ class AgentCallbacks:
         ----------
         episode : int
             Number of the episode when the failure happened.
-        timestep : int
-            Timestep of the current episode when the failure happened.
+        timestep : int or None
+            Timestep of the current episode when the failure happened. Can be `None` in
+            case the error occurs inter-episodically.
         status : str
             Status of the solver that failed.
         raises : bool
             Whether the failure should be raised as exception.
         """
-        raise_or_warn_on_mpc_failure(
-            f"mpc failure at episode {episode}, time {timestep}, status: {status}.",
-            raises,
-        )
+        if timestep is None:
+            msg = f"Mpc failure at episode {episode}, status: {status}."
+        else:
+            msg = (
+                f"Mpc failure at episode {episode}, time {timestep}, "
+                f"status: {status}."
+            )
+        raise_or_warn_on_mpc_failure(msg, raises)
 
     def on_validation_start(self, env: GymEnvLike[ObsType, ActType]) -> None:
         """Callback called at the beginning of the validation process.
@@ -98,7 +105,7 @@ class AgentCallbacks:
 
 class LearningAgentCallbacks:
     def on_update_failure(
-        self, episode: int, timestep: int, errormsg: str, raises: bool
+        self, episode: int, timestep: Optional[int], errormsg: str, raises: bool
     ) -> None:
         """Callback in case of update failure.
 
@@ -106,17 +113,22 @@ class LearningAgentCallbacks:
         ----------
         episode : int
             Number of the episode when the failure happened.
-        timestep : int
-            Timestep of the current episode when the failure happened.
+        timestep : int or None
+            Timestep of the current episode when the failure happened. Can be `None` in
+            case the update occurs inter-episodically.
         errormsg : str
             Error message of the update failure.
         raises : bool
             Whether the failure should be raised as exception.
         """
-        raise_or_warn_on_update_failure(
-            f"Update failed at episode {episode}, time {timestep}, status: {errormsg}.",
-            raises,
-        )
+        if timestep is None:
+            msg = f"Update failed at episode {episode}, status: {errormsg}."
+        else:
+            msg = (
+                f"Update failed at episode {episode}, time {timestep}, "
+                f"status: {errormsg}."
+            )
+        raise_or_warn_on_update_failure(msg, raises)
 
     def on_training_start(self, env: GymEnvLike[ObsType, ActType]) -> None:
         """Callback called at the beginning of the training process.

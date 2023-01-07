@@ -220,7 +220,7 @@ class LstdQLearningAgent(
         # solve for the first action
         action, solV = agent.state_value(state, deterministic=False)
         if not solV.success:
-            agent.on_mpc_failure(episode, -1, solV.status, raises)
+            agent.on_mpc_failure(episode, None, solV.status, raises)
 
         while not (truncated or terminated):
             # compute Q(s,a)
