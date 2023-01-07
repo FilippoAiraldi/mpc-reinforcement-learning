@@ -173,6 +173,7 @@ agent = Log(
             mpc=mpc,
             learnable_parameters=learnable_pars,
             discount_factor=mpc.discount_factor,
+            update_strategy=1,
             learning_rate=5e-2,
             hessian_type="approx",
             record_td_errors=True,
@@ -185,7 +186,6 @@ LstdQLearningAgent.train(
     agent,
     env=env,
     episodes=1,
-    update_frequency=1,
     seed=69,
 )
 
