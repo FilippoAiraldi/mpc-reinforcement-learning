@@ -26,7 +26,7 @@ from mpcrl.core.experience import ExperienceReplay
 from mpcrl.core.exploration import ExplorationStrategy, NoExploration
 from mpcrl.core.learning_rate import LearningRate, LrType
 from mpcrl.core.parameters import LearnableParametersDict
-from mpcrl.core.schedulers import Scheduler
+from mpcrl.core.schedulers import Scheduler, NoScheduling
 from mpcrl.util.iters import bool_cycle
 from mpcrl.util.random import generate_seeds
 from mpcrl.util.types import GymEnvLike
@@ -377,9 +377,10 @@ class RlLearningAgent(
             name=name,
         )
         if not isinstance(learning_rate, LearningRate):
-            learning_rate = LearningRate[LrType](learning_rate)
+            learning_rate = LearningRate(learning_rate)
+        if not isinstance(learning_rate.scheduler, NoScheduling):
+            self._hook_callbacks(learning_rate.hook, learning_rate.step)
         self._learning_rate: LearningRate[LrType] = learning_rate
-        self._hook_callbacks(self._learning_rate.hook, self._learning_rate.step)
         self.discount_factor = discount_factor
         self._update_solver = self._init_update_solver()
 
