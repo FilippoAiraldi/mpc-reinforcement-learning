@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Any, Dict, Optional, Tuple, Union
 
 import numpy as np
 import numpy.typing as npt
@@ -155,3 +155,38 @@ class LearningAgentCallbacks:
     def on_update(self) -> None:
         """Callaback called after each `agent.update`. Use this callback for, e.g.,
         decaying exploration probabilities or learning rates."""
+
+
+class RemovesCallbackHooksInState:
+    """A class with the particular purpose of removing hooks when setting the state
+    and re-establishing them automatically. In fact, if the old hooks are used, the new
+    object (created from the state) would reference callbacks belonging to the old
+    agent. In this way, the callbacks are linked to the new instance.
+    """
+
+    def establish_callback_hooks(self) -> None:
+        """This method must be used to perform the connections between callbacks and any
+        invokable method (hook). If the object has no hooks, then this method does
+        nothing."""
+
+    def __setstate__(
+        self,
+        state: Union[
+            None, Dict[str, Any], Tuple[Optional[Dict[str, Any]], Dict[str, Any]]
+        ],
+    ) -> None:
+        if isinstance(state, tuple) and len(state) == 2:
+            state, slotstate = state
+        else:
+            slotstate = None
+        if state is not None:
+            # remove wrapped methods for callbacks due to this object (otherwise, new
+            # copies will still be calling the old object)."""
+            for name in ("on_update", "on_episode_end", "on_env_step"):
+                state.pop(name, None)  # type: ignore[union-attr]
+            self.__dict__.update(state)  # type: ignore[arg-type]
+        if slotstate is not None:
+            for key, value in slotstate.items():
+                setattr(self, key, value)
+        # re-perform hooks
+        self.establish_callback_hooks()

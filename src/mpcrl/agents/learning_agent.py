@@ -19,7 +19,7 @@ import numpy.typing as npt
 from csnlp.wrappers import Mpc
 
 from mpcrl.agents.agent import ActType, Agent, ObsType, SymType, _update_dicts
-from mpcrl.core.callbacks import LearningAgentCallbacks
+from mpcrl.core.callbacks import LearningAgentCallbacks, RemovesCallbackHooksInState
 from mpcrl.core.experience import ExperienceReplay
 from mpcrl.core.exploration import ExplorationStrategy, NoExploration
 from mpcrl.core.parameters import LearnableParametersDict
@@ -31,7 +31,11 @@ ExpType = TypeVar("ExpType")
 
 
 class LearningAgent(
-    Agent[SymType], LearningAgentCallbacks, ABC, Generic[SymType, ExpType]
+    Agent[SymType],
+    LearningAgentCallbacks,
+    RemovesCallbackHooksInState,
+    ABC,
+    Generic[SymType, ExpType],
 ):
     """Base class for a learning agent with MPC as policy provider where the main method
     `update`, which is called to update the learnable parameters of the MPC according to
@@ -105,6 +109,7 @@ class LearningAgent(
             name=name,
         )
         LearningAgentCallbacks.__init__(self)
+        RemovesCallbackHooksInState.__init__(self)
         self._raises: bool = True
         self._learnable_pars = learnable_parameters
         self._experience = (
@@ -299,15 +304,13 @@ class LearningAgent(
         setattr(self, callbackname, decorate(getattr(self, callbackname)))
 
     def establish_callback_hooks(self) -> None:
-        """Internal utility to hook connections between update strategy and exploration
-        and their callbacks."""
+        super().establish_callback_hooks()
         if not isinstance(self._exploration, NoExploration):
             self.hook_callback(
                 repr(self._exploration),
                 self._exploration.hook,
                 self._exploration.step,
             )
-
         assert self._update_strategy.hook in {
             "on_episode_end",
             "on_env_step",
