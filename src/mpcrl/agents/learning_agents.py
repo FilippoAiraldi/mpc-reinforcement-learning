@@ -263,15 +263,29 @@ class LearningAgent(
         with super().pickleable(), self._learnable_pars.pickleable():
             yield
 
-    def _hook_callbacks(self, callbackname: str, to_call: Callable) -> None:
+    def _hook_callbacks(
+        self,
+        callbackname: str,
+        to_call: Callable,
+        args_idx: Union[None, int, slice] = None,
+        kwargs_keys: Optional[Collection[str]] = None,
+    ) -> None:
         """Internal decorator to hook, e.g., exploration decay, learning rate decay and
         update strategy to the various callbacks."""
+
+        if args_idx is None:
+            args_idx = slice(0, 0)
+        if kwargs_keys is None:
+            kwargs_keys = tuple()
 
         def decorate(method: Callable) -> Callable:
             @wraps(method)
             def wrapper(*args, **kwargs):
                 out = method(*args, **kwargs)
-                to_call()
+                to_call(
+                    *args[args_idx],
+                    **{k: kwargs[k] for k in kwargs_keys if k in kwargs},
+                )
                 return out
 
             return wrapper
