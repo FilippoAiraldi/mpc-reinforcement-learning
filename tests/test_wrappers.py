@@ -1,7 +1,7 @@
 import unittest
 from functools import lru_cache
 from itertools import count
-from unittest.mock import MagicMixin, Mock, call
+from unittest.mock import Mock, call
 
 import casadi as cs
 import numpy as np
@@ -68,7 +68,9 @@ class DummyLearningAgent(LearningAgent):
 
 
 AGENT = DummyLearningAgent(
-    mpc=get_mpc(3, False), learnable_parameters=LearnableParametersDict()
+    mpc=get_mpc(3, False),
+    learnable_parameters=LearnableParametersDict(),
+    update_strategy=1,
 )
 
 
@@ -109,20 +111,20 @@ class TestRecordUpdates(unittest.TestCase):
             [LearnableParameter(f"p{i}", 1, pars[i, 0]) for i in range(P)]
         )
         iter = count(1)
-        agent = MagicMixin()
+        agent = AGENT.copy()
+        agent._learnable_pars = parsdict
         agent.on_update = Mock(
             return_value=None,
             side_effect=lambda: agent.learnable_parameters.update_values(
                 pars[:, next(iter)]
             ),
         )
-        agent.learnable_parameters = parsdict
         wrapped = wrappers.RecordUpdates(agent)
 
         for _ in range(K):
             wrapped.on_update()
 
-        agent.on_update.assert_has_calls([call()] * K)
+        agent.on_update.__wrapped__.assert_has_calls([call()] * K)
         self.assertListEqual(
             [f"p{i}" for i in range(P)],
             list(wrapped.updates_history.keys()),

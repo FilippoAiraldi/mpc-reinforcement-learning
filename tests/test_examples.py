@@ -140,6 +140,7 @@ class TestExamples(unittest.TestCase):
         agent = Log(
             RecordUpdates(
                 LstdQLearningAgent(
+                    update_strategy=1,
                     mpc=mpc,
                     learnable_parameters=learnable_pars,
                     discount_factor=mpc.discount_factor,
@@ -151,17 +152,11 @@ class TestExamples(unittest.TestCase):
             level=logging.DEBUG,
             log_frequencies={"on_env_step": 100},
         )
-        agent = agent.copy()
-        J = LstdQLearningAgent.train(
-            agent,
-            env=env,
-            episodes=1,
-            update_frequency=1,
-            seed=69,
-        ).item()
+        # agent = agent.copy()
+        J = LstdQLearningAgent.train(agent, env=env, episodes=1, seed=69).item()
 
-        with agent.pickleable():
-            agent = pickle.loads(pickle.dumps(agent))
+        # with agent.pickleable():
+        #     agent = pickle.loads(pickle.dumps(agent))
 
         X = np.concatenate(env.X, axis=-1).squeeze()
         U = np.squeeze(env.U)

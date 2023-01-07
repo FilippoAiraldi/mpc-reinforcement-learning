@@ -363,7 +363,9 @@ class TestLearningAgent(unittest.TestCase):
     def test_init__creates_default_experience_and_exploration(self):
         learnable_parameters = LearnableParametersDict()
         agent = DummyLearningAgent(
-            mpc=get_mpc(3, False), learnable_parameters=learnable_parameters
+            mpc=get_mpc(3, False),
+            learnable_parameters=learnable_parameters,
+            update_strategy=1,
         )
         self.assertIsInstance(agent.exploration, E.ExplorationStrategy)
         self.assertIsInstance(agent.experience, ExperienceReplay)
@@ -374,7 +376,10 @@ class TestLearningAgent(unittest.TestCase):
         experience.append = Mock()
         item = object()
         agent = DummyLearningAgent(
-            mpc=get_mpc(3, False), learnable_parameters={}, experience=experience
+            mpc=get_mpc(3, False),
+            learnable_parameters={},
+            experience=experience,
+            update_strategy=1,
         )
         self.assertIs(agent.experience, experience)
         agent.store_experience(item)
