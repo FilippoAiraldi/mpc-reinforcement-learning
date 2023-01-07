@@ -19,8 +19,9 @@ __all__ = [
 import mpcrl.core.exploration as exploration
 import mpcrl.core.schedulers as schedulers
 from mpcrl.agents.agent import Agent
-from mpcrl.agents.learning_agents import LearningAgent, RlLearningAgent
+from mpcrl.agents.learning_agent import LearningAgent
 from mpcrl.agents.lstd_q_learning import LstdQLearningAgent
+from mpcrl.agents.rl_learning_agent import RlLearningAgent
 from mpcrl.core.errors import (
     MpcSolverError,
     MpcSolverWarning,

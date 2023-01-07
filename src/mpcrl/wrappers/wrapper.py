@@ -3,7 +3,7 @@ from typing import Any, Generic, Type
 from csnlp.util.io import SupportsDeepcopyAndPickle
 
 from mpcrl.agents.agent import Agent, SymType
-from mpcrl.agents.learning_agents import ExpType, LearningAgent
+from mpcrl.agents.learning_agent import ExpType, LearningAgent
 
 
 class Wrapper(SupportsDeepcopyAndPickle, Generic[SymType]):

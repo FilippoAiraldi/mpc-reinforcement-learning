@@ -19,7 +19,7 @@ from scipy.linalg import cho_solve
 from typing_extensions import TypeAlias
 
 from mpcrl.agents.agent import ActType, ObsType, SymType
-from mpcrl.agents.learning_agents import LrType, RlLearningAgent
+from mpcrl.agents.rl_learning_agent import LrType, RlLearningAgent
 from mpcrl.core.experience import ExperienceReplay
 from mpcrl.core.exploration import ExplorationStrategy
 from mpcrl.core.learning_rate import LearningRate
