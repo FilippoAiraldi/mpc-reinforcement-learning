@@ -96,6 +96,10 @@ class RlLearningAgent(
             Name of the agent. If `None`, one is automatically created from a counter of
             the class' instancies.
         """
+        if not isinstance(learning_rate, LearningRate):
+            learning_rate = LearningRate(learning_rate)
+        self._learning_rate: LearningRate[LrType] = learning_rate
+        self.discount_factor = discount_factor
         super().__init__(
             mpc=mpc,
             update_strategy=update_strategy,
@@ -106,18 +110,21 @@ class RlLearningAgent(
             warmstart=warmstart,
             name=name,
         )
-        if not isinstance(learning_rate, LearningRate):
-            learning_rate = LearningRate(learning_rate)
-        if not isinstance(learning_rate.scheduler, NoScheduling):
-            self._hook_callbacks(learning_rate.hook, learning_rate.step)
-        self._learning_rate: LearningRate[LrType] = learning_rate
-        self.discount_factor = discount_factor
         self._update_solver = self._init_update_solver()
 
     @property
     def learning_rate(self) -> LrType:
         """Gets the learning rate of the learning agent."""
         return self._learning_rate.value
+
+    def establish_callback_hooks(self) -> None:
+        super().establish_callback_hooks()
+        if not isinstance(self._learning_rate.scheduler, NoScheduling):
+            self.hook_callback(
+                repr(self._learning_rate),
+                self._learning_rate.hook,
+                self._learning_rate.step,
+            )
 
     def _init_update_solver(self) -> Optional[cs.Function]:
         """Internal utility to initialize the update solver, in particular, a QP solver.

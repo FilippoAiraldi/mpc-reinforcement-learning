@@ -1,4 +1,4 @@
-from typing import Any, Generic, Type
+from typing import Any, Dict, Generic, Optional, Tuple, Type, Union
 
 from csnlp.util.io import SupportsDeepcopyAndPickle
 
@@ -82,3 +82,28 @@ class LearningWrapper(Wrapper[SymType], Generic[SymType, ExpType]):
     def hook_callback(self, *args, **kwargs) -> None:
         """See `LearningAgent.hook_callback`."""
         self.agent.hook_callback(*args, **kwargs)
+
+    def __setstate__(
+        self,
+        state: Union[
+            None, Dict[str, Any], Tuple[Optional[Dict[str, Any]], Dict[str, Any]]
+        ],
+    ) -> None:
+        """When setting the state of the wrapper, it makes sure to avoid hooks with a
+        previous copy of the agent, and re-establishes them again (otherwise, the new
+        wrapper copy will call hooks to callbacks of the old agent)."""
+        if isinstance(state, tuple) and len(state) == 2:
+            state, slotstate = state
+        else:
+            slotstate = None
+        if state is not None:
+            # remove wrapped methods for callbacks due to this wrapper
+            # (otherwise, new copies will still be calling the old one)."""
+            for name in ("on_update", "on_episode_end", "on_env_step"):
+                state.pop(name, None)  # type: ignore[union-attr]
+            self.__dict__.update(state)  # type: ignore[arg-type]
+        if slotstate is not None:
+            for key, value in slotstate.items():
+                setattr(self, key, value)
+        # re-perform hooks
+        self.establish_callback_hooks()

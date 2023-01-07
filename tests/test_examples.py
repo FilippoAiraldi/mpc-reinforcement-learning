@@ -1,4 +1,5 @@
 import logging
+import pickle
 import unittest
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -9,6 +10,7 @@ from csnlp import Nlp
 from csnlp.util.math import quad_form
 from csnlp.wrappers import Mpc
 from gymnasium.wrappers import TimeLimit
+from parameterized import parameterized
 from scipy.io import loadmat
 
 from mpcrl import LearnableParameter, LearnableParametersDict, LstdQLearningAgent
@@ -17,7 +19,8 @@ from mpcrl.wrappers import Log, RecordUpdates
 
 
 class TestExamples(unittest.TestCase):
-    def test_q_learning__with_copy_and_pickle(self):
+    @parameterized.expand([(True,), (False,)])
+    def test_q_learning__with_copy_and_pickle(self, use_copy: bool):
         class LtiSystem(gym.Env[np.ndarray, float]):
             nx = 2  # number of states
             nu = 1  # number of inputs
@@ -151,11 +154,12 @@ class TestExamples(unittest.TestCase):
             level=logging.DEBUG,
             log_frequencies={"on_env_step": 100},
         )
-        # agent = agent.copy()
-        J = LstdQLearningAgent.train(agent, env=env, episodes=1, seed=69).item()
 
-        # with agent.pickleable():
-        #     agent = pickle.loads(pickle.dumps(agent))
+        agent_copy = agent.copy()
+        if use_copy:
+            agent = agent_copy
+        J = LstdQLearningAgent.train(agent, env=env, episodes=1, seed=69).item()
+        agent = pickle.loads(pickle.dumps(agent))
 
         X = np.concatenate(env.X, axis=-1).squeeze()
         U = np.squeeze(env.U)
