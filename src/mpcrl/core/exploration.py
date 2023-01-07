@@ -4,7 +4,7 @@ from typing import Any, Literal, Optional, Union
 import numpy as np
 import numpy.typing as npt
 
-from mpcrl.core.schedulers import Scheduler
+from mpcrl.core.schedulers import NoScheduling, Scheduler
 from mpcrl.util.random import np_random
 
 
@@ -122,7 +122,7 @@ class GreedyExploration(ExplorationStrategy):
         """
         super().__init__(stepping_strategy)
         if not isinstance(strength, Scheduler):
-            strength = Scheduler(strength)
+            strength = NoScheduling(strength)
         self.strength_scheduler = strength
         self.np_random = np_random(seed)
 
@@ -211,7 +211,7 @@ class EpsilonGreedyExploration(GreedyExploration):
         """
         super().__init__(strength, stepping_strategy, seed)
         if not isinstance(epsilon, Scheduler):
-            epsilon = Scheduler(epsilon)
+            epsilon = NoScheduling(epsilon)
         self.epsilon_scheduler = epsilon
 
     @property

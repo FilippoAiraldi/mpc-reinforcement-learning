@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 from itertools import accumulate, repeat
 from operator import mul
 from typing import Generic, TypeVar
@@ -8,10 +9,9 @@ ScType = TypeVar("ScType")
 ScType.__doc__ = "A type that supports basic algebraic operations."
 
 
-class Scheduler(Generic[ScType]):
-    """Schedulers are helpful classes to udpate or decay different quantities such as
-    learning rates and/or exploration probability. This is a base class that actually
-    does not update the value and keeps it constant."""
+class Scheduler(ABC, Generic[ScType]):
+    """Schedulers are helpful classes to udpate or decay different quantities, such as
+    learning rates and/or exploration probability."""
 
     __slots__ = ("value",)
 
@@ -26,14 +26,15 @@ class Scheduler(Generic[ScType]):
         super().__init__()
         self.value = init_value
 
+    @abstractmethod
     def step(self) -> None:
         """Updates the value of the scheduler by one step.
 
         Raises
         ------
         StopIteration
-            Raises if the final iteration of the scheduler (if it has any) has been
-            reached and `step` is called again.
+            Raises if the final iteration of the scheduler (if any) has been reached and
+            `step` was called again.
         """
 
     def __repr__(self) -> str:
@@ -43,7 +44,15 @@ class Scheduler(Generic[ScType]):
         return self.__repr__()
 
 
-class ExponentialScheduler(Scheduler):
+class NoScheduling(Scheduler[ScType]):
+    """Scheduler that actually performs no scheduling and holds the initial value
+    constant."""
+
+    def step(self) -> None:
+        return
+
+
+class ExponentialScheduler(Scheduler[ScType]):
     """Exponentiallly decays the value of the scheduler by `factor` every step, i.e.,
     after k steps the value `value_k = init_value * factor**k`."""
 
@@ -63,13 +72,13 @@ class ExponentialScheduler(Scheduler):
         self.factor = factor
 
     def step(self) -> None:
-        self.value *= self.factor
+        self.value *= self.factor  # type: ignore[operator]
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(x0={self.value},factor={self.factor})"
 
 
-class LinearScheduler(Scheduler):
+class LinearScheduler(Scheduler[ScType]):
     """Linearly updates the initial value of the scheduler towards a final one to be
     reached in N total steps, i.e., after k steps, the value is
     `value_k = init_value + (final_value - init_value) * k / total_steps`.
@@ -110,7 +119,7 @@ class LinearScheduler(Scheduler):
         )
 
 
-class LogLinearScheduler(ExponentialScheduler):
+class LogLinearScheduler(ExponentialScheduler[ScType]):
     """Updates the initial value of the scheduler towards a final one to be
     reached in N total steps in a linear fashion between the exponents of the two, i.e.,
     after k steps, the value is

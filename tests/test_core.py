@@ -68,8 +68,8 @@ class TestExperienceReplay(unittest.TestCase):
 
 
 class TestSchedulers(unittest.TestCase):
-    def test_scheduler__step__does_not_update_value(self):
-        scheduler = S.Scheduler(init_value=None)
+    def test_no_scheduling__step__does_not_update_value(self):
+        scheduler = S.NoScheduling(init_value=None)
         scheduler.step()
         self.assertIsNone(scheduler.value)
         do_test_str_and_repr(self, scheduler)
@@ -191,7 +191,7 @@ class TestExploration(unittest.TestCase):
         self.assertTrue(found_true and found_false)
 
     def test_epsilon_greedy_exploration__decays_strength(self):
-        class MockScheduler(S.Scheduler):
+        class MockScheduler(S.NoScheduling):
             ...
 
         epsilon_scheduler = MockScheduler(None)

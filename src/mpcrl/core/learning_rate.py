@@ -3,7 +3,7 @@ from typing import Generic, Literal, TypeVar, Union
 import numpy as np
 import numpy.typing as npt
 
-from mpcrl.core.schedulers import Scheduler
+from mpcrl.core.schedulers import NoScheduling, Scheduler
 from mpcrl.util.math import summarize_array
 
 LrType = TypeVar("LrType", npt.NDArray[np.double], float)
@@ -43,7 +43,7 @@ class LearningRate(Generic[LrType]):
         self.value_scheduler: Scheduler[LrType] = (
             init_value
             if isinstance(init_value, Scheduler)
-            else Scheduler[LrType](init_value)
+            else NoScheduling[LrType](init_value)
         )
         self.stepping_strategy = stepping_strategy
 
