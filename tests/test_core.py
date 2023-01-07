@@ -1,7 +1,7 @@
 import pickle
 import unittest
 from itertools import product
-from typing import Tuple, Union
+from typing import Iterator, Tuple, Union
 from unittest.mock import Mock
 
 import casadi as cs
@@ -16,6 +16,7 @@ from mpcrl import (
     MpcSolverError,
     MpcSolverWarning,
     UpdateError,
+    UpdateStrategy,
     UpdateWarning,
 )
 from mpcrl import exploration as E
@@ -391,6 +392,20 @@ class TestLearningRate(unittest.TestCase):
     def test_str_and_repr(self):
         lr = LearningRate(5.0)
         do_test_str_and_repr(self, lr)
+
+
+class TestUpdateStrategy(unittest.TestCase):
+    def test__is_iterable(self):
+        strategy = UpdateStrategy(5)
+        self.assertIsInstance(next(strategy), bool)
+        self.assertIsInstance(iter(strategy), Iterator)
+
+    def test_can_update__has_right_frequency(self):
+        N = 50
+        frequency = 3
+        strategy = UpdateStrategy(frequency)
+        tot = sum(strategy.can_update() for _ in range(N))
+        self.assertEqual(tot, N // frequency)
 
 
 if __name__ == "__main__":

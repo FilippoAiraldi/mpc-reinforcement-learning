@@ -1,17 +1,19 @@
 __all__ = [
-    "exploration",
-    "schedulers",
     "Agent",
-    "LearningAgent",
-    "RlLearningAgent",
-    "MpcSolverError",
-    "MpcSolverWarning",
-    "UpdateError",
-    "UpdateWarning",
     "ExperienceReplay",
     "LearnableParameter",
     "LearnableParametersDict",
+    "LearningAgent",
+    "LearningRate",
     "LstdQLearningAgent",
+    "MpcSolverError",
+    "MpcSolverWarning",
+    "RlLearningAgent",
+    "UpdateError",
+    "UpdateStrategy",
+    "UpdateWarning",
+    "exploration",
+    "schedulers",
 ]
 
 import mpcrl.core.exploration as exploration
@@ -28,3 +30,4 @@ from mpcrl.core.errors import (
 from mpcrl.core.experience import ExperienceReplay
 from mpcrl.core.learning_rate import LearningRate
 from mpcrl.core.parameters import LearnableParameter, LearnableParametersDict
+from mpcrl.core.update import UpdateStrategy
