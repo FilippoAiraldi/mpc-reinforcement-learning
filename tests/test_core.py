@@ -8,14 +8,51 @@ import casadi as cs
 import numpy as np
 from parameterized import parameterized
 
-from mpcrl import ExperienceReplay, LearnableParameter, LearnableParametersDict
+from mpcrl import (
+    ExperienceReplay,
+    LearnableParameter,
+    LearnableParametersDict,
+    LearningRate,
+    MpcSolverError,
+    MpcSolverWarning,
+    UpdateError,
+    UpdateWarning,
+)
 from mpcrl import exploration as E
 from mpcrl import schedulers as S
+from mpcrl.core.errors import (
+    raise_or_warn_on_mpc_failure,
+    raise_or_warn_on_update_failure,
+)
 
 
-def do_test_str_and_repr(testcase: unittest.TestCase, scheduler: S.Scheduler):
-    testcase.assertIn(scheduler.__class__.__name__, scheduler.__str__())
-    testcase.assertIn(scheduler.__class__.__name__, scheduler.__repr__())
+def do_test_str_and_repr(testcase: unittest.TestCase, obj: S.Scheduler):
+    testcase.assertIn(obj.__class__.__name__, obj.__str__())
+    testcase.assertIn(obj.__class__.__name__, obj.__repr__())
+
+
+class TestErrors(unittest.TestCase):
+    @parameterized.expand([(False,), (True,)])
+    def test_raise_or_warn_on_mpc_failure__raises_or_warns(self, raises: bool):
+        msg = "This is a message"
+        context = (
+            self.assertRaisesRegex(MpcSolverError, msg)
+            if raises
+            else self.assertWarnsRegex(MpcSolverWarning, msg)
+        )
+        with context:
+            raise_or_warn_on_mpc_failure(msg, raises)
+
+    @parameterized.expand([(False,), (True,)])
+    def test_raise_or_warn_on_update_failure__raises_or_warns(self, raises: bool):
+        msg = "This is a message"
+        context = (
+            self.assertRaisesRegex(UpdateError, msg)
+            if raises
+            else self.assertWarnsRegex(UpdateWarning, msg)
+        )
+        with context:
+            raise_or_warn_on_update_failure(msg, raises)
 
 
 class TestExperienceReplay(unittest.TestCase):
@@ -339,6 +376,21 @@ class TestParameters(unittest.TestCase):
         S = pars.stringify()
         for p in [p1, p2, p3, p4]:
             self.assertIn(p.name, S)
+
+
+class TestLearningRate(unittest.TestCase):
+    def test_init_and_properties(self):
+        value = object()
+        scheduler = S.NoScheduling(value)
+        scheduler.step = Mock()
+        lr = LearningRate(scheduler)
+        lr.step()
+        self.assertIs(value, lr.value)
+        scheduler.step.assert_called_once_with()
+
+    def test_str_and_repr(self):
+        lr = LearningRate(5.0)
+        do_test_str_and_repr(self, lr)
 
 
 if __name__ == "__main__":

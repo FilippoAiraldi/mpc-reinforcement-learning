@@ -26,4 +26,5 @@ from mpcrl.core.errors import (
     UpdateWarning,
 )
 from mpcrl.core.experience import ExperienceReplay
+from mpcrl.core.learning_rate import LearningRate
 from mpcrl.core.parameters import LearnableParameter, LearnableParametersDict
