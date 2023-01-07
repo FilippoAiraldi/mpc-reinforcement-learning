@@ -16,20 +16,20 @@ class ExplorationStrategy(ABC):
     def __init__(
         self,
         stepping_strategy: Literal[
-            "on_update", "on_episode_start", "on_env_step"
+            "on_update", "on_episode_end", "on_env_step"
         ] = "on_update",
     ) -> None:
         r"""Initializes the exploration strategy.
 
         Parameters
         ----------
-        stepping_strategy : {'on_update', 'on_episode_start', 'on_env_step'}, optional
+        stepping_strategy : {'on_update', 'on_episode_end', 'on_env_step'}, optional
             Specifies when to step the exploration's schedulers (if any) to, e.g., decay
             the chances of exploring or the perturbation strength (see `step` method
             also). The options are:
 
                 - `on_update` steps the exploration after each agent's update
-                - `on_episode_start` steps the exploration after each episode's start
+                - `on_episode_end` steps the exploration after each episode's end
                 - `on_env_step` steps the exploration after each env's step
 
             By default, 'on_update' is selected.
@@ -92,7 +92,7 @@ class GreedyExploration(ExplorationStrategy):
         self,
         strength: Union[Scheduler[npt.NDArray[np.double]], npt.NDArray[np.double]],
         stepping_strategy: Literal[
-            "on_update", "on_episode_start", "on_env_step"
+            "on_update", "on_episode_end", "on_env_step"
         ] = "on_update",
         seed: Optional[int] = None,
     ) -> None:
@@ -106,13 +106,13 @@ class GreedyExploration(ExplorationStrategy):
             decay/increase every time `exploration.step` is called. If an array or
             something other than a scheduler is passed, then this quantity will get
             wrapped in a base scheduler which will kept it constant.
-        stepping_strategy : {'on_update', 'on_episode_start', 'on_env_step'}, optional
+        stepping_strategy : {'on_update', 'on_episode_end', 'on_env_step'}, optional
             Specifies when to step the exploration's schedulers (if any) to, e.g., decay
             the chances of exploring or the perturbation strength (see `step` method
             also). The options are:
 
                 - `on_update` steps the exploration after each agent's update
-                - `on_episode_start` steps the exploration after each episode's start
+                - `on_episode_end` steps the exploration after each episode's end
                 - `on_env_step` steps the exploration after each env's step
 
             By default, 'on_update' is selected.
@@ -179,7 +179,7 @@ class EpsilonGreedyExploration(GreedyExploration):
         epsilon: Union[Scheduler[float], float],
         strength: Union[Scheduler[npt.NDArray[np.double]], npt.NDArray[np.double]],
         stepping_strategy: Literal[
-            "on_update", "on_episode_start", "on_env_step"
+            "on_update", "on_episode_end", "on_env_step"
         ] = "on_update",
         seed: Optional[int] = None,
     ) -> None:
@@ -195,13 +195,13 @@ class EpsilonGreedyExploration(GreedyExploration):
             wrapped in a base scheduler which will kept it constant.
         strength : scheduler or array/supports-algebraic-operations
             The strength of the exploration. Can be scheduled, see `epsilon`.
-        stepping_strategy : {'on_update', 'on_episode_start', 'on_env_step'}, optional
+        stepping_strategy : {'on_update', 'on_episode_end', 'on_env_step'}, optional
             Specifies when to step the exploration's schedulers (if any) to, e.g., decay
             the chances of exploring or the perturbation strength (see `step` method
             also). The options are:
 
                 - `on_update` steps the exploration after each agent's update
-                - `on_episode_start` steps the exploration after each episode's start
+                - `on_episode_end` steps the exploration after each episode's end
                 - `on_env_step` steps the exploration after each env's step
 
             By default, 'on_update' is selected.

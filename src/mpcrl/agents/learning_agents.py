@@ -267,7 +267,7 @@ class LearningAgent(
         """Internal decorator to hook, e.g., exploration decay, learning rate decay and
         update strategy to the various callbacks."""
 
-        def get_decorator(method: Callable) -> Callable:
+        def decorate(method: Callable) -> Callable:
             @wraps(method)
             def wrapper(*args, **kwargs):
                 out = method(*args, **kwargs)
@@ -276,7 +276,7 @@ class LearningAgent(
 
             return wrapper
 
-        setattr(self, callbackname, get_decorator(getattr(self, callbackname)))
+        setattr(self, callbackname, decorate(getattr(self, callbackname)))
 
     def _get_parameters(
         self,
