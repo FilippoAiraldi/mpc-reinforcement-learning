@@ -10,7 +10,7 @@ ScType.__doc__ = "A type that supports basic algebraic operations."
 
 
 class Scheduler(ABC, Generic[ScType]):
-    """Schedulers are helpful classes to udpate or decay different quantities, such as
+    """Schedulers are helpful classes to update or decay different quantities, such as
     learning rates and/or exploration probability."""
 
     __slots__ = ("value",)
