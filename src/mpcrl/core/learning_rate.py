@@ -4,7 +4,6 @@ import numpy as np
 import numpy.typing as npt
 
 from mpcrl.core.schedulers import NoScheduling, Scheduler
-from mpcrl.util.math import summarize_array
 
 LrType = TypeVar("LrType", npt.NDArray[np.double], float)
 
@@ -58,10 +57,4 @@ class LearningRate(Generic[LrType]):
         return self.__class__.__name__
 
     def __repr__(self) -> str:
-        v = self.value
-        s = (
-            f"{v:.3f}"
-            if isinstance(v, (float, int))
-            else summarize_array(v)  # type: ignore[arg-type]
-        )
-        return f"{self.__class__.__name__}(lr={s},hook={self.hook})"
+        return f"{self.__class__.__name__}(lr={self.scheduler},hook={self.hook})"

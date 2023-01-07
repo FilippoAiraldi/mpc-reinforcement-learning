@@ -38,7 +38,7 @@ class Scheduler(ABC, Generic[ScType]):
         """
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}(x0={self.value})"
+        return f"{self.__class__.__name__}(x={self.value})"
 
     def __str__(self) -> str:
         return self.__repr__()
@@ -75,7 +75,7 @@ class ExponentialScheduler(Scheduler[ScType]):
         self.value *= self.factor  # type: ignore[operator]
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}(x0={self.value},factor={self.factor})"
+        return f"{self.__class__.__name__}(x={self.value},factor={self.factor})"
 
 
 class LinearScheduler(Scheduler[ScType]):
