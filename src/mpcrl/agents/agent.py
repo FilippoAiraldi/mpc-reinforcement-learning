@@ -5,6 +5,7 @@ from typing import (
     Generic,
     Iterable,
     Iterator,
+    List,
     Literal,
     Optional,
     Tuple,
@@ -401,3 +402,10 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbacks, Generic[SymType]):
         """Internal utility to retrieve parameters of the MPC in order to solve it.
         `Agent` has no learnable parameter, so only fixed parameters are returned."""
         return self._fixed_pars
+
+    def __deepcopy__(self, memo: Optional[Dict[int, List[Any]]] = None) -> "Agent":
+        """Ensures that the copy has a new name."""
+        y = super().__deepcopy__(memo)
+        if hasattr(y, "name"):
+            y.name += "_copy"
+        return y
