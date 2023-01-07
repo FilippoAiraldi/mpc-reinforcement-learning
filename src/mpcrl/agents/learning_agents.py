@@ -280,16 +280,6 @@ class LearningAgent(
             or warning; otherwise, `None` is returned.
         """
 
-    @contextmanager
-    def fullstate(self) -> Iterator[None]:
-        with super().fullstate(), self._learnable_pars.fullstate():
-            yield
-
-    @contextmanager
-    def pickleable(self) -> Iterator[None]:
-        with super().pickleable(), self._learnable_pars.pickleable():
-            yield
-
     def _hook_callbacks(
         self,
         callbackname: str,

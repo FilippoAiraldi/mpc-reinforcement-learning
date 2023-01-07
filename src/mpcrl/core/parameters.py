@@ -1,7 +1,6 @@
-from contextlib import ExitStack, contextmanager
 from functools import cached_property
 from itertools import chain
-from typing import Any, Dict, Generic, Iterable, Iterator, Optional, TypeVar, Union
+from typing import Any, Dict, Generic, Iterable, Optional, TypeVar, Union
 
 import numpy as np
 import numpy.typing as npt
@@ -255,22 +254,6 @@ class LearnableParametersDict(
             if deep
             else LearnableParametersDict[SymType](self.values())
         )
-
-    @contextmanager
-    def fullstate(self) -> Iterator[None]:
-        with ExitStack() as es:
-            es.enter_context(SupportsDeepcopyAndPickle.fullstate(self))
-            for par in self.values():
-                es.enter_context(par.fullstate())
-            yield
-
-    @contextmanager
-    def pickleable(self) -> Iterator[None]:
-        with ExitStack() as es:
-            es.enter_context(SupportsDeepcopyAndPickle.pickleable(self))
-            for par in self.values():
-                es.enter_context(par.pickleable())
-            yield
 
     def stringify(
         self, summarize: bool = True, precision: int = 3, ddof: int = 0

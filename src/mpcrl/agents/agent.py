@@ -1,4 +1,3 @@
-from contextlib import contextmanager
 from typing import (
     Any,
     Collection,
@@ -141,16 +140,6 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbacks, Generic[SymType]):
     def exploration(self) -> ExplorationStrategy:
         """Gets the exploration strategy used within this agent."""
         return self._exploration
-
-    @contextmanager
-    def fullstate(self) -> Iterator[None]:
-        with super().fullstate(), self._Q.fullstate(), self._V.fullstate():
-            yield
-
-    @contextmanager
-    def pickleable(self) -> Iterator[None]:
-        with super().pickleable(), self._Q.pickleable(), self._V.pickleable():
-            yield
 
     def reset(self) -> None:
         """Resets the agent's internal variables."""

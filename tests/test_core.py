@@ -274,8 +274,7 @@ class TestParameters(unittest.TestCase):
         if copy:
             new_pars = pars.copy(deep=True)
         else:
-            with pars.pickleable():
-                new_pars: LearnableParametersDict = pickle.loads(pickle.dumps(pars))
+            new_pars: LearnableParametersDict = pickle.loads(pickle.dumps(pars))
         p2: LearnableParameter = new_pars["theta"]
         self.assertIsNot(p1, p2)
         self.assertEqual(p1.name, p2.name)

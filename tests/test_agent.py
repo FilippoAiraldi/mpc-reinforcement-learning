@@ -136,8 +136,7 @@ class TestAgent(unittest.TestCase):
         if copy:
             agent2 = agent1.copy()
         else:
-            with agent1.pickleable():
-                agent2: Agent = pickle.loads(pickle.dumps(agent1))
+            agent2: Agent = pickle.loads(pickle.dumps(agent1))
 
         self.assertIsNot(agent1, agent2)
         self.assertIsNot(agent1.Q, agent2.Q)

@@ -1,5 +1,4 @@
-from contextlib import contextmanager
-from typing import Any, Generic, Iterator, Type
+from typing import Any, Generic, Type
 
 from csnlp.util.io import SupportsDeepcopyAndPickle
 
@@ -47,16 +46,6 @@ class Wrapper(SupportsDeepcopyAndPickle, Generic[SymType]):
         if isinstance(self, wrapper_type):
             return True
         return self.agent.is_wrapped(wrapper_type)
-
-    @contextmanager
-    def fullstate(self) -> Iterator[None]:
-        with super().fullstate(), self.agent.fullstate():
-            yield
-
-    @contextmanager
-    def pickleable(self) -> Iterator[None]:
-        with super().pickleable(), self.agent.pickleable():
-            yield
 
     def __getattr__(self, name: str) -> Any:
         """Reroutes attributes to the wrapped agent instance."""
