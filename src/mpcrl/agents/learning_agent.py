@@ -163,6 +163,7 @@ class LearningAgent(
         """
         self._experience.append(item)
 
+    @staticmethod
     def train(
         agent: "LearningAgent[SymType, ExpType]",
         env: GymEnvLike[ObsType, ActType],
