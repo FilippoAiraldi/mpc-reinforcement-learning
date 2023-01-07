@@ -68,7 +68,17 @@ class LearningWrapper(Wrapper[SymType], Generic[SymType, ExpType]):
     def __init__(self, agent: LearningAgent[SymType, ExpType]) -> None:
         super().__init__(agent)
         self.agent: LearningAgent[SymType, ExpType]
+        self.establish_callback_hooks()
 
     @property
     def unwrapped(self) -> LearningAgent[SymType, ExpType]:
         return self.agent.unwrapped
+
+    def establish_callback_hooks(self) -> None:
+        """Similar to agents, this method must be used to perform the connections
+        between callbacks and any invokable method (hook). If the wrapper has no hooks,
+        then this method does nothing"""
+
+    def hook_callback(self, *args, **kwargs) -> None:
+        """See `LearningAgent.hook_callback`."""
+        self.agent.hook_callback(*args, **kwargs)

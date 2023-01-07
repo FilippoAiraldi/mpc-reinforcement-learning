@@ -104,39 +104,17 @@ class LearningAgent(
             name=name,
         )
         LearningAgentCallbacks.__init__(self)
-
-        # save to fields
         self._raises: bool = True
         self._learnable_pars = learnable_parameters
         self._experience = (
             ExperienceReplay(maxlen=1) if experience is None else experience
         )
-
-        # if an exploration is passed, save it and hook it up
         if exploration is not None:
             self._exploration = exploration
-            if not isinstance(self._exploration, NoExploration):
-                self._hook_callbacks(exploration.hook, exploration.step)
-
-        # save the update strategy and hook it up
         if not isinstance(update_strategy, UpdateStrategy):
             update_strategy = UpdateStrategy(update_strategy)
         self._update_strategy = update_strategy
-        assert update_strategy.hook in {
-            "on_episode_end",
-            "on_env_step",
-        }, "Updates can be hooked only to episode_end or env_step."
-        args_idx, kwargs_keys = (
-            (1, ("episode",))
-            if update_strategy.hook == "on_episode_end"
-            else (slice(1, 3), ("episode", "timestep"))
-        )
-        self._hook_callbacks(
-            update_strategy.hook,
-            self._check_and_perform_update,
-            args_idx,  # type: ignore[arg-type]
-            kwargs_keys,
-        )
+        self.establish_callback_hooks()
 
     @property
     def experience(self) -> ExperienceReplay[ExpType]:
@@ -276,16 +254,29 @@ class LearningAgent(
             or warning; otherwise, `None` is returned.
         """
 
-    def _hook_callbacks(
+    def hook_callback(
         self,
+        attachername: str,
         callbackname: str,
-        to_call: Callable,
+        func: Callable,
         args_idx: Union[None, int, slice] = None,
         kwargs_keys: Optional[Collection[str]] = None,
     ) -> None:
-        """Internal decorator to hook, e.g., exploration decay, learning rate decay and
-        update strategy to the various callbacks."""
+        """Hooks a function to be called each time an agent's callback is invoked.
 
+        Parameters
+        ----------
+        attachername : str
+            The name of the object requesting the hook. Has only info purposes.
+        callbackname : str
+            Name of the callback to hook to.
+        func : Callable
+            function to be called when the callback is invoked.
+        args_idx : int or slice, optional
+            Indices of the `args` of the callback to be passed to `func`, if not `None`.
+        kwargs_keys : Optional[Collection[str]], optional
+            Keys of the `kwargs` of the callback to be passed to `func`, if not `None`.
+        """
         if args_idx is None:
             args_idx = slice(0, 0)
         if kwargs_keys is None:
@@ -295,15 +286,43 @@ class LearningAgent(
             @wraps(method)
             def wrapper(*args, **kwargs):
                 out = method(*args, **kwargs)
-                to_call(
+                func(
                     *args[args_idx],
                     **{k: kwargs[k] for k in kwargs_keys if k in kwargs},
                 )
                 return out
 
+            wrapper.attacher = attachername  # type: ignore[attr-defined]
             return wrapper
 
         setattr(self, callbackname, decorate(getattr(self, callbackname)))
+
+    def establish_callback_hooks(self) -> None:
+        """Internal utility to hook connections between update strategy and exploration
+        and their callbacks."""
+        if not isinstance(self._exploration, NoExploration):
+            self.hook_callback(
+                repr(self._exploration),
+                self._exploration.hook,
+                self._exploration.step,
+            )
+
+        assert self._update_strategy.hook in {
+            "on_episode_end",
+            "on_env_step",
+        }, "Updates can be hooked only to episode_end or env_step."
+        args_idx, kwargs_keys = (
+            (1, ("episode",))
+            if self._update_strategy.hook == "on_episode_end"
+            else (slice(1, 3), ("episode", "timestep"))
+        )
+        self.hook_callback(
+            repr(self._update_strategy),
+            self._update_strategy.hook,
+            self._check_and_perform_update,
+            args_idx,  # type: ignore[arg-type]
+            kwargs_keys,
+        )
 
     def _check_and_perform_update(self, episode: int, timestep: Optional[int]) -> None:
         """Internal utility to check if an update is due and perform it."""
