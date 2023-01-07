@@ -24,9 +24,9 @@ class RecordUpdates(LearningWrapper[SymType, ExpType]):
         self.updates_history: Dict[str, List[npt.NDArray[np.double]]] = {
             p.name: [p.value] for p in agent.learnable_parameters.values()
         }
+        self.unwrapped._hook_callbacks("on_update", self._store_learnable_parameters)
 
-    def on_update(self) -> None:
-        """See `agent.on_update`."""
-        self.agent.on_update()
+    def _store_learnable_parameters(self) -> None:
+        """Internal utility to store the current parameters in memory."""
         for par in self.agent.learnable_parameters.values():
             self.updates_history[par.name].append(par.value)
