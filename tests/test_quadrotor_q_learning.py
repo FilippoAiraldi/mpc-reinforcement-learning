@@ -1368,13 +1368,13 @@ class TestQuadRotorQlearning(unittest.TestCase):
                     seed=seed,
                 ),
                 experience=ExperienceReplay(maxlen=Tlimit, sample_size=1.0),
+                update_strategy=Tlimit,
             )
         )
         results_actual = LstdQLearningAgent.train(
             agent_actual,
             env=env,
             episodes=2,
-            update_frequency=Tlimit,
             seed=seed + 1,
         )
 

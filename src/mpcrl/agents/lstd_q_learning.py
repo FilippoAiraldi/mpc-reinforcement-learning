@@ -2,7 +2,6 @@ from typing import (
     Collection,
     Dict,
     Generic,
-    Iterator,
     List,
     Literal,
     Optional,
@@ -26,6 +25,7 @@ from mpcrl.core.exploration import ExplorationStrategy
 from mpcrl.core.learning_rate import LearningRate
 from mpcrl.core.parameters import LearnableParametersDict
 from mpcrl.core.schedulers import Scheduler
+from mpcrl.core.update import UpdateStrategy
 from mpcrl.util.math import cholesky_added_multiple_identities
 from mpcrl.util.types import GymEnvLike
 
@@ -63,6 +63,7 @@ class LstdQLearningAgent(
     def __init__(
         self,
         mpc: Mpc[SymType],
+        update_strategy: Union[int, UpdateStrategy],
         discount_factor: float,
         learning_rate: Union[LrType, Scheduler[LrType], LearningRate[LrType]],
         learnable_parameters: LearnableParametersDict[SymType],
@@ -90,6 +91,11 @@ class LstdQLearningAgent(
             constraint names will need to be created, so an error is thrown if these
             names are already in use in the mpc. These names are under the attributes
             `perturbation_parameter`, `action_parameter` and `action_constraint`.
+        update_strategy : UpdateStrategy or int
+            The strategy used to decide which frequency to update the mpc parameters
+            with. If an `int` is passed, then the default strategy that updates every
+            `n` env's steps is used (where `n` is the argument passed); otherwise, an
+            instance of `UpdateStrategy` can be passed to specify these in more details.
         discount_factor : float
             In RL, the factor that discounts future rewards in favor of immediate
             rewards. Usually denoted as `\\gamma`. Should be a number in (0, 1).
@@ -141,6 +147,7 @@ class LstdQLearningAgent(
         """
         super().__init__(
             mpc=mpc,
+            update_strategy=update_strategy,
             discount_factor=discount_factor,
             learning_rate=learning_rate,  # type: ignore[arg-type]
             learnable_parameters=learnable_parameters,
@@ -209,7 +216,6 @@ class LstdQLearningAgent(
         env: GymEnvLike[ObsType, ActType],
         episode: int,
         init_state: ObsType,
-        update_cycle: Iterator[bool],
         raises: bool = True,
     ) -> float:
         truncated = terminated = False
@@ -228,7 +234,6 @@ class LstdQLearningAgent(
 
             # step the system with action computed at the previous iteration
             state, cost, truncated, terminated, _ = env.step(action)
-            agent.on_env_step(env, episode, timestep)
 
             # compute V(s+)
             action, solV = agent.state_value(state, deterministic=False)
@@ -237,13 +242,8 @@ class LstdQLearningAgent(
             else:
                 agent.on_mpc_failure(episode, timestep, solV.status, raises)
 
-            # check if it is time to update
-            if next(update_cycle):
-                if update_msg := agent.update():
-                    agent.on_update_failure(episode, timestep, update_msg, raises)
-                agent.on_update()
-
             # increase counters
+            agent.on_env_step(env, episode, timestep)  # better to call this at the end
             rewards += float(cost)
             timestep += 1
         return rewards

@@ -26,8 +26,8 @@ from mpcrl.core.experience import ExperienceReplay
 from mpcrl.core.exploration import ExplorationStrategy, NoExploration
 from mpcrl.core.learning_rate import LearningRate, LrType
 from mpcrl.core.parameters import LearnableParametersDict
-from mpcrl.core.schedulers import Scheduler, NoScheduling
-from mpcrl.util.iters import bool_cycle
+from mpcrl.core.schedulers import NoScheduling, Scheduler
+from mpcrl.core.update import UpdateStrategy
 from mpcrl.util.random import generate_seeds
 from mpcrl.util.types import GymEnvLike
 
@@ -45,11 +45,12 @@ class LearningAgent(
     Note: this class makes no assumptions on the learning methodology used to update the
     MPC's learnable parameters."""
 
-    __slots__ = ("_experience", "_learnable_pars")
+    __slots__ = ("_experience", "_learnable_pars", "_update_strategy", "_raises")
 
     def __init__(
         self,
         mpc: Mpc[SymType],
+        update_strategy: Union[int, UpdateStrategy],
         learnable_parameters: LearnableParametersDict[SymType],
         fixed_parameters: Union[
             None, Dict[str, npt.ArrayLike], Collection[Dict[str, npt.ArrayLike]]
@@ -71,6 +72,11 @@ class LearningAgent(
             constraint names will need to be created, so an error is thrown if these
             names are already in use in the mpc. These names are under the attributes
             `perturbation_parameter`, `action_parameter` and `action_constraint`.
+        update_strategy : UpdateStrategy or int
+            The strategy used to decide which frequency to update the mpc parameters
+            with. If an `int` is passed, then the default strategy that updates every
+            `n` env's steps is used (where `n` is the argument passed); otherwise, an
+            instance of `UpdateStrategy` can be passed to specify these in more details.
         learnable_parameters : LearnableParametersDict
             A special dict containing the learnable parameters of the MPC, together with
             their bounds and values. This dict is complementary with `fixed_parameters`,
@@ -103,19 +109,49 @@ class LearningAgent(
             name=name,
         )
         LearningAgentCallbacks.__init__(self)
+
+        # save to fields
+        self._raises: bool = True
         self._learnable_pars = learnable_parameters
         self._experience = (
             ExperienceReplay(maxlen=1) if experience is None else experience
         )
+
+        # if an exploration is passed, save it and hook it up
         if exploration is not None:
             self._exploration = exploration
             if not isinstance(self._exploration, NoExploration):
                 self._hook_callbacks(exploration.hook, exploration.step)
 
+        # save the update strategy and hook it up
+        if not isinstance(update_strategy, UpdateStrategy):
+            update_strategy = UpdateStrategy(update_strategy)
+        self._update_strategy = update_strategy
+        assert update_strategy.hook in {
+            "on_episode_end",
+            "on_env_step",
+        }, "Updates can be hooked only to episode_end or env_step."
+        args_idx, kwargs_keys = (
+            (1, ("episode",))
+            if update_strategy.hook == "on_episode_end"
+            else (slice(1, 3), ("episode", "timestep"))
+        )
+        self._hook_callbacks(
+            update_strategy.hook,
+            self._check_and_perform_update,
+            args_idx,  # type: ignore[arg-type]
+            kwargs_keys,
+        )
+
     @property
     def experience(self) -> ExperienceReplay[ExpType]:
         """Gets the experience replay memory of the agent."""
         return self._experience
+
+    @property
+    def update_strategy(self) -> UpdateStrategy:
+        """Gets the update strategy of the agent."""
+        return self._update_strategy
 
     @property
     def learnable_parameters(self) -> LearnableParametersDict[SymType]:
@@ -136,7 +172,6 @@ class LearningAgent(
         agent: "LearningAgent[SymType, ExpType]",
         env: GymEnvLike[ObsType, ActType],
         episodes: int,
-        update_frequency: int,
         seed: Union[None, int, Iterable[int]] = None,
         raises: bool = True,
         env_reset_options: Optional[Dict[str, Any]] = None,
@@ -151,9 +186,6 @@ class LearningAgent(
             A gym-like environment where to train the agent in.
         episodes : int
             Number of training episodes.
-        update_frequency : int
-            The frequency of timesteps (i.e., every `env.step`) at which to perform
-            updates to the learning parameters.
         seed : int or iterable of ints, optional
             Each env's seed for RNG.
         raises : bool, optional
@@ -177,7 +209,7 @@ class LearningAgent(
             Raises the error or the warning (depending on `raises`) if the update fails.
         """
         # prepare for training start
-        update_cycle = bool_cycle(update_frequency)
+        agent._raises = raises
         returns = np.zeros(episodes, dtype=float)
         agent.on_training_start(env)
 
@@ -190,7 +222,6 @@ class LearningAgent(
                 env=env,
                 episode=episode,
                 init_state=state,
-                update_cycle=update_cycle,
                 raises=raises,
             )
             agent.on_episode_end(env, episode, returns[episode])
@@ -205,7 +236,6 @@ class LearningAgent(
         env: GymEnvLike[ObsType, ActType],
         episode: int,
         init_state: ObsType,
-        update_cycle: Iterator[bool],
         raises: bool = True,
     ) -> float:
         """Train the agent on an environment for one episode.
@@ -220,9 +250,6 @@ class LearningAgent(
             Number of the current training episode.
         init_state : observation type
             Initial state/observation of the environment.
-        update_cycle : itertools.cycle of bool
-            Update cycle. When this iterator returns true, then an update should be
-            performed. Should be an infinite iterator to avoid exceptions.
         raises : bool, optional
             If `True`, when any of the MPC solver runs fails, or when an update fails,
             the corresponding error is raised; otherwise, only a warning is raised.
@@ -292,6 +319,15 @@ class LearningAgent(
 
         setattr(self, callbackname, decorate(getattr(self, callbackname)))
 
+    def _check_and_perform_update(self, episode: int, timestep: Optional[int]) -> None:
+        """Internal utility to check if an update is due and perform it."""
+        if not self._update_strategy.can_update():
+            return
+        update_msg = self.update()
+        if update_msg is not None:
+            self.on_update_failure(episode, timestep, update_msg, self._raises)
+        self.on_update()
+
     def _get_parameters(
         self,
     ) -> Union[None, Dict[str, npt.ArrayLike], Collection[Dict[str, npt.ArrayLike]]]:
@@ -320,6 +356,7 @@ class RlLearningAgent(
     def __init__(
         self,
         mpc: Mpc[SymType],
+        update_strategy: Union[int, UpdateStrategy],
         discount_factor: float,
         learning_rate: Union[LrType, Scheduler[LrType], LearningRate[LrType]],
         learnable_parameters: LearnableParametersDict[SymType],
@@ -343,6 +380,11 @@ class RlLearningAgent(
             constraint names will need to be created, so an error is thrown if these
             names are already in use in the mpc. These names are under the attributes
             `perturbation_parameter`, `action_parameter` and `action_constraint`.
+        update_strategy : UpdateStrategy or int
+            The strategy used to decide which frequency to update the mpc parameters
+            with. If an `int` is passed, then the default strategy that updates every
+            `n` env's steps is used (where `n` is the argument passed); otherwise, an
+            instance of `UpdateStrategy` can be passed to specify these in more details.
         discount_factor : float
             In RL, the factor that discounts future rewards in favor of immediate
             rewards. Usually denoted as `\\gamma`. Should be a number in (0, 1).
@@ -383,6 +425,7 @@ class RlLearningAgent(
         """
         super().__init__(
             mpc=mpc,
+            update_strategy=update_strategy,
             learnable_parameters=learnable_parameters,
             fixed_parameters=fixed_parameters,
             exploration=exploration,
