@@ -110,7 +110,7 @@ class LearningAgent(
         if exploration is not None:
             self._exploration = exploration
             if not isinstance(self._exploration, NoExploration):
-                self._hook_callbacks(exploration.stepping_strategy, exploration.step)
+                self._hook_callbacks(exploration.hook, exploration.step)
 
     @property
     def experience(self) -> ExperienceReplay[ExpType]:
@@ -379,9 +379,7 @@ class RlLearningAgent(
         if not isinstance(learning_rate, LearningRate):
             learning_rate = LearningRate[LrType](learning_rate)
         self._learning_rate: LearningRate[LrType] = learning_rate
-        self._hook_callbacks(
-            self._learning_rate.stepping_strategy, self._learning_rate.step
-        )
+        self._hook_callbacks(self._learning_rate.hook, self._learning_rate.step)
         self.discount_factor = discount_factor
         self._update_solver = self._init_update_solver()
 
