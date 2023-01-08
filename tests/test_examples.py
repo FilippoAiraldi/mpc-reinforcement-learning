@@ -71,9 +71,9 @@ class TestExamples(unittest.TestCase):
             horizon = 10
             discount_factor = 0.9
             learnable_pars_init = {
-                "V0": np.array([[0.0]]),
-                "x_lb": np.array([[0], [0]]),
-                "x_ub": np.array([[1], [0]]),
+                "V0": np.asarray([[0.0]]),
+                "x_lb": np.asarray([[0], [0]]),
+                "x_ub": np.asarray([[1], [0]]),
                 "b": np.full((LtiSystem.nx, 1), 0.0),
                 "f": np.full((LtiSystem.nx + LtiSystem.nu, 1), 0.0),
                 "A": np.asarray([[1, 0.25], [0, 1]]),
