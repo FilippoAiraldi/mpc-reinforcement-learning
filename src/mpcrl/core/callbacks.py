@@ -160,7 +160,7 @@ class LearningAgentCallbacks:
         decaying exploration probabilities or learning rates."""
 
 
-HOOKS = tuple(
+ALL_CALLBACKS = tuple(
     map(
         itemgetter(0),
         chain.from_iterable(
@@ -201,7 +201,7 @@ class RemovesCallbackHooksInState:
         if state is not None:
             # remove wrapped methods for callbacks due to this object (otherwise, new
             # copies will still be calling the old object).
-            for name in HOOKS:
+            for name in ALL_CALLBACKS:
                 state.pop(name, None)  # type: ignore[union-attr]
             self.__dict__.update(state)  # type: ignore[arg-type]
         if slotstate is not None:
