@@ -151,4 +151,3 @@ class RlLearningAgent(
 
 # TODO:
 # - max update percentage
-# - updater on steps or on episodes
