@@ -1,3 +1,6 @@
+from inspect import getmembers, isfunction
+from itertools import chain
+from operator import itemgetter
 from typing import Any, Dict, Optional, Tuple, Union
 
 import numpy as np
@@ -157,6 +160,22 @@ class LearningAgentCallbacks:
         decaying exploration probabilities or learning rates."""
 
 
+HOOKS = tuple(
+    map(
+        itemgetter(0),
+        chain.from_iterable(
+            (
+                getmembers(
+                    cls,
+                    predicate=lambda o: isfunction(o) and o.__name__.startswith("on_"),
+                )
+                for cls in (AgentCallbacks, LearningAgentCallbacks)
+            )
+        ),
+    )
+)
+
+
 class RemovesCallbackHooksInState:
     """A class with the particular purpose of removing hooks when setting the state
     and re-establishing them automatically. In fact, if the old hooks are used, the new
@@ -181,8 +200,8 @@ class RemovesCallbackHooksInState:
             slotstate = None
         if state is not None:
             # remove wrapped methods for callbacks due to this object (otherwise, new
-            # copies will still be calling the old object)."""
-            for name in ("on_update", "on_episode_end", "on_env_step"):
+            # copies will still be calling the old object).
+            for name in HOOKS:
                 state.pop(name, None)  # type: ignore[union-attr]
             self.__dict__.update(state)  # type: ignore[arg-type]
         if slotstate is not None:
