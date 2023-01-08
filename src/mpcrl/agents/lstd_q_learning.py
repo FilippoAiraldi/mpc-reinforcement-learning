@@ -1,4 +1,5 @@
 from typing import (
+    Any,
     Collection,
     Dict,
     Generic,
@@ -60,7 +61,7 @@ class LstdQLearningAgent(
         "_d2Qdtheta2",
         "td_errors",
         "cho_maxiter",
-        "cho_solve_check_finite",
+        "cho_solve_kwargs",
     )
 
     def __init__(
@@ -79,7 +80,7 @@ class LstdQLearningAgent(
         hessian_type: Literal["approx", "full"] = "approx",
         record_td_errors: bool = False,
         cho_maxiter: int = 1000,
-        cho_solve_check_finite: bool = False,
+        cho_solve_kwargs: Optional[Dict[str, Any]] = None,
         name: Optional[str] = None,
     ) -> None:
         """Instantiates the LSTD Q-learning agent.
@@ -141,9 +142,9 @@ class LstdQLearningAgent(
             Maximum number of iterations in the Cholesky's factorization with additive
             multiples of the identity to ensure positive definiteness of the hessian. By
             default, `1000`.
-        cho_solve_check_finite : bool, optional
-            Whether to check that the input matrices to `scipy.cho_solve` contain only
-            finite numbers. By default, `False`.
+        cho_solve_kwargs : kwargs for scipy.linalg.cho_solve, optional
+            The optional kwargs to be passed to `scipy.linalg.cho_solve`. If `None`, it
+            is equivalent to `cho_solve_kwargs = {'check_finite': False }`.
         name : str, optional
             Name of the agent. If `None`, one is automatically created from a counter of
             the class' instancies.
@@ -162,7 +163,9 @@ class LstdQLearningAgent(
         )
         self._dQdtheta, self._d2Qdtheta2 = self._init_Q_derivatives(hessian_type)
         self.cho_maxiter = cho_maxiter
-        self.cho_solve_check_finite = cho_solve_check_finite
+        if cho_solve_kwargs is None:
+            cho_solve_kwargs = {"check_finite": False}
+        self.cho_solve_kwargs = cho_solve_kwargs
         self.td_errors: Optional[List[float]] = [] if record_td_errors else None
 
     def store_experience(  # type: ignore[override]
@@ -194,7 +197,9 @@ class LstdQLearningAgent(
         g, H = (np.mean(tuple(o), axis=0) for o in zip(*sample))
         R = cholesky_added_multiple_identities(H, maxiter=self.cho_maxiter)
         p = self.learning_rate * cho_solve(
-            (R, True), g, check_finite=self.cho_solve_check_finite
+            (R, True),
+            g,
+            **self.cho_solve_kwargs,
         ).reshape(-1)
 
         theta = self._learnable_pars.value  # current values of parameters
