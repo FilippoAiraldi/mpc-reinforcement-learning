@@ -1,26 +1,27 @@
 import logging
-from itertools import repeat
-from typing import Dict, Optional
+from itertools import chain, repeat
+from typing import Dict, Iterator, Optional
 
 import numpy as np
 import numpy.typing as npt
 
-from mpcrl.agents.agent import Agent
+from mpcrl.agents.learning_agent import ExpType, LearningAgent
+from mpcrl.core.callbacks import ALL_CALLBACKS
 from mpcrl.util.iters import bool_cycle
 from mpcrl.util.types import ActType, GymEnvLike, ObsType
-from mpcrl.wrappers.wrapper import SymType, Wrapper
+from mpcrl.wrappers.wrapper import LearningWrapper, SymType
 
 _FALSE_ITER = repeat(False)
 
 
-class Log(Wrapper[SymType]):
+class Log(LearningWrapper[SymType, ExpType]):
     """A wrapper class for logging information about an agent."""
 
     __slots__ = ("logger", "precision", "log_frequencies")
 
     def __init__(
         self,
-        agent: Agent[SymType],
+        agent: LearningAgent[SymType, ExpType],
         log_name: Optional[str] = None,
         level: int = logging.INFO,
         to_file: bool = False,
@@ -32,7 +33,7 @@ class Log(Wrapper[SymType]):
 
         Parameters
         ----------
-        agent : Agent or inheriting
+        agent : LearningAgent or inheriting
             Agent to wrap.
         log_name : str, optional
             Name of the logger. If not provided, the name of the agent is used.
@@ -54,13 +55,7 @@ class Log(Wrapper[SymType]):
              - `on_update`.
             If an entry is not found in the dict, it is assumed that its call is never
             logged.
-
-        Returns
-        -------
-        logging.Logger
-            The newly created logger.
         """
-        super().__init__(agent)
         name = log_name if log_name is not None else agent.name
         self.logger = logging.getLogger(name)
         self.logger.setLevel(level)
@@ -77,88 +72,84 @@ class Log(Wrapper[SymType]):
             fh.setFormatter(formatter)
             self.logger.addHandler(fh)
         self.precision = precision
-        if log_frequencies is None:
-            self.log_frequencies = {}
-        else:
-            self.log_frequencies = {
-                name: bool_cycle(freq) for name, freq in log_frequencies.items()
-            }
-        self.logger.info("logger created.")
+
+        self.log_frequencies: Dict[str, Iterator[bool]] = {}
+        if log_frequencies is not None:
+            for name, freq in log_frequencies.items():
+                self.log_frequencies[name] = bool_cycle(freq)
+
+        super().__init__(agent)
+
+    def establish_callback_hooks(self) -> None:
+        super().establish_callback_hooks()
+        # hook only the callbacks for which a frequency was given + the mandatory ones
+        repr_self = repr(self)
+        specified = self.log_frequencies.keys()
+        mandatory = set(ALL_CALLBACKS).difference(specified)
+        for name in chain(specified, mandatory):
+            self.hook_callback(
+                repr_self,
+                name,
+                getattr(self, f"_{name}"),
+                args_idx=slice(None),
+                kwargs_keys="all",
+            )
 
     # callbacks for Agent
 
-    def on_mpc_failure(
+    def _on_mpc_failure(
         self, episode: int, timestep: Optional[int], status: str, raises: bool
     ) -> None:
-        """See `agent.on_mpc_failure`."""
         m = self.logger.error if raises else self.logger.warning
         m(f"Mpc failure at episode {episode}, time {timestep}, status: {status}.")
-        self.agent.on_mpc_failure(episode, timestep, status, raises)
 
-    def on_validation_start(self, env: GymEnvLike[ObsType, ActType]) -> None:
-        """See `agent.on_validation_start`."""
-        self.logger.debug(f"validation on {env} started.")
-        self.agent.on_validation_start(env)
+    def _on_validation_start(self, env: GymEnvLike[ObsType, ActType]) -> None:
+        self.logger.debug(f"validation of {env} started.")
 
-    def on_validation_end(
+    def _on_validation_end(
         self, env: GymEnvLike[ObsType, ActType], returns: npt.NDArray[np.double]
     ) -> None:
-        """See `agent.on_validation_end`."""
         S = np.array2string(returns, precision=self.precision)
-        self.logger.info(f"validation on {env} concluded with returns={S}.")
-        self.agent.on_validation_end(env, returns)
+        self.logger.info(f"validation of {env} concluded with returns={S}.")
 
-    def on_episode_start(self, env: GymEnvLike[ObsType, ActType], episode: int) -> None:
-        """See `agent.on_episode_start`."""
+    def _on_episode_start(
+        self, env: GymEnvLike[ObsType, ActType], episode: int
+    ) -> None:
         if next(self.log_frequencies.get("on_episode_start", _FALSE_ITER)):
             self.logger.debug(f"episode {episode} started.")
-        self.agent.on_episode_start(env, episode)
 
-    def on_episode_end(
+    def _on_episode_end(
         self, env: GymEnvLike[ObsType, ActType], episode: int, rewards: float
     ) -> None:
-        """See `agent.on_episode_end`."""
         if next(self.log_frequencies.get("on_episode_end", _FALSE_ITER)):
             self.logger.info(
                 f"episode {episode} ended with rewards={rewards:.{self.precision}f}."
             )
-        self.agent.on_episode_end(env, episode, rewards)
 
-    def on_env_step(
+    def _on_env_step(
         self, env: GymEnvLike[ObsType, ActType], episode: int, timestep: int
     ) -> None:
-        """See `agent.on_env_step`."""
         if next(self.log_frequencies.get("on_env_step", _FALSE_ITER)):
             self.logger.debug(f"episode {episode} stepped at time {timestep}.")
-        self.agent.on_env_step(env, episode, timestep)
 
     # callbacks for LearningAgent
 
-    def on_update_failure(
+    def _on_update_failure(
         self, episode: int, timestep: Optional[int], errormsg: str, raises: bool
     ) -> None:
-        """See `learningagent.on_update_failure`."""
         m = self.logger.error if raises else self.logger.warning
         m(f"Update failed at episode {episode}, time {timestep}, status: {errormsg}.")
-        self.agent.on_update_failure(episode, timestep, errormsg, raises)
 
-    def on_training_start(self, env: GymEnvLike[ObsType, ActType]) -> None:
-        """See `learningagent.on_training_start`."""
-        self.logger.debug(f"training on {env} started.")
-        self.agent.on_training_start(env)
+    def _on_training_start(self, env: GymEnvLike[ObsType, ActType]) -> None:
+        self.logger.debug(f"training of {env} started.")
 
-    def on_training_end(
+    def _on_training_end(
         self, env: GymEnvLike[ObsType, ActType], returns: npt.NDArray[np.double]
     ) -> None:
-        """See `learningagent.on_training_end`."""
         S = np.array2string(returns, precision=self.precision)
-        self.logger.info(f"training on {env} concluded with returns={S}.")
-        self.agent.on_training_end(env, returns)
+        self.logger.info(f"training of {env} concluded with returns={S}.")
 
-    def on_update(self) -> None:
-        """See `learningagent.on_update`."""
-        # assert isinstance(self.agent, LearningAgent)
+    def _on_update(self) -> None:
         if next(self.log_frequencies.get("on_update", _FALSE_ITER)):
             S = self.agent.learnable_parameters.stringify()
             self.logger.info(f"updated parameters: {S}.")
-        self.agent.on_update()
