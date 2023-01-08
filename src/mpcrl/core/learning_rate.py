@@ -30,10 +30,9 @@ class LearningRate(Generic[LrType]):
         hook : {'on_update', 'on_episode_end', 'on_env_step'}, optional
             Specifies to which callback to hook, i.e., when to step the learning rate's
             scheduler to decay its value (see `step` method also). The options are:
-
-                - `on_update` steps the exploration after each agent's update
-                - `on_episode_end` steps the exploration after each episode's end
-                - `on_env_step` steps the exploration after each env's step.
+             - `on_update` steps the exploration after each agent's update
+             - `on_episode_end` steps the exploration after each episode's end
+             - `on_env_step` steps the exploration after each env's step.
 
             By default, 'on_update' is selected.
         """

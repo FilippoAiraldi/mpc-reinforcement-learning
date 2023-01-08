@@ -25,10 +25,9 @@ class ExplorationStrategy(ABC):
             Specifies to which callback to hook, i.e.,  when to step the exploration's
             schedulers (if any) to, e.g., decay the chances of exploring or the
             perturbation strength (see `step` method also). The options are:
-
-                - `on_update` steps the exploration after each agent's update
-                - `on_episode_end` steps the exploration after each episode's end
-                - `on_env_step` steps the exploration after each env's step.
+             - `on_update` steps the exploration after each agent's update
+             - `on_episode_end` steps the exploration after each episode's end
+             - `on_env_step` steps the exploration after each env's step.
 
             By default, 'on_update' is selected.
         """
@@ -106,10 +105,9 @@ class GreedyExploration(ExplorationStrategy):
             Specifies to which callback to hook, i.e.,  when to step the exploration's
             schedulers (if any) to, e.g., decay the chances of exploring or the
             perturbation strength (see `step` method also). The options are:
-
-                - `on_update` steps the exploration after each agent's update
-                - `on_episode_end` steps the exploration after each episode's end
-                - `on_env_step` steps the exploration after each env's step.
+             - `on_update` steps the exploration after each agent's update
+             - `on_episode_end` steps the exploration after each episode's end
+             - `on_env_step` steps the exploration after each env's step.
 
             By default, 'on_update' is selected.
         seed : int or None, optional
@@ -193,10 +191,9 @@ class EpsilonGreedyExploration(GreedyExploration):
             Specifies to which callback to hook, i.e.,  when to step the exploration's
             schedulers (if any) to, e.g., decay the chances of exploring or the
             perturbation strength (see `step` method also). The options are:
-
-                - `on_update` steps the exploration after each agent's update
-                - `on_episode_end` steps the exploration after each episode's end
-                - `on_env_step` steps the exploration after each env's step.
+             - `on_update` steps the exploration after each agent's update
+             - `on_episode_end` steps the exploration after each episode's end
+             - `on_env_step` steps the exploration after each env's step.
 
             By default, 'on_update' is selected.
         seed : int or None, optional

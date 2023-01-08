@@ -23,9 +23,8 @@ class UpdateStrategy:
         hook : {'on_update', 'on_episode_end', 'on_env_step'}, optional
             Specifies to which callback to hook, i.e., when to check if an update is due
             according to the given frequency. The options are:
-
-                - `on_episode_end` checks for an update after each episode's end
-                - `on_env_step` checks for an update after each env's step.
+             - `on_episode_end` checks for an update after each episode's end
+             - `on_env_step` checks for an update after each env's step.
 
             By default, 'on_env_step' is selected.
         """
