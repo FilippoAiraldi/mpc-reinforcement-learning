@@ -29,7 +29,10 @@ from mpcrl.core.update import UpdateStrategy
 from mpcrl.util.math import cholesky_added_multiple_identities
 from mpcrl.util.types import GymEnvLike
 
-ExpType: TypeAlias = Tuple[npt.NDArray[np.double], npt.NDArray[np.double]]
+ExpType: TypeAlias = Tuple[
+    npt.NDArray[np.double],  # gradient of Q(s,a)
+    npt.NDArray[np.double],  # (approximate) hessian of Q(s,a)
+]
 
 
 class LstdQLearningAgent(
