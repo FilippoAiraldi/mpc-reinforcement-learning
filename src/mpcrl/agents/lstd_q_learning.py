@@ -210,9 +210,8 @@ class LstdQLearningAgent(
         stats = solver.stats()
         return None if stats["success"] else stats["return_status"]
 
-    @staticmethod
     def train_one_episode(
-        agent: "LstdQLearningAgent[SymType, LrType]",
+        self,
         env: GymEnvLike[ObsType, ActType],
         episode: int,
         init_state: ObsType,
@@ -224,26 +223,26 @@ class LstdQLearningAgent(
         state = init_state
 
         # solve for the first action
-        action, solV = agent.state_value(state, deterministic=False)
+        action, solV = self.state_value(state, deterministic=False)
         if not solV.success:
-            agent.on_mpc_failure(episode, None, solV.status, raises)
+            self.on_mpc_failure(episode, None, solV.status, raises)
 
         while not (truncated or terminated):
             # compute Q(s,a)
-            solQ = agent.action_value(state, action)
+            solQ = self.action_value(state, action)
 
             # step the system with action computed at the previous iteration
             state, cost, truncated, terminated, _ = env.step(action)
 
             # compute V(s+)
-            action, solV = agent.state_value(state, deterministic=False)
+            action, solV = self.state_value(state, deterministic=False)
             if solQ.success and solV.success:
-                agent.store_experience(cost, solQ, solV)
+                self.store_experience(cost, solQ, solV)
             else:
-                agent.on_mpc_failure(episode, timestep, solV.status, raises)
+                self.on_mpc_failure(episode, timestep, solV.status, raises)
 
             # increase counters
-            agent.on_env_step(env, episode, timestep)  # better to call this at the end
+            self.on_env_step(env, episode, timestep)  # better to call this at the end
             rewards += float(cost)
             timestep += 1
         return rewards

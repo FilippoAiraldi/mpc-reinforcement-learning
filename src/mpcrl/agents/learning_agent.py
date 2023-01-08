@@ -147,9 +147,8 @@ class LearningAgent(
         """
         self._experience.append(item)
 
-    @staticmethod
     def train(
-        agent: "LearningAgent[SymType, ExpType]",
+        self,
         env: GymEnvLike[ObsType, ActType],
         episodes: int,
         seed: Union[None, int, Iterable[int]] = None,
@@ -160,8 +159,6 @@ class LearningAgent(
 
         Parameters
         ----------
-        agent : LearningAgent or inheriting
-            The agent to train.
         env : GymEnvLike[ObsType, ActType]
             A gym-like environment where to train the agent in.
         episodes : int
@@ -189,30 +186,28 @@ class LearningAgent(
             Raises the error or the warning (depending on `raises`) if the update fails.
         """
         # prepare for training start
-        agent._raises = raises
+        self._raises = raises
         returns = np.zeros(episodes, dtype=float)
-        agent.on_training_start(env)
+        self.on_training_start(env)
 
         for episode, current_seed in zip(range(episodes), generate_seeds(seed)):
-            agent.on_episode_start(env, episode)
-            agent.reset()
+            self.on_episode_start(env, episode)
+            self.reset()
             state, _ = env.reset(seed=current_seed, options=env_reset_options)
-            returns[episode] = agent.train_one_episode(
-                agent=agent,
+            returns[episode] = self.train_one_episode(
                 env=env,
                 episode=episode,
                 init_state=state,
                 raises=raises,
             )
-            agent.on_episode_end(env, episode, returns[episode])
+            self.on_episode_end(env, episode, returns[episode])
 
-        agent.on_training_end(env, returns)
+        self.on_training_end(env, returns)
         return returns
 
-    @staticmethod
     @abstractmethod
     def train_one_episode(
-        agent: "LearningAgent[SymType, ExpType]",
+        self,
         env: GymEnvLike[ObsType, ActType],
         episode: int,
         init_state: ObsType,
@@ -222,8 +217,6 @@ class LearningAgent(
 
         Parameters
         ----------
-        agent : LearningAgent or inheriting
-            The agent to train.
         env : GymEnvLike[ObsType, ActType]
             A gym-like environment where to train the agent in.
         episode : int

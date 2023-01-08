@@ -182,12 +182,7 @@ agent = Log(
     level=logging.DEBUG,
     log_frequencies={"on_env_step": 1000},
 )
-LstdQLearningAgent.train(
-    agent,
-    env=env,
-    episodes=1,
-    seed=69,
-)
+agent.train(env=env, episodes=1, seed=69)
 
 
 # plot the results
