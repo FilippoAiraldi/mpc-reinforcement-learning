@@ -167,7 +167,7 @@ learnable_pars = LearnableParametersDict[cs.SX](
     )
 )
 env = TimeLimit(LtiSystem(), max_episode_steps=int(5e3))
-agent = Log(
+agent = Log(  # type: ignore[var-annotated]
     RecordUpdates(
         LstdQLearningAgent(
             mpc=mpc,
