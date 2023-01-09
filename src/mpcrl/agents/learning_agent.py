@@ -21,7 +21,7 @@ from csnlp.wrappers import Mpc
 from mpcrl.agents.agent import ActType, Agent, ObsType, SymType, _update_dicts
 from mpcrl.core.callbacks import LearningAgentCallbacks, RemovesCallbackHooksInState
 from mpcrl.core.experience import ExperienceReplay
-from mpcrl.core.exploration import ExplorationStrategy, NoExploration
+from mpcrl.core.exploration import ExplorationStrategy
 from mpcrl.core.parameters import LearnableParametersDict
 from mpcrl.core.update import UpdateStrategy
 from mpcrl.util.random import generate_seeds
@@ -306,12 +306,15 @@ class LearningAgent(
 
     def establish_callback_hooks(self) -> None:
         super().establish_callback_hooks()
-        if not isinstance(self._exploration, NoExploration):
+        # hook exploration (only if necessary)
+        exploration_hook: Optional[str] = getattr(self._exploration, "hook", None)
+        if exploration_hook is not None:
             self.hook_callback(
                 repr(self._exploration),
-                self._exploration.hook,
+                exploration_hook,
                 self._exploration.step,
             )
+        # hook updates (always necessary)
         assert self._update_strategy.hook in {
             "on_episode_end",
             "on_env_step",

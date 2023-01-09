@@ -1,4 +1,4 @@
-from typing import Generic, Literal, TypeVar, Union
+from typing import Generic, Literal, Optional, TypeVar, Union
 
 import numpy as np
 import numpy.typing as npt
@@ -11,11 +11,11 @@ LrType = TypeVar("LrType", npt.NDArray[np.double], float)
 class LearningRate(Generic[LrType]):
     """Learning rate class for scheduling and decaying its value during training."""
 
-    __slots__ = ("scheduler", "hook")
+    __slots__ = ("scheduler", "_hook")
 
     def __init__(
         self,
-        init_value: Union[LrType, Scheduler[LrType]],
+        value: Union[LrType, Scheduler[LrType]],
         hook: Literal["on_update", "on_episode_end", "on_env_step"] = "on_update",
     ) -> None:
         """Initializes the learning rate.
@@ -37,16 +37,22 @@ class LearningRate(Generic[LrType]):
             By default, 'on_update' is selected.
         """
         self.scheduler: Scheduler[LrType] = (
-            init_value
-            if isinstance(init_value, Scheduler)
-            else NoScheduling[LrType](init_value)
+            value if isinstance(value, Scheduler) else NoScheduling[LrType](value)
         )
-        self.hook = hook
+        self._hook = hook
 
     @property
     def value(self) -> LrType:
         """Gets the current value of the learning rate."""
         return self.scheduler.value
+
+    @property
+    def hook(self) -> Optional[str]:
+        """Specifies to which callback to hook, i.e., when to step the learning rate's
+        scheduler to decay its value (see `step` method also). Can be `None` in case no
+        hook is needed."""
+        # return hook only if the learning rate scheduler requires to be stepped
+        return None if isinstance(self.scheduler, NoScheduling) else self._hook
 
     def step(self) -> None:
         """Steps/decays the learning rate according to its scheduler."""
@@ -56,4 +62,6 @@ class LearningRate(Generic[LrType]):
         return self.__class__.__name__
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}(lr={self.scheduler},hook={self.hook})"
+        hook = self.hook
+        hookstr = "None" if hook is None else f"'{hook}'"
+        return f"{self.__class__.__name__}(lr={self.scheduler},hook={hookstr})"

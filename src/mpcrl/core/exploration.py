@@ -11,29 +11,6 @@ from mpcrl.util.random import np_random
 class ExplorationStrategy(ABC):
     """Base class for exploration strategies such as greedy, epsilon-greeyd, etc."""
 
-    __slots__ = ("hook",)
-
-    def __init__(
-        self,
-        hook: Literal["on_update", "on_episode_end", "on_env_step"] = "on_update",
-    ) -> None:
-        r"""Initializes the exploration strategy.
-
-        Parameters
-        ----------
-        hook : {'on_update', 'on_episode_end', 'on_env_step'}, optional
-            Specifies to which callback to hook, i.e.,  when to step the exploration's
-            schedulers (if any) to, e.g., decay the chances of exploring or the
-            perturbation strength (see `step` method also). The options are:
-             - `on_update` steps the exploration after each agent's update
-             - `on_episode_end` steps the exploration after each episode's end
-             - `on_env_step` steps the exploration after each env's step.
-
-            By default, 'on_update' is selected.
-        """
-        super().__init__()
-        self.hook = hook
-
     @abstractmethod
     def can_explore(self) -> bool:
         """Computes whether, according to the exploration strategy, the agent should
@@ -59,7 +36,10 @@ class ExplorationStrategy(ABC):
         return self.__class__.__name__
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}(hook={self.hook})"
+        hook: Optional[str] = getattr(self, "hook", None)
+        if hook is None:
+            return self.__class__.__name__
+        return f"{self.__class__.__name__}(hook='{hook}')"
 
 
 class NoExploration(ExplorationStrategy):
@@ -83,7 +63,7 @@ class GreedyExploration(ExplorationStrategy):
     """Fully greedy strategy for perturbing the policy, thus inducing exploration. This
     strategy always perturbs randomly the policy."""
 
-    __slots__ = ("strength_scheduler", "np_random", "stepping")
+    __slots__ = ("_hook", "strength_scheduler", "np_random")
 
     def __init__(
         self,
@@ -102,7 +82,7 @@ class GreedyExploration(ExplorationStrategy):
             something other than a scheduler is passed, then this quantity will get
             wrapped in a base scheduler which will kept it constant.
         hook : {'on_update', 'on_episode_end', 'on_env_step'}, optional
-            Specifies to which callback to hook, i.e.,  when to step the exploration's
+            Specifies to which callback to hook, i.e., when to step the exploration's
             schedulers (if any) to, e.g., decay the chances of exploring or the
             perturbation strength (see `step` method also). The options are:
              - `on_update` steps the exploration after each agent's update
@@ -114,11 +94,20 @@ class GreedyExploration(ExplorationStrategy):
             Number to seed the RNG engine used for randomizing the exploration. By
             default, `None`.
         """
-        super().__init__(hook)
+        super().__init__()
+        self._hook = hook
         if not isinstance(strength, Scheduler):
-            strength = NoScheduling(strength)
+            strength = NoScheduling[npt.NDArray[np.double]](strength)
         self.strength_scheduler = strength
         self.np_random = np_random(seed)
+
+    @property
+    def hook(self) -> Optional[str]:
+        """Specifies to which callback to hook, i.e., when to step the exploration's
+        schedulers (if any) to, e.g., decay the chances of exploring or the perturbation
+        strength (see `step` method also). Can be `None` in case no hook is needed."""
+        # return hook only if the strength scheduler requires to be stepped
+        return None if isinstance(self.strength_scheduler, NoScheduling) else self._hook
 
     @property
     def strength(self) -> npt.NDArray[np.double]:
@@ -156,9 +145,11 @@ class GreedyExploration(ExplorationStrategy):
         )
 
     def __repr__(self) -> str:
+        hook = self.hook
+        hookstr = "None" if hook is None else f"'{hook}'"
         return (
             f"{self.__class__.__name__}(stn={self.strength_scheduler.value},"
-            f"hook={self.hook})"
+            f"hook={hookstr})"
         )
 
 
@@ -188,7 +179,7 @@ class EpsilonGreedyExploration(GreedyExploration):
         strength : scheduler or array/supports-algebraic-operations
             The strength of the exploration. Can be scheduled, see `epsilon`.
         hook : {'on_update', 'on_episode_end', 'on_env_step'}, optional
-            Specifies to which callback to hook, i.e.,  when to step the exploration's
+            Specifies to which callback to hook, i.e., when to step the exploration's
             schedulers (if any) to, e.g., decay the chances of exploring or the
             perturbation strength (see `step` method also). The options are:
              - `on_update` steps the exploration after each agent's update
@@ -202,8 +193,18 @@ class EpsilonGreedyExploration(GreedyExploration):
         """
         super().__init__(strength, hook, seed)
         if not isinstance(epsilon, Scheduler):
-            epsilon = NoScheduling(epsilon)
+            epsilon = NoScheduling[float](epsilon)
         self.epsilon_scheduler = epsilon
+
+    @property
+    def hook(self) -> Optional[str]:
+        # return hook only if the strength or epislon scheduler requires to be stepped
+        return (
+            None
+            if isinstance(self.strength_scheduler, NoScheduling)
+            and isinstance(self.epsilon_scheduler, NoScheduling)
+            else self._hook
+        )
 
     @property
     def epsilon(self) -> float:
@@ -220,7 +221,9 @@ class EpsilonGreedyExploration(GreedyExploration):
         self.epsilon_scheduler.step()
 
     def __repr__(self) -> str:
+        hook = self.hook
+        hookstr = "None" if hook is None else f"'{hook}'"
         return (
             f"{self.__class__.__name__}(eps={self.epsilon_scheduler.value},"
-            f"stn={self.strength_scheduler.value},step={self.hook})"
+            f"stn={self.strength_scheduler.value},hook={hookstr})"
         )

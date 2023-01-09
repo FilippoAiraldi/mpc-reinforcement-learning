@@ -12,7 +12,7 @@ from mpcrl.core.experience import ExperienceReplay
 from mpcrl.core.exploration import ExplorationStrategy
 from mpcrl.core.learning_rate import LearningRate, LrType
 from mpcrl.core.parameters import LearnableParametersDict
-from mpcrl.core.schedulers import NoScheduling, Scheduler
+from mpcrl.core.schedulers import Scheduler
 from mpcrl.core.update import UpdateStrategy
 
 ExpType = TypeVar("ExpType")
@@ -119,10 +119,11 @@ class RlLearningAgent(
 
     def establish_callback_hooks(self) -> None:
         super().establish_callback_hooks()
-        if not isinstance(self._learning_rate.scheduler, NoScheduling):
+        lr_hook = self._learning_rate.hook
+        if lr_hook is not None:
             self.hook_callback(
                 repr(self._learning_rate),
-                self._learning_rate.hook,
+                lr_hook,
                 self._learning_rate.step,
             )
 
