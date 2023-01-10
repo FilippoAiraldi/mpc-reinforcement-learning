@@ -20,7 +20,6 @@ from csnlp.wrappers import Mpc
 from gymnasium.wrappers import TimeLimit
 
 from mpcrl import (
-    ExperienceReplay,
     LearnableParameter,
     LearnableParametersDict,
     LstdDpgAgent,
@@ -173,24 +172,24 @@ learnable_pars = LearnableParametersDict[cs.SX](
         for name, val in mpc.learnable_pars_init.items()
     )
 )
-env = TimeLimit(LtiSystem(), max_episode_steps=int(5e3))
+env = TimeLimit(LtiSystem(), max_episode_steps=int(1e4))
+rollout_length = 200
 agent = Log(  # type: ignore[var-annotated]
     RecordUpdates(
         LstdDpgAgent(
             mpc=mpc,
             learnable_parameters=learnable_pars,
             discount_factor=mpc.discount_factor,
-            learning_rate=5e-2,
-            update_strategy=UpdateStrategy(20, "on_env_step"),
-            rollout_length=10,
-            experience=ExperienceReplay(sample_size=2),
+            learning_rate=1e-6,
+            update_strategy=UpdateStrategy(rollout_length, "on_env_step"),
+            rollout_length=rollout_length,
             exploration=E.GreedyExploration(0.5),  # type: ignore[arg-type]
             record_policy_performance=True,
             record_policy_gradient=True,
         )
     ),
     level=logging.DEBUG,
-    log_frequencies={"on_env_step": 20},
+    log_frequencies={"on_env_step": 1000},
 )
 agent.train(env=env, episodes=1, seed=69)
 
@@ -211,11 +210,13 @@ axs[0].set_ylabel("$s_1$")
 axs[1].set_ylabel("$s_2$")
 axs[2].set_ylabel("$a$")
 
-_, axs = plt.subplots(2, 1, constrained_layout=True, sharex=True)
-axs[0].plot(agent.td_errors, "o", markersize=1)
-axs[1].semilogy(R, "o", markersize=1)
-axs[0].set_ylabel(r"$\tau$")
-axs[1].set_ylabel("$L$")
+_, axs = plt.subplots(3, 1, constrained_layout=True)
+axs[0].plot(agent.policy_performances)
+axs[1].plot(np.linalg.norm(agent.policy_gradients, axis=1))
+axs[2].semilogy(R, "o", markersize=1)
+axs[0].set_ylabel(r"$J(\pi_\theta)$")
+axs[1].set_ylabel(r"$\nabla_\theta J(\pi_\theta)$")
+axs[2].set_ylabel("$L$")
 
 _, axs = plt.subplots(3, 2, constrained_layout=True, sharex=True)
 axs[0, 0].plot(np.asarray(agent.updates_history["b"]))
