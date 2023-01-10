@@ -1,4 +1,5 @@
 [run]
 omit =
-    */csnlp/*
     tests/*
+    examples/*
+    */csnlp/*
