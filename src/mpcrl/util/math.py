@@ -26,13 +26,13 @@ def summarize_array(
     str
         The summarizing string.
     """
-    n = a.size
+    s = a.shape
     mean = a.mean()
     std = a.std(ddof=ddof)
     min = a.min()
     max = a.max()
     return (
-        f"n={n} x∈[{min:.{precision}f}, {max:.{precision}f}] "
+        f"s={s} x∈[{min:.{precision}f}, {max:.{precision}f}] "
         f"μ={mean:.{precision}f} σ={std:.{precision}f}"
     )
 

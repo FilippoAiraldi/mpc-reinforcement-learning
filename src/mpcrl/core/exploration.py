@@ -130,7 +130,7 @@ class GreedyExploration(ExplorationStrategy):
         ----------
         method : str
             The name of a method from the ones available to `numpy.random.Generator`,
-            e.g., 'random', 'uniform', 'beta', etc.
+            e.g., 'random', 'normal', etc.
         args, kwargs
             Args and kwargs with which to call such method.
 
