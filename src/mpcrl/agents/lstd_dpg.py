@@ -73,6 +73,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         "lstsq_kwargs",
         "policy_performances",
         "policy_gradients",
+        "_rollout",
     )
 
     def __init__(
@@ -204,7 +205,11 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         )
         # initialize others
         if lstsq_kwargs is None:
-            lstsq_kwargs = {"check_finite": False, "lapack_driver": "gelsy", "cond": 1e-7}
+            lstsq_kwargs = {
+                "check_finite": False,
+                "lapack_driver": "gelsy",
+                "cond": 1e-7,
+            }
         self.lstsq_kwargs = lstsq_kwargs
         self.rollout_length = rollout_length
         self._rollout: List[
