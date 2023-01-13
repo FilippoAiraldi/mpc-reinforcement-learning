@@ -43,6 +43,10 @@ class ExperienceReplay(Deque[ExpType]):
         super().__init__(iterable, maxlen=maxlen)
         self.sample_size = sample_size
         self.include_last = include_last
+        self.reset(seed)
+
+    def reset(self, seed: Optional[int] = None) -> None:
+        """Resets the sampling RNG."""
         self.np_random = np_random(seed)
 
     def sample(self) -> Iterator[ExpType]:

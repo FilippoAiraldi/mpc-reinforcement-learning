@@ -142,9 +142,11 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbacks, Generic[SymType]):
         """Gets the exploration strategy used within this agent."""
         return self._exploration
 
-    def reset(self) -> None:
-        """Resets the agent's internal variables."""
+    def reset(self, seed: Optional[int] = None) -> None:
+        """Resets the agent's internal variables and exploration's RNG."""
         self._last_solution: Optional[Solution[SymType]] = None
+        if hasattr(self.exploration, "reset"):
+            self.exploration.reset(seed)
 
     def solve_mpc(
         self,
@@ -351,7 +353,7 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbacks, Generic[SymType]):
 
         for episode, current_seed in zip(range(episodes), generate_seeds(seed)):
             self.on_episode_start(env, episode)
-            self.reset()
+            self.reset(seed=current_seed)
             state, _ = env.reset(seed=current_seed, options=env_reset_options)
             truncated, terminated, timestep = False, False, 0
 
