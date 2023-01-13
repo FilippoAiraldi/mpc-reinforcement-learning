@@ -69,11 +69,10 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         "_dydu0",
         "_Phi",
         "rollout_length",
-        "_current_rollout",
+        "_rollout",
         "lstsq_kwargs",
         "policy_performances",
         "policy_gradients",
-        "_rollout",
     )
 
     def __init__(
