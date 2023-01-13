@@ -66,7 +66,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
     __slots__ = (
         "_dKdtheta",
         "_dKdy",
-        "_du0dy",
+        "_dydu0",
         "_Phi",
         "rollout_length",
         "_current_rollout",
@@ -195,7 +195,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
             name=name,
         )
         # initialize derivatives and state feature vector
-        self._dKdtheta, self._dKdy, self._du0dy = self._init_dpg_derivatives()
+        self._dKdtheta, self._dKdy, self._dydu0 = self._init_dpg_derivatives()
         # TODO: check that monomial with power 0 makes Psi ill-posed
         self._Phi = (
             LstdDpgAgent.monomials_state_features(mpc.ns, mpc.sym_type.__name__, 0, 2)
@@ -246,17 +246,17 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
 
         # compute CAFA weights v
         Phi_diff = self.discount_factor * Phi[mask_phi[:-1]] - Phi[mask_phi[1:]]
-        A = Phi[mask_phi[1:]].T @ -Phi_diff
-        b = Phi[mask_phi[1:]].T @ L
-        v = lstsq(A, b, **self.lstsq_kwargs)[0]
+        A_v = Phi[mask_phi[1:]].T @ -Phi_diff
+        b_v = Phi[mask_phi[1:]].T @ L
+        v = lstsq(A_v, b_v, **self.lstsq_kwargs)[0]
 
         # compute CAFA weights w
-        A = Psi.T @ Psi
-        b = Psi.T @ (L + Phi_diff @ v)
-        w = lstsq(A, b, **self.lstsq_kwargs)[0]
+        A_w = Psi.T @ Psi
+        b_w = Psi.T @ (L + Phi_diff @ v)
+        w = lstsq(A_w, b_w, **self.lstsq_kwargs)[0]
 
         # compute policy gradient
-        dJdtheta = (dpidtheta.transpose((0, 2, 1)) @ dpidtheta @ w).sum(0).reshape(-1)
+        dJdtheta = (dpidtheta @ dpidtheta.transpose((0, 2, 1)) @ w).sum(0).reshape(-1)
         if self.policy_gradients is not None:
             self.policy_gradients.append(dJdtheta)
 
@@ -375,15 +375,15 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         theta = cs.vertcat(*self._learnable_pars.sym.values())
         u0 = cs.vertcat(*self._V.first_actions.values())
         nlp_ = NlpSensitivity(nlp, target_parameters=theta)
-        Kt = nlp_.jacobians["K-p"]
-        Ky = nlp_.jacobians["K-y"]
-        du0dy = cs.evalf(cs.jacobian(u0, y)).full()
+        Kt = nlp_.jacobians["K-p"].T
+        Ky = nlp_.jacobians["K-y"].T
+        dydu0 = cs.evalf(cs.jacobian(u0, y)).full().T
 
         # convert derivatives to functions (much faster runtime)
         input = cs.vertcat(nlp.p, nlp.x, nlp.lam_g, nlp.lam_h, nlp.lam_lbx, nlp.lam_ubx)
         dKdtheta = cs.Function("dKdtheta", [input], [Kt])
         dKdy = cs.Function("dKdy", [input], [Ky])
-        return dKdtheta, dKdy, du0dy
+        return dKdtheta, dKdy, dydu0
 
     def _consolidate_rollout_into_memory(self) -> None:
         """Internal utility to compact the current rollout into a single item in
@@ -412,12 +412,13 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         Phi = np.concatenate((self._Phi(S.T).full().T, self._Phi(s_next_last).T))
 
         # compute Psi
-        ntheta = dKdtheta.shape[2]
-        dpidtheta = -self._du0dy @ np.linalg.solve(dKdy, dKdtheta)
-        Psi = (dpidtheta.transpose((0, 2, 1)) @ E).reshape(N, ntheta)
+        ntheta = dKdtheta.shape[1]
+        dydu0 = np.tile(self._dydu0, (N, 1, 1))
+        dpidtheta = -dKdtheta @ np.linalg.solve(dKdy, dydu0)
+        Psi = (dpidtheta @ E).reshape(N, ntheta)
 
         # save to memory and clear rollout
-        super().store_experience((L, Phi, Psi, dpidtheta))
+        super().store_experience((L, Phi, Psi, dpidtheta))  # type: ignore[arg-type]
         self._rollout.clear()
         if self.policy_performances is not None:
             self.policy_performances.append(L.sum())
