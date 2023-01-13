@@ -64,9 +64,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
     """
 
     __slots__ = (
-        "_dKdtheta",
-        "_dKdy",
-        "_dydu0",
+        "_dpidtheta",
         "_Phi",
         "rollout_length",
         "_rollout",
@@ -93,6 +91,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         record_policy_gradient: bool = False,
         state_features: Optional[cs.Function] = None,
         lstsq_kwargs: Optional[Dict[str, Any]] = None,
+        linsolver: Literal["csparse", "qr"] = "qr",
         name: Optional[str] = None,
     ) -> None:
         """Instantiates the LSTD DPG agent.
@@ -172,9 +171,11 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         lstsq_kwargs : kwargs for scipy.linalg.lstsq, optional
             The optional kwargs to be passed to `scipy.linalg.lstsq`. If `None`, it
             is equivalent to
-            ```
-            {'cond': 1e-7, 'check_finite': False, 'lapack_driver': 'gelsy'}
-            ```.
+            `{'cond': 1e-7, 'check_finite': False, 'lapack_driver': 'gelsy'}`.
+        linsolver : "csparse" or "qr", optional
+            The type of linear solver to be used for solving the linear system derived
+            from the KKT conditions and used to estimate the gradient of the policy. By
+            default, `"qr"` is chosen.
         name : str, optional
             Name of the agent. If `None`, one is automatically created from a counter of
             the class' instancies.
@@ -195,7 +196,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
             name=name,
         )
         # initialize derivatives and state feature vector
-        self._dKdtheta, self._dKdy, self._dydu0 = self._init_dpg_derivatives()
+        self._dpidtheta = self._init_dpg_derivatives(linsolver)
         # TODO: check that monomial with power 0 makes Psi ill-posed
         self._Phi = (
             LstdDpgAgent.monomials_state_features(mpc.ns, mpc.sym_type.__name__, 0, 2)
@@ -365,60 +366,70 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         )
         return cs.Function("Phi", [s], [y], ["s"], ["Phi(s)"])
 
-    def _init_dpg_derivatives(
-        self,
-    ) -> Tuple[cs.Function, cs.Function, npt.NDArray[np.double]]:
+    def _init_dpg_derivatives(self, linsolvertype: str) -> cs.Function:
         """Internal utility to compute the derivatives w.r.t. the learnable parameters
         and other functions in order to estimate the policy gradient."""
         nlp = self._V.nlp
         y = nlp.primal_dual_vars()
         theta = cs.vertcat(*self._learnable_pars.sym.values())
         u0 = cs.vertcat(*self._V.first_actions.values())
+        all_syms = cs.vertcat(
+            nlp.p, nlp.x, nlp.lam_g, nlp.lam_h, nlp.lam_lbx, nlp.lam_ubx
+        )
+
+        # compute first bunch of derivatives
         nlp_ = NlpSensitivity(nlp, target_parameters=theta)
         Kt = nlp_.jacobians["K-p"].T
         Ky = nlp_.jacobians["K-y"].T
-        dydu0 = cs.evalf(cs.jacobian(u0, y)).full().T
+        dydu0 = cs.evalf(cs.jacobian(u0, y)).T
 
-        # convert derivatives to functions (much faster runtime)
-        input = cs.vertcat(nlp.p, nlp.x, nlp.lam_g, nlp.lam_h, nlp.lam_lbx, nlp.lam_ubx)
-        dKdtheta = cs.Function("dKdtheta", [input], [Kt])
-        dKdy = cs.Function("dKdy", [input], [Ky])
-        return dKdtheta, dKdy, dydu0
+        # convert SX to MX (so that we can use the linsolver)
+        if nlp.sym_type is cs.SX:
+            all_syms, all_syms_sx = cs.MX.sym("in", *all_syms.shape), all_syms
+            Kt = cs.Function("dKdtheta", [all_syms_sx], [Kt]).wrap()(all_syms)
+            Ky = cs.Function("dKdy", [all_syms_sx], [Ky]).wrap()(all_syms)
+
+        # compute last bunch derivative and convert to function for faster runtime
+        linsolver = cs.Linsol("linsolver", linsolvertype, Ky.sparsity())
+        dpidtheta = -Kt @ linsolver.solve(Ky, dydu0)
+        return cs.Function("dpidtheta", [all_syms], [dpidtheta])
 
     def _consolidate_rollout_into_memory(self) -> None:
         """Internal utility to compact the current rollout into a single item in
         memory."""
         # convert to arrays
-        S_, E_, L_ = [], [], []
-        dKdtheta_, dKdy_ = [], []
+        S_, E_, L_, all_vals_ = [], [], [], []
         for s, e, cost, _, sol in self._rollout:
             S_.append(s)
             E_.append(e)
             L_.append(cost)
-            all_val = sol.all_vals
-            dKdtheta_.append(self._dKdtheta(all_val))
-            dKdy_.append(self._dKdy(all_val))
+            all_vals = sol.all_vals
+            all_vals_.append(all_vals)
+        N = len(S_)
         ns = self._V.ns
         na = self._V.na
-        s_next_last = self._rollout[-1][3]
-        N = len(S_)
         S = np.asarray(S_).reshape(N, ns)
         E = np.asarray(E_).reshape(N, na, 1)  # additional dim required for Psi
         L = np.asarray(L_).reshape(N, 1)
-        dKdtheta = np.asarray(dKdtheta_)
-        dKdy = np.asarray(dKdy_)
+        all_vals = np.asarray(all_vals_).reshape(N, -1)
 
         # compute Phi (to avoid repeating computations, compute only the last Phi(s+))
+        s_next_last = self._rollout[-1][3]
         Phi = np.concatenate((self._Phi(S.T).full().T, self._Phi(s_next_last).T))
 
-        # compute Psi
-        ntheta = dKdtheta.shape[1]
-        dydu0 = np.tile(self._dydu0, (N, 1, 1))
-        dpidtheta = -dKdtheta @ np.linalg.solve(dKdy, dydu0)
+        # compute dpidtheta and Psi (casadi does not support tensors with more than 2
+        # dims, so dpidtheta gets squished in the third dim and needs to be reshaped)
+        ntheta, na = self._dpidtheta.size_out(0)
+        dpidtheta = (
+            self._dpidtheta(all_vals.T)
+            .full()
+            .reshape(ntheta, na, N, order="F")
+            .transpose((2, 0, 1))
+        )
         Psi = (dpidtheta @ E).reshape(N, ntheta)
 
         # save to memory and clear rollout
-        super().store_experience((L, Phi, Psi, dpidtheta))  # type: ignore[arg-type]
+        super().store_experience((L, Phi, Psi, dpidtheta))
         self._rollout.clear()
         if self.policy_performances is not None:
             self.policy_performances.append(L.sum())
