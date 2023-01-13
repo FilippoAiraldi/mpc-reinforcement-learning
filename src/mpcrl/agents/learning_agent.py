@@ -101,15 +101,6 @@ class LearningAgent(
             Name of the agent. If `None`, one is automatically created from a counter of
             the class' instancies.
         """
-        Agent.__init__(
-            self,
-            mpc=mpc,
-            fixed_parameters=fixed_parameters,
-            warmstart=warmstart,
-            name=name,
-        )
-        LearningAgentCallbacks.__init__(self)
-        RemovesCallbackHooksInState.__init__(self)
         self._raises: bool = True
         self._learnable_pars = learnable_parameters
         self._experience = (
@@ -120,6 +111,15 @@ class LearningAgent(
         if not isinstance(update_strategy, UpdateStrategy):
             update_strategy = UpdateStrategy(update_strategy)
         self._update_strategy = update_strategy
+        Agent.__init__(
+            self,
+            mpc=mpc,
+            fixed_parameters=fixed_parameters,
+            warmstart=warmstart,
+            name=name,
+        )
+        LearningAgentCallbacks.__init__(self)
+        RemovesCallbackHooksInState.__init__(self)
         self.establish_callback_hooks()
 
     @property
@@ -136,6 +136,11 @@ class LearningAgent(
     def learnable_parameters(self) -> LearnableParametersDict[SymType]:
         """Gets the parameters of the MPC that can be learnt by the agent."""
         return self._learnable_pars
+
+    def reset(self, seed: Optional[int] = None) -> None:
+        """Resets agent's internal variables, exploration and experience's RNG"""
+        super().reset(seed)
+        self.experience.reset(seed)
 
     def store_experience(self, item: ExpType) -> None:
         """Stores the given item in the agent's memory for later experience replay.
@@ -192,7 +197,7 @@ class LearningAgent(
 
         for episode, current_seed in zip(range(episodes), generate_seeds(seed)):
             self.on_episode_start(env, episode)
-            self.reset()
+            self.reset(seed=current_seed)
             state, _ = env.reset(seed=current_seed, options=env_reset_options)
             returns[episode] = self.train_one_episode(
                 env=env,

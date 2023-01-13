@@ -99,7 +99,7 @@ class GreedyExploration(ExplorationStrategy):
         if not isinstance(strength, Scheduler):
             strength = NoScheduling[npt.NDArray[np.double]](strength)
         self.strength_scheduler = strength
-        self.np_random = np_random(seed)
+        self.reset(seed)
 
     @property
     def hook(self) -> Optional[str]:
@@ -113,6 +113,10 @@ class GreedyExploration(ExplorationStrategy):
     def strength(self) -> npt.NDArray[np.double]:
         """Gets the current strength of the exploration strategy."""
         return self.strength_scheduler.value
+
+    def reset(self, seed: Optional[int] = None) -> None:
+        """Resets the exploration RNG."""
+        self.np_random = np_random(seed)
 
     def can_explore(self) -> bool:
         return True
