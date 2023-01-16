@@ -1,16 +1,19 @@
 from inspect import getmembers, isfunction
 from itertools import chain
 from operator import itemgetter
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Tuple, TypeVar, Union
 
 import numpy as np
 import numpy.typing as npt
+from gymnasium import Env
 
 from mpcrl.core.errors import (
     raise_or_warn_on_mpc_failure,
     raise_or_warn_on_update_failure,
 )
-from mpcrl.util.types import ActType, GymEnvLike, ObsType
+
+ObsType = TypeVar("ObsType")
+ActType = TypeVar("ActType")
 
 
 class AgentCallbacks:
@@ -42,48 +45,48 @@ class AgentCallbacks:
             )
         raise_or_warn_on_mpc_failure(msg, raises)
 
-    def on_validation_start(self, env: GymEnvLike[ObsType, ActType]) -> None:
+    def on_validation_start(self, env: Env[ObsType, ActType]) -> None:
         """Callback called at the beginning of the validation process.
 
         Parameters
         ----------
         env : gym env
-            A gym-like environment where the agent is being validated on.
+            A gym environment where the agent is being validated on.
         """
 
     def on_validation_end(
-        self, env: GymEnvLike[ObsType, ActType], returns: npt.NDArray[np.double]
+        self, env: Env[ObsType, ActType], returns: npt.NDArray[np.double]
     ) -> None:
         """Callback called at the end of the validation process.
 
         Parameters
         ----------
         env : gym env
-            A gym-like environment where the agent has been validated on.
+            A gym environment where the agent has been validated on.
         returns : array of double
             Each episode's cumulative rewards.
         """
 
-    def on_episode_start(self, env: GymEnvLike[ObsType, ActType], episode: int) -> None:
+    def on_episode_start(self, env: Env[ObsType, ActType], episode: int) -> None:
         """Callback called at the beginning of each episode in the training process.
 
         Parameters
         ----------
         env : gym env
-            A gym-like environment where the agent is being trained on.
+            A gym environment where the agent is being trained on.
         episode : int
             Number of the training episode.
         """
 
     def on_episode_end(
-        self, env: GymEnvLike[ObsType, ActType], episode: int, rewards: float
+        self, env: Env[ObsType, ActType], episode: int, rewards: float
     ) -> None:
         """Callback called at the end of each episode in the training process.
 
         Parameters
         ----------
         env : gym env
-            A gym-like environment where the agent is being trained on.
+            A gym environment where the agent is being trained on.
         episode : int
             Number of the training episode.
         rewards : float
@@ -91,14 +94,14 @@ class AgentCallbacks:
         """
 
     def on_env_step(
-        self, env: GymEnvLike[ObsType, ActType], episode: int, timestep: int
+        self, env: Env[ObsType, ActType], episode: int, timestep: int
     ) -> None:
         """Callback called after each `env.step`.
 
         Parameters
         ----------
         env : gym env
-            A gym-like environment where the agent is being trained on.
+            A gym environment where the agent is being trained on.
         episode : int
             Number of the training episode.
         timestep : int
@@ -133,24 +136,24 @@ class LearningAgentCallbacks:
             )
         raise_or_warn_on_update_failure(msg, raises)
 
-    def on_training_start(self, env: GymEnvLike[ObsType, ActType]) -> None:
+    def on_training_start(self, env: Env[ObsType, ActType]) -> None:
         """Callback called at the beginning of the training process.
 
         Parameters
         ----------
         env : gym env
-            A gym-like environment where the agent is being trained on.
+            A gym environment where the agent is being trained on.
         """
 
     def on_training_end(
-        self, env: GymEnvLike[ObsType, ActType], returns: npt.NDArray[np.double]
+        self, env: Env[ObsType, ActType], returns: npt.NDArray[np.double]
     ) -> None:
         """Callback called at the end of the training process.
 
         Parameters
         ----------
         env : gym env
-            A gym-like environment where the agent has been trained on.
+            A gym environment where the agent has been trained on.
         returns : array of double
             Each episode's cumulative rewards.
         """

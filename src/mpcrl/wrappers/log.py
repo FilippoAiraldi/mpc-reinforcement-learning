@@ -1,16 +1,18 @@
 import logging
 from itertools import chain, repeat
-from typing import Dict, Iterator, Optional
+from typing import Dict, Iterator, Optional, TypeVar
 
 import numpy as np
 import numpy.typing as npt
+from gymnasium import Env
 
 from mpcrl.agents.learning_agent import ExpType, LearningAgent
 from mpcrl.core.callbacks import ALL_CALLBACKS
 from mpcrl.util.iters import bool_cycle
-from mpcrl.util.types import ActType, GymEnvLike, ObsType
 from mpcrl.wrappers.wrapper import LearningWrapper, SymType
 
+ObsType = TypeVar("ObsType")
+ActType = TypeVar("ActType")
 _FALSE_ITER = repeat(False)
 
 
@@ -103,23 +105,21 @@ class Log(LearningWrapper[SymType, ExpType]):
         m = self.logger.error if raises else self.logger.warning
         m(f"Mpc failure at episode {episode}, time {timestep}, status: {status}.")
 
-    def _on_validation_start(self, env: GymEnvLike[ObsType, ActType]) -> None:
+    def _on_validation_start(self, env: Env[ObsType, ActType]) -> None:
         self.logger.debug(f"validation of {env} started.")
 
     def _on_validation_end(
-        self, env: GymEnvLike[ObsType, ActType], returns: npt.NDArray[np.double]
+        self, env: Env[ObsType, ActType], returns: npt.NDArray[np.double]
     ) -> None:
         S = np.array2string(returns, precision=self.precision)
         self.logger.info(f"validation of {env} concluded with returns={S}.")
 
-    def _on_episode_start(
-        self, env: GymEnvLike[ObsType, ActType], episode: int
-    ) -> None:
+    def _on_episode_start(self, env: Env[ObsType, ActType], episode: int) -> None:
         if next(self.log_frequencies.get("on_episode_start", _FALSE_ITER)):
             self.logger.debug(f"episode {episode} started.")
 
     def _on_episode_end(
-        self, env: GymEnvLike[ObsType, ActType], episode: int, rewards: float
+        self, env: Env[ObsType, ActType], episode: int, rewards: float
     ) -> None:
         if next(self.log_frequencies.get("on_episode_end", _FALSE_ITER)):
             self.logger.info(
@@ -127,7 +127,7 @@ class Log(LearningWrapper[SymType, ExpType]):
             )
 
     def _on_env_step(
-        self, env: GymEnvLike[ObsType, ActType], episode: int, timestep: int
+        self, env: Env[ObsType, ActType], episode: int, timestep: int
     ) -> None:
         if next(self.log_frequencies.get("on_env_step", _FALSE_ITER)):
             self.logger.debug(f"episode {episode} stepped at time {timestep}.")
@@ -140,11 +140,11 @@ class Log(LearningWrapper[SymType, ExpType]):
         m = self.logger.error if raises else self.logger.warning
         m(f"Update failed at episode {episode}, time {timestep}, status: {errormsg}.")
 
-    def _on_training_start(self, env: GymEnvLike[ObsType, ActType]) -> None:
+    def _on_training_start(self, env: Env[ObsType, ActType]) -> None:
         self.logger.debug(f"training of {env} started.")
 
     def _on_training_end(
-        self, env: GymEnvLike[ObsType, ActType], returns: npt.NDArray[np.double]
+        self, env: Env[ObsType, ActType], returns: npt.NDArray[np.double]
     ) -> None:
         S = np.array2string(returns, precision=self.precision)
         self.logger.info(f"training of {env} concluded with returns={S}.")

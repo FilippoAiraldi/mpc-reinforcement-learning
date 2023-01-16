@@ -17,6 +17,7 @@ from typing import (
 import numpy as np
 import numpy.typing as npt
 from csnlp.wrappers import Mpc
+from gymnasium import Env
 
 from mpcrl.agents.agent import ActType, Agent, ObsType, SymType, _update_dicts
 from mpcrl.core.callbacks import LearningAgentCallbacks, RemovesCallbackHooksInState
@@ -25,7 +26,6 @@ from mpcrl.core.exploration import ExplorationStrategy
 from mpcrl.core.parameters import LearnableParametersDict
 from mpcrl.core.update import UpdateStrategy
 from mpcrl.util.random import generate_seeds
-from mpcrl.util.types import GymEnvLike
 
 ExpType = TypeVar("ExpType")
 
@@ -154,7 +154,7 @@ class LearningAgent(
 
     def train(
         self,
-        env: GymEnvLike[ObsType, ActType],
+        env: Env[ObsType, ActType],
         episodes: int,
         seed: Union[None, int, Iterable[int]] = None,
         raises: bool = True,
@@ -164,8 +164,8 @@ class LearningAgent(
 
         Parameters
         ----------
-        env : GymEnvLike[ObsType, ActType]
-            A gym-like environment where to train the agent in.
+        env : Env[ObsType, ActType]
+            A gym environment where to train the agent in.
         episodes : int
             Number of training episodes.
         seed : int or iterable of ints, optional
@@ -213,7 +213,7 @@ class LearningAgent(
     @abstractmethod
     def train_one_episode(
         self,
-        env: GymEnvLike[ObsType, ActType],
+        env: Env[ObsType, ActType],
         episode: int,
         init_state: ObsType,
         raises: bool = True,
@@ -222,8 +222,8 @@ class LearningAgent(
 
         Parameters
         ----------
-        env : GymEnvLike[ObsType, ActType]
-            A gym-like environment where to train the agent in.
+        env : Env[ObsType, ActType]
+            A gym environment where to train the agent in.
         episode : int
             Number of the current training episode.
         init_state : observation type

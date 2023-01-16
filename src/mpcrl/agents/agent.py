@@ -19,13 +19,13 @@ import numpy.typing as npt
 from csnlp import Solution, wrappers
 from csnlp.util.io import SupportsDeepcopyAndPickle
 from csnlp.wrappers import Mpc
+from gymnasium import Env
 from typing_extensions import TypeAlias
 
 from mpcrl.core.callbacks import AgentCallbacks
 from mpcrl.core.exploration import ExplorationStrategy, NoExploration
 from mpcrl.util.named import Named
 from mpcrl.util.random import generate_seeds
-from mpcrl.util.types import GymEnvLike
 
 SymType = TypeVar("SymType", cs.SX, cs.MX)
 ActType: TypeAlias = Union[npt.ArrayLike, Dict[str, npt.ArrayLike]]
@@ -309,7 +309,7 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbacks, Generic[SymType]):
 
     def evaluate(
         self,
-        env: GymEnvLike[ObsType, ActType],
+        env: Env[ObsType, ActType],
         episodes: int,
         deterministic: bool = True,
         seed: Union[None, int, Iterable[int]] = None,
@@ -324,8 +324,8 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbacks, Generic[SymType]):
 
         Parameters
         ----------
-        env : gym env
-            A gym-like environment where to test the agent in.
+        env : Env[ObsType, ActType]
+            A gym environment where to test the agent in.
         episodes : int
             Number of evaluation episodes.
         deterministic : bool, optional

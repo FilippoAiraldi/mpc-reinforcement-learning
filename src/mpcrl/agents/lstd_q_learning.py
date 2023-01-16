@@ -16,6 +16,7 @@ import numpy as np
 import numpy.typing as npt
 from csnlp import Solution
 from csnlp.wrappers import Mpc, NlpSensitivity
+from gymnasium import Env
 from scipy.linalg import cho_solve
 from typing_extensions import TypeAlias
 
@@ -28,7 +29,6 @@ from mpcrl.core.parameters import LearnableParametersDict
 from mpcrl.core.schedulers import Scheduler
 from mpcrl.core.update import UpdateStrategy
 from mpcrl.util.math import cholesky_added_multiple_identities
-from mpcrl.util.types import GymEnvLike
 
 ExpType: TypeAlias = Tuple[
     npt.NDArray[np.double],  # gradient of Q(s,a)
@@ -220,7 +220,7 @@ class LstdQLearningAgent(
 
     def train_one_episode(
         self,
-        env: GymEnvLike[ObsType, ActType],
+        env: Env[ObsType, ActType],
         episode: int,
         init_state: ObsType,
         raises: bool = True,

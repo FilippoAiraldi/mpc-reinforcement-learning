@@ -18,6 +18,7 @@ import numpy.typing as npt
 from csnlp import Solution
 from csnlp.util.math import prod
 from csnlp.wrappers import Mpc, NlpSensitivity
+from gymnasium import Env
 from scipy.linalg import lstsq
 from typing_extensions import TypeAlias
 
@@ -30,7 +31,6 @@ from mpcrl.core.parameters import LearnableParametersDict
 from mpcrl.core.schedulers import Scheduler
 from mpcrl.core.update import UpdateStrategy
 from mpcrl.util.math import monomial_powers
-from mpcrl.util.types import GymEnvLike
 
 ExpType: TypeAlias = Tuple[
     npt.NDArray[np.double],  # rollout's costs
@@ -281,7 +281,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
 
     def train_one_episode(
         self,
-        env: GymEnvLike[ObsType, ActType],
+        env: Env[ObsType, ActType],
         episode: int,
         init_state: ObsType,
         raises: bool = True,
