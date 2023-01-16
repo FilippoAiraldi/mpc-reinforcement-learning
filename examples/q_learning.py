@@ -7,10 +7,11 @@ References
 """
 
 import logging
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 import casadi as cs
 import gymnasium as gym
+from gymnasium.wrappers import TimeLimit
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
@@ -21,11 +22,12 @@ from csnlp.wrappers import Mpc
 from mpcrl import LearnableParameter, LearnableParametersDict, LstdQLearningAgent
 from mpcrl.util.math import dlqr
 from mpcrl.wrappers.agents import Log, RecordUpdates
+from mpcrl.wrappers.envs import MonitorEpisodes
 
 # first, create classes for environment and mpc controller
 
 
-class LtiSystem(gym.Env[npt.NDArray[np.double], float]):
+class LtiSystem(gym.Env[npt.NDArray[np.floating], float]):
     """A simple discrete-time LTI system affected by noise.ad"""
 
     nx = 2  # number of states
@@ -36,23 +38,19 @@ class LtiSystem(gym.Env[npt.NDArray[np.double], float]):
     a_bnd = (-1, 1)  # bounds of control input
     w = np.asarray([[1e2], [1e2]])  # penalty weight for bound violations
     e_bnd = (-1e-1, 0)  # uniform noise bounds
-    X: List[npt.NDArray[np.double]] = []
-    U: List[float] = []
-    R: List[float] = []
 
     def reset(
         self,
         *,
         seed: Optional[int] = None,
         options: Optional[Dict[str, Any]] = None,
-    ) -> Tuple[npt.NDArray[np.double], Dict[str, Any]]:
+    ) -> Tuple[npt.NDArray[np.floating], Dict[str, Any]]:
         """Resets the state of the LTI system."""
         super().reset(seed=seed, options=options)
         self.x = np.asarray([0, 0.15]).reshape(self.nx, 1)
-        self.X, self.U, self.R = [self.x], [], []
         return self.x, {}
 
-    def get_stage_cost(self, state: npt.NDArray[np.double], action: float) -> float:
+    def get_stage_cost(self, state: npt.NDArray[np.floating], action: float) -> float:
         """Computes the stage cost `L(s,a)`."""
         lb, ub = self.x_bnd
         return 0.5 * float(
@@ -64,16 +62,13 @@ class LtiSystem(gym.Env[npt.NDArray[np.double], float]):
 
     def step(
         self, action: cs.DM
-    ) -> Tuple[npt.NDArray[np.double], float, bool, bool, Dict[str, Any]]:
+    ) -> Tuple[npt.NDArray[np.floating], float, bool, bool, Dict[str, Any]]:
         """Steps the LTI system."""
         action = float(action)
         x_new = self.A @ self.x + self.B * action
         x_new[0] += self.np_random.uniform(*self.e_bnd)
         self.x = x_new
         r = self.get_stage_cost(self.x, action)
-        self.U.append(action)
-        self.X.append(self.x)
-        self.R.append(r)
         return x_new, r, False, False, {}
 
 
@@ -164,7 +159,7 @@ learnable_pars = LearnableParametersDict[cs.SX](
     )
 )
 
-env = gym.wrappers.TimeLimit(LtiSystem(), max_episode_steps=int(5e3))
+env = MonitorEpisodes(TimeLimit(LtiSystem(), max_episode_steps=int(5e3)))
 agent = Log(  # type: ignore[var-annotated]
     RecordUpdates(
         LstdQLearningAgent(
@@ -184,9 +179,9 @@ agent.train(env=env, episodes=1, seed=69)
 
 
 # plot the results
-X = np.concatenate(env.X, axis=-1)
-U = np.asarray(env.U)
-R = np.asarray(env.R)
+X = env.observations[0].squeeze().T
+U = env.actions[0].squeeze()
+R = env.rewards[0]
 _, axs = plt.subplots(3, 1, constrained_layout=True, sharex=True)
 axs[0].plot(X[0])
 axs[1].plot(X[1])

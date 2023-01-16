@@ -1,11 +1,12 @@
 import logging
 import pickle
 import unittest
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 import casadi as cs
 import gymnasium as gym
 import numpy as np
+import numpy.typing as npt
 from csnlp import Nlp
 from csnlp.util.math import quad_form
 from csnlp.wrappers import Mpc
@@ -16,12 +17,15 @@ from scipy.io import loadmat
 from mpcrl import LearnableParameter, LearnableParametersDict, LstdQLearningAgent
 from mpcrl.util.math import dlqr
 from mpcrl.wrappers.agents import Log, RecordUpdates
+from mpcrl.wrappers.envs import MonitorEpisodes
 
 
 class TestExamples(unittest.TestCase):
     @parameterized.expand([(True,), (False,)])
     def test_q_learning__with_copy_and_pickle(self, use_copy: bool):
-        class LtiSystem(gym.Env[np.ndarray, float]):
+        class LtiSystem(gym.Env[npt.NDArray[np.floating], float]):
+            """A simple discrete-time LTI system affected by noise.ad"""
+
             nx = 2  # number of states
             nu = 1  # number of inputs
             A = np.asarray([[0.9, 0.35], [0, 1.1]])  # state-space matrix A
@@ -30,22 +34,22 @@ class TestExamples(unittest.TestCase):
             a_bnd = (-1, 1)  # bounds of control input
             w = np.asarray([[1e2], [1e2]])  # penalty weight for bound violations
             e_bnd = (-1e-1, 0)  # uniform noise bounds
-            X: List[np.ndarray] = []
-            U: List[float] = []
-            R: List[float] = []
 
             def reset(
                 self,
                 *,
                 seed: Optional[int] = None,
                 options: Optional[Dict[str, Any]] = None,
-            ) -> Tuple[np.ndarray, Dict[str, Any]]:
+            ) -> Tuple[npt.NDArray[np.floating], Dict[str, Any]]:
+                """Resets the state of the LTI system."""
                 super().reset(seed=seed, options=options)
                 self.x = np.asarray([0, 0.15]).reshape(self.nx, 1)
-                self.X, self.U, self.R = [self.x], [], []
                 return self.x, {}
 
-            def get_stage_cost(self, state: np.ndarray, action: float) -> float:
+            def get_stage_cost(
+                self, state: npt.NDArray[np.floating], action: float
+            ) -> float:
+                """Computes the stage cost `L(s,a)`."""
                 lb, ub = self.x_bnd
                 return 0.5 * float(
                     np.square(state).sum()
@@ -56,18 +60,18 @@ class TestExamples(unittest.TestCase):
 
             def step(
                 self, action: cs.DM
-            ) -> Tuple[np.ndarray, float, bool, bool, Dict[str, Any]]:
+            ) -> Tuple[npt.NDArray[np.floating], float, bool, bool, Dict[str, Any]]:
+                """Steps the LTI system."""
                 action = float(action)
                 x_new = self.A @ self.x + self.B * action
                 x_new[0] += self.np_random.uniform(*self.e_bnd)
                 self.x = x_new
                 r = self.get_stage_cost(self.x, action)
-                self.U.append(action)
-                self.X.append(self.x)
-                self.R.append(r)
                 return x_new, r, False, False, {}
 
         class LinearMpc(Mpc[cs.SX]):
+            """A simple linear MPC controller."""
+
             horizon = 10
             discount_factor = 0.9
             learnable_pars_init = {
@@ -88,6 +92,8 @@ class TestExamples(unittest.TestCase):
                 x_bnd, a_bnd = LtiSystem.x_bnd, LtiSystem.a_bnd
                 nlp = Nlp[cs.SX]()
                 super().__init__(nlp, N)
+
+                # parameters (need to be flat)
                 V0 = self.parameter("V0")
                 x_lb = self.parameter("x_lb", (nx,))
                 x_ub = self.parameter("x_ub", (nx,))
@@ -95,15 +101,22 @@ class TestExamples(unittest.TestCase):
                 f = self.parameter("f", (nx + nu, 1))
                 A = self.parameter("A", (nx * nx, 1)).reshape((nx, nx))
                 B = self.parameter("B", (nx * nu, 1)).reshape((nx, nu))
+
+                # variables (state, action, slack)
                 x, _ = self.state("x", nx)
                 u, _ = self.action("u", nu, lb=a_bnd[0], ub=a_bnd[1])
                 s, _, _ = self.variable("s", (nx, N), lb=0)
+
+                # dynamics
                 self.set_dynamics(lambda x, u: A @ x + B * u + b, n_in=2, n_out=1)
+
+                # other constraints
                 self.constraint("x_lb", x_bnd[0] + x_lb - s, "<=", x[:, 1:])
                 self.constraint("x_ub", x[:, 1:], "<=", x_bnd[1] + x_ub + s)
-                A_init = self.learnable_pars_init["A"]
-                B_init = self.learnable_pars_init["B"]
-                S = cs.DM(dlqr(A_init, B_init, 0.5 * np.eye(nx), 0.25)[1])
+
+                # objective
+                A_init, B_init = self.learnable_pars_init["A"], self.learnable_pars_init["B"]
+                S = cs.DM(dlqr(A_init, B_init, 0.5 * np.eye(nx), 0.25 * np.eye(nu))[1])
                 gammapowers = cs.DM(gamma ** np.arange(N)).T
                 self.minimize(
                     V0
@@ -115,6 +128,8 @@ class TestExamples(unittest.TestCase):
                         * (cs.sum1(x[:, :-1] ** 2) + 0.5 * cs.sum1(u**2) + w.T @ s)
                     )
                 )
+
+                # solver
                 opts = {
                     "expand": True,
                     "print_time": False,
@@ -138,7 +153,7 @@ class TestExamples(unittest.TestCase):
                 for name, val in mpc.learnable_pars_init.items()
             )
         )
-        env = TimeLimit(LtiSystem(), max_episode_steps=100)
+        env = MonitorEpisodes(TimeLimit(LtiSystem(), max_episode_steps=100))
         agent = Log(
             RecordUpdates(
                 LstdQLearningAgent(
@@ -161,9 +176,9 @@ class TestExamples(unittest.TestCase):
         J = LstdQLearningAgent.train(agent, env=env, episodes=1, seed=69).item()
         agent = pickle.loads(pickle.dumps(agent))
 
-        X = np.concatenate(env.X, axis=-1).squeeze()
-        U = np.squeeze(env.U)
-        R = np.squeeze(env.R)
+        X = env.observations[0].squeeze().T
+        U = env.actions[0].squeeze()
+        R = env.rewards[0]
         TD = np.squeeze(agent.td_errors)
         parnames = ["V0", "x_lb", "x_ub", "b", "f", "A", "B"]
         pars = {n: np.squeeze(agent.updates_history[n]) for n in parnames}
