@@ -15,7 +15,7 @@ from scipy.io import loadmat
 
 from mpcrl import LearnableParameter, LearnableParametersDict, LstdQLearningAgent
 from mpcrl.util.math import dlqr
-from mpcrl.wrappers import Log, RecordUpdates
+from mpcrl.wrappers.agents import Log, RecordUpdates
 
 
 class TestExamples(unittest.TestCase):

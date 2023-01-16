@@ -8,7 +8,12 @@ import numpy as np
 from csnlp import MultistartNlp, Nlp, scaling
 from csnlp.wrappers import Mpc, NlpScaling
 
-from mpcrl import LearnableParameter, LearnableParametersDict, LearningAgent, wrappers
+from mpcrl import (
+    LearnableParameter,
+    LearnableParametersDict,
+    LearningAgent,
+    wrappers_agents,
+)
 
 
 @lru_cache
@@ -76,30 +81,30 @@ AGENT = DummyLearningAgent(
 
 class TestWrapperAndLearningWrapper(unittest.TestCase):
     def test_attr__raises__when_accessing_private_attrs(self):
-        wrapped = wrappers.LearningWrapper(AGENT)
+        wrapped = wrappers_agents.LearningWrapper(AGENT)
         with self.assertRaisesRegex(
             AttributeError, "Accessing private attribute '_x' is prohibited."
         ):
             wrapped._x
 
     def test_unwrapped__unwraps_nlp_correctly(self):
-        wrapped = wrappers.LearningWrapper(AGENT)
+        wrapped = wrappers_agents.LearningWrapper(AGENT)
         self.assertIs(AGENT, wrapped.unwrapped)
 
     def test_str_and_repr(self):
-        wrapped = wrappers.LearningWrapper(AGENT)
+        wrapped = wrappers_agents.LearningWrapper(AGENT)
         S = wrapped.__str__()
-        self.assertIn(wrappers.LearningWrapper.__name__, S)
+        self.assertIn(wrappers_agents.LearningWrapper.__name__, S)
         self.assertIn(AGENT.__str__(), S)
         S = wrapped.__repr__()
-        self.assertIn(wrappers.LearningWrapper.__name__, S)
+        self.assertIn(wrappers_agents.LearningWrapper.__name__, S)
         self.assertIn(AGENT.__repr__(), S)
 
     def test_is_wrapped(self):
         self.assertFalse(AGENT.is_wrapped())
 
-        wrapped = wrappers.LearningWrapper(AGENT)
-        self.assertTrue(wrapped.is_wrapped(wrappers.LearningWrapper))
+        wrapped = wrappers_agents.LearningWrapper(AGENT)
+        self.assertTrue(wrapped.is_wrapped(wrappers_agents.LearningWrapper))
         self.assertFalse(wrapped.is_wrapped(cs.SX))
 
 
@@ -119,7 +124,7 @@ class TestRecordUpdates(unittest.TestCase):
                 pars[:, next(iter)]
             ),
         )
-        wrapped = wrappers.RecordUpdates(agent)
+        wrapped = wrappers_agents.RecordUpdates(agent)
 
         for _ in range(K):
             wrapped.on_update()
