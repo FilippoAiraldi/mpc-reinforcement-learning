@@ -16,11 +16,13 @@ __all__ = [
     "exploration",
     "schedulers",
     "wrappers_agents",
+    "wrappers_envs",
 ]
 
 import mpcrl.core.exploration as exploration
 import mpcrl.core.schedulers as schedulers
 import mpcrl.wrappers.agents as wrappers_agents
+import mpcrl.wrappers.envs as wrappers_envs
 from mpcrl.agents.agent import Agent
 from mpcrl.agents.learning_agent import LearningAgent
 from mpcrl.agents.lstd_dpg import LstdDpgAgent

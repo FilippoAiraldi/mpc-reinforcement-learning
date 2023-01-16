@@ -14,6 +14,7 @@ from mpcrl import (
     LearningAgent,
     wrappers_agents,
 )
+from mpcrl.wrappers.envs.monitor_episode import compact_dicts_into_one
 
 
 @lru_cache
@@ -138,6 +139,27 @@ class TestRecordUpdates(unittest.TestCase):
             np.stack(list(wrapped.updates_history.values())).squeeze(),
             pars,
         )
+
+
+class TestMonitorEpisode(unittest.TestCase):
+    def test__compact_dicts_into_one(self):
+        act = compact_dicts_into_one(
+            [
+                {"a": 3, "b": 2},
+                {"b": 3, "c": 2},
+                {"a": 3, "c": 2},
+                {"c": 3, "d": 2},
+                {"a": 3, "d": 2},
+            ],
+            fill_value=np.nan,
+        )
+        exp = {
+            "a": [3, np.nan, 3, np.nan, 3],
+            "b": [2, 3, np.nan, np.nan, np.nan],
+            "c": [np.nan, 2, 2, 3, np.nan],
+            "d": [np.nan, np.nan, np.nan, 2, 2],
+        }
+        self.assertDictEqual(act, exp)
 
 
 if __name__ == "__main__":
