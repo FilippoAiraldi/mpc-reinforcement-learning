@@ -15,10 +15,12 @@ __all__ = [
     "UpdateWarning",
     "exploration",
     "schedulers",
+    "wrappers_agents",
 ]
 
 import mpcrl.core.exploration as exploration
 import mpcrl.core.schedulers as schedulers
+import mpcrl.wrappers.agents as wrappers_agents
 from mpcrl.agents.agent import Agent
 from mpcrl.agents.learning_agent import LearningAgent
 from mpcrl.agents.lstd_dpg import LstdDpgAgent

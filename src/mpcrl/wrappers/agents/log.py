@@ -9,7 +9,7 @@ from gymnasium import Env
 from mpcrl.agents.learning_agent import ExpType, LearningAgent
 from mpcrl.core.callbacks import ALL_CALLBACKS
 from mpcrl.util.iters import bool_cycle
-from mpcrl.wrappers.wrapper import LearningWrapper, SymType
+from mpcrl.wrappers.agents.wrapper import LearningWrapper, SymType
 
 ObsType = TypeVar("ObsType")
 ActType = TypeVar("ActType")

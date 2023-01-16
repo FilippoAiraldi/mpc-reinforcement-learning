@@ -17,11 +17,10 @@ import numpy.typing as npt
 from csnlp import Nlp
 from csnlp.util.math import quad_form
 from csnlp.wrappers import Mpc
-from gymnasium.wrappers import TimeLimit
 
 from mpcrl import LearnableParameter, LearnableParametersDict, LstdQLearningAgent
 from mpcrl.util.math import dlqr
-from mpcrl.wrappers import Log, RecordUpdates
+from mpcrl.wrappers.agents import Log, RecordUpdates
 
 # first, create classes for environment and mpc controller
 
@@ -164,7 +163,8 @@ learnable_pars = LearnableParametersDict[cs.SX](
         for name, val in mpc.learnable_pars_init.items()
     )
 )
-env = TimeLimit(LtiSystem(), max_episode_steps=int(5e3))
+
+env = gym.wrappers.TimeLimit(LtiSystem(), max_episode_steps=int(5e3))
 agent = Log(  # type: ignore[var-annotated]
     RecordUpdates(
         LstdQLearningAgent(
