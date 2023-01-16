@@ -115,7 +115,10 @@ class TestExamples(unittest.TestCase):
                 self.constraint("x_ub", x[:, 1:], "<=", x_bnd[1] + x_ub + s)
 
                 # objective
-                A_init, B_init = self.learnable_pars_init["A"], self.learnable_pars_init["B"]
+                A_init, B_init = (
+                    self.learnable_pars_init["A"],
+                    self.learnable_pars_init["B"],
+                )
                 S = cs.DM(dlqr(A_init, B_init, 0.5 * np.eye(nx), 0.25 * np.eye(nu))[1])
                 gammapowers = cs.DM(gamma ** np.arange(N)).T
                 self.minimize(

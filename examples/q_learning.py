@@ -11,13 +11,13 @@ from typing import Any, Dict, Optional, Tuple
 
 import casadi as cs
 import gymnasium as gym
-from gymnasium.wrappers import TimeLimit
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
 from csnlp import Nlp
 from csnlp.util.math import quad_form
 from csnlp.wrappers import Mpc
+from gymnasium.wrappers import TimeLimit
 
 from mpcrl import LearnableParameter, LearnableParametersDict, LstdQLearningAgent
 from mpcrl.util.math import dlqr

@@ -11,13 +11,13 @@ from typing import Any, Dict, Optional, Tuple
 
 import casadi as cs
 import gymnasium as gym
-from gymnasium.wrappers import TimeLimit
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
 from csnlp import Nlp
 from csnlp.util.math import quad_form
 from csnlp.wrappers import Mpc
+from gymnasium.wrappers import TimeLimit
 
 from mpcrl import (
     LearnableParameter,
@@ -29,7 +29,6 @@ from mpcrl import exploration as E
 from mpcrl.util.math import dlqr
 from mpcrl.wrappers.agents import Log, RecordUpdates
 from mpcrl.wrappers.envs import MonitorEpisodes
-
 
 # first, create classes for environment and mpc controller
 
