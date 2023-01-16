@@ -50,7 +50,7 @@ def compact_dicts_into_one(
     return out
 
 
-class MonitorEpisode(Wrapper[ObsType, ActType]):
+class MonitorEpisodes(Wrapper[ObsType, ActType]):
     """This wrapper keeps track of
         - observations
         - actions

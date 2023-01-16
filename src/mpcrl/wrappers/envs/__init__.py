@@ -1,3 +1,3 @@
-__all__ = ["MonitorEpisode"]
+__all__ = ["MonitorEpisodes"]
 
-from mpcrl.wrappers.envs.monitor_episode import MonitorEpisode
+from mpcrl.wrappers.envs.monitor_episodes import MonitorEpisodes
