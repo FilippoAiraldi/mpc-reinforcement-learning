@@ -91,7 +91,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         record_policy_gradient: bool = False,
         state_features: Optional[cs.Function] = None,
         lstsq_kwargs: Optional[Dict[str, Any]] = None,
-        linsolver: Literal["csparse", "qr"] = "qr",
+        linsolver: Literal["csparse", "qr", "mldivide"] = "mldivide",
         name: Optional[str] = None,
     ) -> None:
         """Instantiates the LSTD DPG agent.
@@ -172,7 +172,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
             The optional kwargs to be passed to `scipy.linalg.lstsq`. If `None`, it
             is equivalent to
             `{'cond': 1e-7, 'check_finite': False, 'lapack_driver': 'gelsy'}`.
-        linsolver : "csparse" or "qr", optional
+        linsolver : "csparse" or "qr" or "mldivide", optional
             The type of linear solver to be used for solving the linear system derived
             from the KKT conditions and used to estimate the gradient of the policy. By
             default, `"qr"` is chosen.
@@ -390,8 +390,12 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
             Ky = cs.Function("dKdy", [all_syms_sx], [Ky]).wrap()(all_syms)
 
         # compute last bunch derivative and convert to function for faster runtime
-        linsolver = cs.Linsol("linsolver", linsolvertype, Ky.sparsity())
-        dpidtheta = -Kt @ linsolver.solve(Ky, dydu0)
+        if linsolvertype == "mldivide":
+            q = cs.solve(Ky, dydu0)  # cs.mldivide
+        else:
+            linsolver = cs.Linsol("linsolver", linsolvertype, Ky.sparsity())
+            q = linsolver.solve(Ky, dydu0)
+        dpidtheta = -Kt @ q
         return cs.Function("dpidtheta", [all_syms], [dpidtheta])
 
     def _consolidate_rollout_into_memory(self) -> None:
