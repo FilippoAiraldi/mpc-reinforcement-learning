@@ -315,7 +315,7 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbacks, Generic[SymType]):
         seed: Union[None, int, Iterable[int]] = None,
         raises: bool = True,
         env_reset_options: Optional[Dict[str, Any]] = None,
-    ) -> npt.NDArray[np.double]:
+    ) -> npt.NDArray[np.floating]:
         """Evaluates the agent in a given environment.
 
         Note: after solving `V(s)` for the current state `s`, the action is computed and

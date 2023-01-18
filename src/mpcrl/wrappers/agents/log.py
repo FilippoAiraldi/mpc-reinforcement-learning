@@ -109,7 +109,7 @@ class Log(LearningWrapper[SymType, ExpType]):
         self.logger.debug(f"validation of {env} started.")
 
     def _on_validation_end(
-        self, env: Env[ObsType, ActType], returns: npt.NDArray[np.double]
+        self, env: Env[ObsType, ActType], returns: npt.NDArray[np.floating]
     ) -> None:
         S = np.array2string(returns, precision=self.precision)
         self.logger.info(f"validation of {env} concluded with returns={S}.")
@@ -144,7 +144,7 @@ class Log(LearningWrapper[SymType, ExpType]):
         self.logger.debug(f"training of {env} started.")
 
     def _on_training_end(
-        self, env: Env[ObsType, ActType], returns: npt.NDArray[np.double]
+        self, env: Env[ObsType, ActType], returns: npt.NDArray[np.floating]
     ) -> None:
         S = np.array2string(returns, precision=self.precision)
         self.logger.info(f"training of {env} concluded with returns={S}.")

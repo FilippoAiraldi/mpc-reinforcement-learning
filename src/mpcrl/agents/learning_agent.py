@@ -159,7 +159,7 @@ class LearningAgent(
         seed: Union[None, int, Iterable[int]] = None,
         raises: bool = True,
         env_reset_options: Optional[Dict[str, Any]] = None,
-    ) -> npt.NDArray[np.double]:
+    ) -> npt.NDArray[np.floating]:
         """Train the agent on an environment.
 
         Parameters

@@ -31,8 +31,8 @@ from mpcrl.core.update import UpdateStrategy
 from mpcrl.util.math import cholesky_added_multiple_identities
 
 ExpType: TypeAlias = Tuple[
-    npt.NDArray[np.double],  # gradient of Q(s,a)
-    npt.NDArray[np.double],  # (approximate) hessian of Q(s,a)
+    npt.NDArray[np.floating],  # gradient of Q(s,a)
+    npt.NDArray[np.floating],  # (approximate) hessian of Q(s,a)
 ]
 
 
@@ -183,8 +183,8 @@ class LstdQLearningAgent(
             The solution to `V(s+)`.
         """
         sol_values = solQ.all_vals
-        dQ: npt.NDArray[np.double] = self._dQdtheta(sol_values).full().reshape(-1, 1)
-        ddQ: npt.NDArray[np.double] = self._d2Qdtheta2(sol_values).full()
+        dQ: npt.NDArray[np.floating] = self._dQdtheta(sol_values).full().reshape(-1, 1)
+        ddQ: npt.NDArray[np.floating] = self._d2Qdtheta2(sol_values).full()
         td_error: float = cost + self.discount_factor * solV.f - solQ.f
         g = -td_error * dQ
         H = dQ @ dQ.T - td_error * ddQ

@@ -62,8 +62,8 @@ class LearnableParameter(SupportsDeepcopyAndPickle, Generic[SymType]):
         self.size = size
         self.sym = sym
         shape = (size,)
-        self.lb: npt.NDArray[np.double] = np.broadcast_to(lb, shape)
-        self.ub: npt.NDArray[np.double] = np.broadcast_to(ub, shape)
+        self.lb: npt.NDArray[np.floating] = np.broadcast_to(lb, shape)
+        self.ub: npt.NDArray[np.floating] = np.broadcast_to(ub, shape)
         self._update_value(value)
 
     def _update_value(self, v: npt.ArrayLike, **is_close_kwargs: Any) -> None:
@@ -91,7 +91,7 @@ class LearnableParameter(SupportsDeepcopyAndPickle, Generic[SymType]):
             (v > ub) & ~np.isclose(v, ub, **is_close_kwargs)
         ).any():
             raise ValueError(f"Updated parameter {self.name} is outside bounds.")
-        self.value: npt.NDArray[np.double] = np.clip(v, lb, ub)
+        self.value: npt.NDArray[np.floating] = np.clip(v, lb, ub)
 
     def __str__(self) -> str:
         return f"<{self.name}(size={self.size})>"
@@ -131,28 +131,28 @@ class LearnableParametersDict(
         return sum(p.size for p in self.values())
 
     @cached_property
-    def lb(self) -> npt.NDArray[np.double]:
+    def lb(self) -> npt.NDArray[np.floating]:
         """Gets the lower bound of all the learnable parameters, concatenated."""
         if len(self) == 0:
             return np.asarray([])
         return np.concatenate(tuple(p.lb for p in self.values()))
 
     @cached_property
-    def ub(self) -> npt.NDArray[np.double]:
+    def ub(self) -> npt.NDArray[np.floating]:
         """Gets the upper bound of all the learnable parameters, concatenated."""
         if len(self) == 0:
             return np.asarray([])
         return np.concatenate(tuple(p.ub for p in self.values()))
 
     @cached_property
-    def value(self) -> npt.NDArray[np.double]:
+    def value(self) -> npt.NDArray[np.floating]:
         """Gets the values of all the learnable parameters, concatenated."""
         if len(self) == 0:
             return np.asarray([])
         return np.concatenate(tuple(p.value for p in self.values()))
 
     @cached_property
-    def value_as_dict(self) -> Dict[str, npt.NDArray[np.double]]:
+    def value_as_dict(self) -> Dict[str, npt.NDArray[np.floating]]:
         """Gets the values of all the learnable parameters, in a dict."""
         return {} if len(self) == 0 else {p.name: p.value for p in self.values()}
 

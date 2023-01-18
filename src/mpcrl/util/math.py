@@ -8,7 +8,7 @@ from scipy.special import comb
 
 
 def summarize_array(
-    a: npt.NDArray[np.double], precision: int = 3, ddof: int = 0
+    a: npt.NDArray[np.floating], precision: int = 3, ddof: int = 0
 ) -> str:
     """Summarizes the stats of a given array.
 
@@ -38,8 +38,8 @@ def summarize_array(
 
 
 def cholesky_added_multiple_identities(
-    A: npt.NDArray[np.double], beta: float = 1e-3, maxiter: int = 1000
-) -> npt.NDArray[np.double]:
+    A: npt.NDArray[np.floating], beta: float = 1e-3, maxiter: int = 1000
+) -> npt.NDArray[np.floating]:
     """Lower Cholesky factorization with added multiple of the identity matrix to ensure
     positive-definitiveness [1, Algorithm 3.3].
 
@@ -79,12 +79,12 @@ def cholesky_added_multiple_identities(
 
 
 def dlqr(
-    A: npt.NDArray[np.double],
-    B: npt.NDArray[np.double],
-    Q: npt.NDArray[np.double],
-    R: npt.NDArray[np.double],
-    M: Optional[npt.NDArray[np.double]] = None,
-) -> Tuple[npt.NDArray[np.double], npt.NDArray[np.double]]:
+    A: npt.NDArray[np.floating],
+    B: npt.NDArray[np.floating],
+    Q: npt.NDArray[np.floating],
+    R: npt.NDArray[np.floating],
+    M: Optional[npt.NDArray[np.floating]] = None,
+) -> Tuple[npt.NDArray[np.floating], npt.NDArray[np.floating]]:
     """Get the discrete-time LQR for the given system. Stage costs are
     ```
         x'Qx + 2*x'Mu + u'Ru

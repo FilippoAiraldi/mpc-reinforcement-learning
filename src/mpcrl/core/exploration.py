@@ -29,7 +29,7 @@ class ExplorationStrategy(ABC):
         supports them (usually, by decaying them over time)."""
 
     @abstractmethod
-    def perturbation(self, *args: Any, **kwargs: Any) -> npt.NDArray[np.double]:
+    def perturbation(self, *args: Any, **kwargs: Any) -> npt.NDArray[np.floating]:
         """Returns a random perturbation."""
 
     def __str__(self) -> str:
@@ -53,7 +53,7 @@ class NoExploration(ExplorationStrategy):
     def step(self) -> None:
         return
 
-    def perturbation(self, *args: Any, **kwargs: Any) -> npt.NDArray[np.double]:
+    def perturbation(self, *args: Any, **kwargs: Any) -> npt.NDArray[np.floating]:
         raise NotImplementedError(
             f"Perturbation not implemented in {self.__class__.__name__}"
         )
@@ -67,7 +67,7 @@ class GreedyExploration(ExplorationStrategy):
 
     def __init__(
         self,
-        strength: Union[Scheduler[npt.NDArray[np.double]], npt.NDArray[np.double]],
+        strength: Union[Scheduler[npt.NDArray[np.floating]], npt.NDArray[np.floating]],
         hook: Literal["on_update", "on_episode_end", "on_env_step"] = "on_update",
         seed: Optional[int] = None,
     ) -> None:
@@ -97,7 +97,7 @@ class GreedyExploration(ExplorationStrategy):
         super().__init__()
         self._hook = hook
         if not isinstance(strength, Scheduler):
-            strength = NoScheduling[npt.NDArray[np.double]](strength)
+            strength = NoScheduling[npt.NDArray[np.floating]](strength)
         self.strength_scheduler = strength
         self.reset(seed)
 
@@ -110,7 +110,7 @@ class GreedyExploration(ExplorationStrategy):
         return None if isinstance(self.strength_scheduler, NoScheduling) else self._hook
 
     @property
-    def strength(self) -> npt.NDArray[np.double]:
+    def strength(self) -> npt.NDArray[np.floating]:
         """Gets the current strength of the exploration strategy."""
         return self.strength_scheduler.value
 
@@ -127,7 +127,7 @@ class GreedyExploration(ExplorationStrategy):
 
     def perturbation(
         self, method: str, *args: Any, **kwargs: Any
-    ) -> npt.NDArray[np.double]:
+    ) -> npt.NDArray[np.floating]:
         """Returns a random perturbation.
 
         Parameters
@@ -166,7 +166,7 @@ class EpsilonGreedyExploration(GreedyExploration):
     def __init__(
         self,
         epsilon: Union[Scheduler[float], float],
-        strength: Union[Scheduler[npt.NDArray[np.double]], npt.NDArray[np.double]],
+        strength: Union[Scheduler[npt.NDArray[np.floating]], npt.NDArray[np.floating]],
         hook: Literal["on_update", "on_episode_end", "on_env_step"] = "on_update",
         seed: Optional[int] = None,
     ) -> None:

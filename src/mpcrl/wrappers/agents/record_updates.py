@@ -21,7 +21,7 @@ class RecordUpdates(LearningWrapper[SymType, ExpType]):
             The agent whose updates need recording.
         """
         super().__init__(agent)
-        self.updates_history: Dict[str, List[npt.NDArray[np.double]]] = {
+        self.updates_history: Dict[str, List[npt.NDArray[np.floating]]] = {
             p.name: [p.value] for p in agent.learnable_parameters.values()
         }
 

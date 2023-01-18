@@ -55,7 +55,7 @@ class AgentCallbacks:
         """
 
     def on_validation_end(
-        self, env: Env[ObsType, ActType], returns: npt.NDArray[np.double]
+        self, env: Env[ObsType, ActType], returns: npt.NDArray[np.floating]
     ) -> None:
         """Callback called at the end of the validation process.
 
@@ -146,7 +146,7 @@ class LearningAgentCallbacks:
         """
 
     def on_training_end(
-        self, env: Env[ObsType, ActType], returns: npt.NDArray[np.double]
+        self, env: Env[ObsType, ActType], returns: npt.NDArray[np.floating]
     ) -> None:
         """Callback called at the end of the training process.
 

@@ -5,7 +5,7 @@ import numpy.typing as npt
 
 from mpcrl.core.schedulers import NoScheduling, Scheduler
 
-LrType = TypeVar("LrType", npt.NDArray[np.double], float)
+LrType = TypeVar("LrType", npt.NDArray[np.floating], float)
 
 
 class LearningRate(Generic[LrType]):

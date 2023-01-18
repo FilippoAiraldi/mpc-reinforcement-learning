@@ -33,10 +33,10 @@ from mpcrl.core.update import UpdateStrategy
 from mpcrl.util.math import monomial_powers
 
 ExpType: TypeAlias = Tuple[
-    npt.NDArray[np.double],  # rollout's costs
-    npt.NDArray[np.double],  # rollout's state feature vectors Phi(s)
-    npt.NDArray[np.double],  # rollout's Psi(s,a)
-    npt.NDArray[np.double],  # rollout's gradient of policy
+    npt.NDArray[np.floating],  # rollout's costs
+    npt.NDArray[np.floating],  # rollout's state feature vectors Phi(s)
+    npt.NDArray[np.floating],  # rollout's Psi(s,a)
+    npt.NDArray[np.floating],  # rollout's gradient of policy
 ]
 
 
@@ -224,7 +224,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         self.policy_performances: Optional[List[float]] = (
             [] if record_policy_performance else None
         )
-        self.policy_gradients: Optional[List[npt.NDArray[np.double]]] = (
+        self.policy_gradients: Optional[List[npt.NDArray[np.floating]]] = (
             [] if record_policy_gradient else None
         )
 
