@@ -22,7 +22,7 @@ classifiers = [
 ]
 dependencies = [
     "typing_extensions >= 4.4.0",
-    "csnlp >= 1.4.2",
+    "csnlp >= 1.4.3",
     "scipy >= 1.8.0",
     "gymnasium >= 0.27.0",
 ]
