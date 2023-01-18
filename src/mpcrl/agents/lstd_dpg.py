@@ -85,6 +85,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         ] = None,
         exploration: Optional[ExplorationStrategy] = None,
         experience: Optional[ExperienceReplay[ExpType]] = None,
+        max_percentage_update: float = float("+inf"),
         warmstart: Literal["last", "last-successful"] = "last-successful",
         rollout_length: Optional[int] = None,
         record_policy_performance: bool = False,
@@ -138,6 +139,11 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
             transition. In case of LSTD DPG, each memory item is obtain from a single
             rollout, and is a 4-tuple that contains: costs, state vector features (Phi),
             Psi (a temporary value), and the gradient of the policy.
+        max_percentage_update : float, optional
+            A positive float that specifies the maximum percentage the parameters can be
+            changed during each update. For example, `max_percentage_update=0.5` means
+            that the parameters can be updated by up to 50% of their current value. By
+            default, it is set to `+inf`.
         warmstart: 'last' or 'last-successful', optional
             The warmstart strategy for the MPC's NLP. If 'last-successful', the last
             successful solution is used to warm start the solver for the next iteration.
@@ -192,6 +198,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
             fixed_parameters=fixed_parameters,
             exploration=exploration,
             experience=experience,
+            max_percentage_update=max_percentage_update,
             warmstart=warmstart,
             name=name,
         )

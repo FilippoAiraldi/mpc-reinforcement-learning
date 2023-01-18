@@ -1,5 +1,5 @@
 from abc import ABC
-from typing import Collection, Dict, Generic, Literal, Optional, TypeVar, Union
+from typing import Collection, Dict, Generic, Literal, Optional, Tuple, TypeVar, Union
 
 import casadi as cs
 import numpy as np
@@ -24,7 +24,12 @@ class RlLearningAgent(
     """Base class for learning agents that employe gradient-based RL strategies to
     learn/improve the MPC policy."""
 
-    __slots__ = ("_learning_rate", "discount_factor", "_update_solver")
+    __slots__ = (
+        "_learning_rate",
+        "discount_factor",
+        "_update_solver",
+        "max_percentage_update",
+    )
 
     def __init__(
         self,
@@ -38,6 +43,7 @@ class RlLearningAgent(
         ] = None,
         exploration: Optional[ExplorationStrategy] = None,
         experience: Optional[ExperienceReplay[ExpType]] = None,
+        max_percentage_update: float = float("+inf"),
         warmstart: Literal["last", "last-successful"] = "last-successful",
         name: Optional[str] = None,
     ) -> None:
@@ -83,6 +89,11 @@ class RlLearningAgent(
             The container for experience replay memory. If `None` is passed, then a
             memory with length 1 is created, i.e., it keeps only the latest memory
             transition.
+        max_percentage_update : float, optional
+            A positive float that specifies the maximum percentage the parameters can be
+            changed during each update. For example, `max_percentage_update=0.5` means
+            that the parameters can be updated by up to 50% of their current value. By
+            default, it is set to `+inf`.
         warmstart: 'last' or 'last-successful', optional
             The warmstart strategy for the MPC's NLP. If 'last-successful', the last
             successful solution is used to warm start the solver for the next iteration.
@@ -110,6 +121,9 @@ class RlLearningAgent(
             warmstart=warmstart,
             name=name,
         )
+        if max_percentage_update <= 0.0:
+            raise ValueError("Max percentage update must be in range (0, +inf).")
+        self.max_percentage_update = max_percentage_update
         self._update_solver = self._init_update_solver()
 
     @property
@@ -131,9 +145,11 @@ class RlLearningAgent(
         """Internal utility to initialize the update solver, in particular, a QP solver.
         If the update is unconstrained, then no solver is initialized, i.e., `None` is
         returned."""
-        lb = self._learnable_pars.lb
-        ub = self._learnable_pars.ub
-        if np.isneginf(lb).all() and np.isposinf(ub).all():
+        if (
+            self.max_percentage_update == float("+inf")
+            and np.isneginf(self._learnable_pars.lb).all()
+            and np.isposinf(self._learnable_pars.ub).all()
+        ):
             return None
 
         sym_type = cs.MX
@@ -150,6 +166,24 @@ class RlLearningAgent(
         opts = {"expand": True, "print_iter": False, "print_header": False}
         return cs.qpsol(f"qpsol_{self.name}", "qrqp", qp, opts)
 
+    def _get_update_bounds(
+        self,
+        theta: npt.NDArray[np.floating],
+        eps: float = 0.1,
+    ) -> Tuple[npt.NDArray[np.floating], npt.NDArray[np.floating]]:
+        """Internal utility to retrieve the current bounds on the QP solver for an
+        update. Only called if the update problem is not unconstrained, i.e., there are
+        either some lb or ub, or a maximum percentage update"""
+        lb = self._learnable_pars.lb
+        ub = self._learnable_pars.ub
+        perc = self.max_percentage_update
+        if perc == float("+inf"):
+            return lb, ub
+        max_update_delta = np.maximum(np.abs(perc * theta), eps)
+        lb = np.maximum(lb, theta - max_update_delta)
+        ub = np.minimum(ub, theta + max_update_delta)
+        return lb, ub
+
     def _do_gradient_update(self, gradient: npt.NDArray[np.floating]) -> Optional[str]:
         """Internal utility to do the actual gradient update by either calling the QP
         solver or by updating the parameters maually."""
@@ -160,16 +194,8 @@ class RlLearningAgent(
             self._learnable_pars.update_values(theta - p)
             return None
 
-        sol = solver(
-            p=np.concatenate((theta, p)),
-            lbx=self._learnable_pars.lb,
-            ubx=self._learnable_pars.ub,
-            x0=theta - p,
-        )
+        lb, ub = self._get_update_bounds(theta)
+        sol = solver(p=np.concatenate((theta, p)), lbx=lb, ubx=ub, x0=theta - p)
         self._learnable_pars.update_values(sol["x"].full().reshape(-1))
         stats = solver.stats()
         return None if stats["success"] else stats["return_status"]
-
-
-# TODO:
-# - max update percentage

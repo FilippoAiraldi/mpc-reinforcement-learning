@@ -76,6 +76,7 @@ class LstdQLearningAgent(
         ] = None,
         exploration: Optional[ExplorationStrategy] = None,
         experience: Optional[ExperienceReplay[ExpType]] = None,
+        max_percentage_update: float = float("+inf"),
         warmstart: Literal["last", "last-successful"] = "last-successful",
         hessian_type: Literal["approx", "full"] = "approx",
         record_td_errors: bool = False,
@@ -127,6 +128,11 @@ class LstdQLearningAgent(
             transition. In the case of LSTD Q-learning, each memory item consists of the
             action value function's gradient and hessian computed at each (succesful)
             env's step.
+        max_percentage_update : float, optional
+            A positive float that specifies the maximum percentage the parameters can be
+            changed during each update. For example, `max_percentage_update=0.5` means
+            that the parameters can be updated by up to 50% of their current value. By
+            default, it is set to `+inf`.
         warmstart: 'last' or 'last-successful', optional
             The warmstart strategy for the MPC's NLP. If 'last-successful', the last
             successful solution is used to warm start the solver for the next iteration.
@@ -158,6 +164,7 @@ class LstdQLearningAgent(
             fixed_parameters=fixed_parameters,
             exploration=exploration,
             experience=experience,
+            max_percentage_update=max_percentage_update,
             warmstart=warmstart,
             name=name,
         )
