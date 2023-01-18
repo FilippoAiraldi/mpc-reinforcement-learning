@@ -167,6 +167,7 @@ class TestExamples(unittest.TestCase):
                     learning_rate=5e-2,
                     hessian_type="approx",
                     record_td_errors=True,
+                    max_percentage_update=1e3,  # does nothing, just allows to test qp
                 )
             ),
             level=logging.DEBUG,
