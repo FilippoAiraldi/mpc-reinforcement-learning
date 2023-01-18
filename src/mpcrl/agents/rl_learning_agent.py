@@ -147,7 +147,7 @@ class RlLearningAgent(
             "f": 0.5 * cs.dot(dtheta, dtheta) + cs.dot(p, dtheta),
             "p": cs.vertcat(theta, p),
         }
-        opts = {"print_iter": False, "print_header": False}
+        opts = {"expand": True, "print_iter": False, "print_header": False}
         return cs.qpsol(f"qpsol_{self.name}", "qrqp", qp, opts)
 
     def _do_gradient_update(self, gradient: npt.NDArray[np.floating]) -> Optional[str]:
