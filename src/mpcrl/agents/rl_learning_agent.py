@@ -136,11 +136,12 @@ class RlLearningAgent(
         if np.isneginf(lb).all() and np.isposinf(ub).all():
             return None
 
+        sym_type = cs.MX
         n_p = self._learnable_pars.size
-        theta: cs.SX = cs.SX.sym("theta", n_p, 1)
-        theta_new: cs.SX = cs.SX.sym("theta+", n_p, 1)
+        theta = sym_type.sym("theta", n_p, 1)
+        theta_new = sym_type.sym("theta+", n_p, 1)
         dtheta = theta_new - theta
-        p: cs.SX = cs.SX.sym("p", n_p, 1)
+        p = sym_type.sym("p", n_p, 1)
         qp = {
             "x": theta_new,
             "f": 0.5 * cs.dot(dtheta, dtheta) + cs.dot(p, dtheta),
