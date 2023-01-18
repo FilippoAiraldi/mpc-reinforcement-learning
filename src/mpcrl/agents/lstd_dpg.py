@@ -256,28 +256,11 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         b_w = Psi.T @ (L + Phi_diff @ v)
         w = lstsq(A_w, b_w, **self.lstsq_kwargs)[0]
 
-        # compute policy gradient
+        # compute policy gradient and perform update
         dJdtheta = (dpidtheta @ dpidtheta.transpose((0, 2, 1)) @ w).sum(0).reshape(-1)
         if self.policy_gradients is not None:
             self.policy_gradients.append(dJdtheta)
-
-        # perform update
-        p = self.learning_rate * dJdtheta
-        theta = self._learnable_pars.value  # current values of parameters
-        solver = self._update_solver
-        if solver is None:
-            self._learnable_pars.update_values(theta - p)
-            return None
-
-        sol = solver(
-            p=np.concatenate((theta, p)),
-            lbx=self._learnable_pars.lb,
-            ubx=self._learnable_pars.ub,
-            x0=theta - p,
-        )
-        self._learnable_pars.update_values(sol["x"].full().reshape(-1))
-        stats = solver.stats()
-        return None if stats["success"] else stats["return_status"]
+        return self._do_gradient_update(dJdtheta)
 
     def train_one_episode(
         self,

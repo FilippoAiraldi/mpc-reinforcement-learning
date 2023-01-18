@@ -149,6 +149,26 @@ class RlLearningAgent(
         opts = {"print_iter": False, "print_header": False}
         return cs.qpsol(f"qpsol_{self.name}", "qrqp", qp, opts)
 
+    def _do_gradient_update(self, gradient: npt.NDArray[np.floating]) -> Optional[str]:
+        """Internal utility to do the actual gradient update by either calling the QP
+        solver or by updating the parameters maually."""
+        p = self.learning_rate * gradient
+        theta = self._learnable_pars.value  # current values of parameters
+        solver = self._update_solver
+        if solver is None:
+            self._learnable_pars.update_values(theta - p)
+            return None
+
+        sol = solver(
+            p=np.concatenate((theta, p)),
+            lbx=self._learnable_pars.lb,
+            ubx=self._learnable_pars.ub,
+            x0=theta - p,
+        )
+        self._learnable_pars.update_values(sol["x"].full().reshape(-1))
+        stats = solver.stats()
+        return None if stats["success"] else stats["return_status"]
+
 
 # TODO:
 # - max update percentage

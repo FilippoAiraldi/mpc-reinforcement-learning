@@ -196,27 +196,8 @@ class LstdQLearningAgent(
         sample = self.experience.sample()
         g, H = (np.mean(tuple(o), axis=0) for o in zip(*sample))
         R = cholesky_added_multiple_identities(H, maxiter=self.cho_maxiter)
-        p = self.learning_rate * cho_solve(
-            (R, True),
-            g,
-            **self.cho_solve_kwargs,
-        ).reshape(-1)
-
-        theta = self._learnable_pars.value  # current values of parameters
-        solver = self._update_solver
-        if solver is None:
-            self._learnable_pars.update_values(theta - p)
-            return None
-
-        sol = solver(
-            p=np.concatenate((theta, p)),
-            lbx=self._learnable_pars.lb,
-            ubx=self._learnable_pars.ub,
-            x0=theta - p,
-        )
-        self._learnable_pars.update_values(sol["x"].full().reshape(-1))
-        stats = solver.stats()
-        return None if stats["success"] else stats["return_status"]
+        gradient = cho_solve((R, True), g, **self.cho_solve_kwargs).reshape(-1)
+        return self._do_gradient_update(gradient)
 
     def train_one_episode(
         self,
