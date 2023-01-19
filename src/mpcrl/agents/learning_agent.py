@@ -101,6 +101,15 @@ class LearningAgent(
             Name of the agent. If `None`, one is automatically created from a counter of
             the class' instancies.
         """
+        Agent.__init__(
+            self,
+            mpc=mpc,
+            fixed_parameters=fixed_parameters,
+            warmstart=warmstart,
+            name=name,
+        )
+        LearningAgentCallbacks.__init__(self)
+        RemovesCallbackHooksInState.__init__(self)
         self._raises: bool = True
         self._learnable_pars = learnable_parameters
         self._experience = (
@@ -111,15 +120,6 @@ class LearningAgent(
         if not isinstance(update_strategy, UpdateStrategy):
             update_strategy = UpdateStrategy(update_strategy)
         self._update_strategy = update_strategy
-        Agent.__init__(
-            self,
-            mpc=mpc,
-            fixed_parameters=fixed_parameters,
-            warmstart=warmstart,
-            name=name,
-        )
-        LearningAgentCallbacks.__init__(self)
-        RemovesCallbackHooksInState.__init__(self)
         self.establish_callback_hooks()
 
     @property

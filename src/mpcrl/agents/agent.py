@@ -107,7 +107,6 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbacks, Generic[SymType]):
         self._fixed_pars = fixed_parameters
         self._exploration: ExplorationStrategy = NoExploration()
         self._store_last_successful = warmstart == "last-successful"
-        self.reset()
 
     @property
     def unwrapped(self) -> "Agent":
