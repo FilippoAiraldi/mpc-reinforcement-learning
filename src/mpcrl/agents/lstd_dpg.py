@@ -291,8 +291,12 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
 
             # store transition in experience
             if sol.success and sol_opt.success:
-                exp = action - action_opt
-                self._rollout.append((state, exp, cost, state_new, sol_opt))
+                # NOTE: according to Cai et al. [3], the sensitivities should naively be
+                # computed with the solution of unpertubed MPC (i.e., sol_opt).
+                # According to Gros and Zanon [2], it is hinted that the perturbed
+                # solution should be used instead (sol).
+                exploration = action - action_opt
+                self._rollout.append((state, exploration, cost, state_new, sol_opt))
             else:
                 status = f"{sol.status}/{sol_opt.status}"
                 self.on_mpc_failure(episode, timestep, status, raises)
