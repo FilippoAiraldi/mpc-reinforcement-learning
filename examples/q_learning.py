@@ -136,7 +136,10 @@ class LinearMpc(Mpc[cs.SX]):
         opts = {
             "expand": True,
             "print_time": False,
+            #  "jit": True,
+            #  "jit_cleanup": True,
             "ipopt": {
+                #  "linear_solver": "pardiso",
                 "max_iter": 500,
                 "sb": "yes",
                 "print_level": 0,
