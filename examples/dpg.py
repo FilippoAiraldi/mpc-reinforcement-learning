@@ -142,9 +142,11 @@ class LinearMpc(Mpc[cs.SX]):
         opts = {
             "expand": True,
             "print_time": False,
-            "jit": True,
+            "jit": False,
             "ipopt": {
                 # "linear_solver": "pardiso",
+                # "tol": 1e-5,
+                # "barrier_tol_factor": 1,
                 "max_iter": 500,
                 "sb": "yes",
                 "print_level": 0,
