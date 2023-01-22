@@ -135,3 +135,4 @@ libpardiso.exp
 libpardiso.lib
 pardiso.lic
 jit_tmp*.c
+comparison_dpg_opt_or_not.png
