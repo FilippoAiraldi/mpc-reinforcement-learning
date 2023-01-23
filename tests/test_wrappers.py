@@ -14,7 +14,7 @@ from mpcrl import (
     LearningAgent,
     wrappers_agents,
 )
-from mpcrl.wrappers.envs.monitor_episodes import compact_dicts_into_one
+from mpcrl.wrappers.envs.monitor_infos import compact_dicts_into_one
 
 
 @lru_cache

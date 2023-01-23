@@ -1,16 +1,6 @@
 from collections import deque
 from time import perf_counter
-from typing import (
-    Any,
-    Deque,
-    Dict,
-    Iterable,
-    List,
-    Optional,
-    SupportsFloat,
-    Tuple,
-    TypeVar,
-)
+from typing import Any, Deque, Dict, List, Optional, SupportsFloat, Tuple, TypeVar
 
 import numpy as np
 import numpy.typing as npt
@@ -18,36 +8,6 @@ from gymnasium import Env, Wrapper
 
 ObsType = TypeVar("ObsType")
 ActType = TypeVar("ActType")
-
-
-def compact_dicts_into_one(
-    dicts: Iterable[Dict[str, Any]], fill_value: Any = None
-) -> Dict[str, List[Any]]:
-    """Compacts an iterable of dictionaries into a single dict with lists of entries. If
-    an entry is missing for any given dict, `fill_value` is used in place.
-
-    Parameters
-    ----------
-    dicts : iterable of dicts[str, any]
-        Dictionaries to be compacted into a single one.
-    fill_value : any, optional
-        The value to be used to fill in missing values.
-
-    Returns
-    -------
-    Dict[str, list of any | fill_value]
-        A unique dictionary made from all the passed dicts.
-    """
-    out: Dict[str, List[Any]] = {}
-    for i, dict in enumerate(dicts):
-        for k, v in dict.items():
-            if k in out:
-                out[k].append(v)
-            else:
-                out[k] = [fill_value] * i + [v]
-        for k in out.keys() - dict.keys():
-            out[k].append(fill_value)
-    return out
 
 
 class MonitorEpisodes(Wrapper[ObsType, ActType]):
@@ -83,14 +43,12 @@ class MonitorEpisodes(Wrapper[ObsType, ActType]):
             maxlen=deque_size
         )
         self.rewards: Deque[npt.NDArray[np.floating]] = deque(maxlen=deque_size)
-        self.infos: Deque[Dict[str, List[Any]]] = deque(maxlen=deque_size)
         self.episode_lengths: Deque[int] = deque(maxlen=deque_size)
         self.exec_times: Deque[float] = deque(maxlen=deque_size)
         # current-episode-storages
         self.ep_observations: List[ObsType] = []
         self.ep_actions: List[ActType] = []
         self.ep_rewards: List[SupportsFloat] = []
-        self.ep_infos: List[Dict[str, Any]] = []
         self.t0: float = perf_counter()
         self.ep_length: int = 0
 
@@ -114,7 +72,6 @@ class MonitorEpisodes(Wrapper[ObsType, ActType]):
         self.ep_observations.append(obs)
         self.ep_actions.append(action)
         self.ep_rewards.append(reward)
-        self.ep_infos.append(info)
         self.ep_length += 1
 
         # if episode is done, save the current data to history
@@ -123,7 +80,6 @@ class MonitorEpisodes(Wrapper[ObsType, ActType]):
             self.observations.append(np.asarray(self.ep_observations))
             self.actions.append(np.asarray(self.ep_actions))
             self.rewards.append(np.asarray(self.ep_rewards))
-            self.infos.append(compact_dicts_into_one(self.ep_infos))
             self.episode_lengths.append(self.ep_length)
             self.exec_times.append(perf_counter() - self.t0)
 
@@ -137,6 +93,5 @@ class MonitorEpisodes(Wrapper[ObsType, ActType]):
         self.ep_observations.clear()
         self.ep_actions.clear()
         self.ep_rewards.clear()
-        self.ep_infos.clear()
         self.t0 = perf_counter()
         self.ep_length = 0
