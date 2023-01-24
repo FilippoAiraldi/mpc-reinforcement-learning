@@ -20,6 +20,24 @@ class MonitorEpisodes(Wrapper[ObsType, ActType]):
     that the environment is subject to during the learning process.
     """
 
+    __slots__ = (
+        "env",
+        "_action_space",
+        "_observation_space",
+        "_reward_range",
+        "_metadata",
+        "observations",
+        "rewards",
+        "actions",
+        "episode_lengths",
+        "exec_times",
+        "ep_observations",
+        "ep_actions",
+        "ep_rewards",
+        "t0",
+        "ep_length",
+    )
+
     def __init__(
         self, env: Env[ObsType, ActType], deque_size: Optional[int] = None
     ) -> None:
