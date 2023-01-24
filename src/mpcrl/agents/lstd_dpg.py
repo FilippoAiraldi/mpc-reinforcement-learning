@@ -67,7 +67,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         "_Phi",
         "rollout_length",
         "_rollout",
-        "lstsq_kwargs",
+        "lstsq_cond",
         "policy_performances",
         "policy_gradients",
     )
@@ -90,7 +90,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         record_policy_performance: bool = False,
         record_policy_gradient: bool = False,
         state_features: Optional[cs.Function] = None,
-        lstsq_kwargs: Optional[Dict[str, Any]] = None,
+        lstsq_cond: Optional[float] = 1e-7,
         linsolver: Literal["csparse", "qr", "mldivide"] = "mldivide",
         name: Optional[str] = None,
     ) -> None:
@@ -173,10 +173,8 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
             feature vector. This function is assumed to have one input and one output.
             By default, if not provided, it is designed as all monomials of the state
             with degrees <= 2 (see `LstdDpgAgent.monomials_state_features`).
-        lstsq_kwargs : kwargs for scipy.linalg.lstsq, optional
-            The optional kwargs to be passed to `scipy.linalg.lstsq`. If `None`, it
-            is equivalent to
-            `{'cond': 1e-7, 'check_finite': False, 'lapack_driver': 'gelsy'}`.
+        lstsq_cond : float, optional
+            Conditional number to be passed to `scipy.linalg.lstsq`. By default, `None`.
         linsolver : "csparse" or "qr" or "mldivide", optional
             The type of linear solver to be used for solving the linear system derived
             from the KKT conditions and used to estimate the gradient of the policy. By
@@ -210,13 +208,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
             else state_features
         )
         # initialize others
-        if lstsq_kwargs is None:
-            lstsq_kwargs = {
-                "check_finite": False,
-                "lapack_driver": "gelsy",
-                "cond": 1e-7,
-            }
-        self.lstsq_kwargs = lstsq_kwargs
+        self.lstsq_cond = lstsq_cond
         self.rollout_length = rollout_length
         self._rollout: List[
             Tuple[
@@ -255,12 +247,16 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         Phi_diff = self.discount_factor * Phi[mask_phi[:-1]] - Phi[mask_phi[1:]]
         A_v = Phi[mask_phi[1:]].T @ -Phi_diff
         b_v = Phi[mask_phi[1:]].T @ L
-        v = lstsq(A_v, b_v, **self.lstsq_kwargs)[0]
+        v = lstsq(
+            A_v, b_v, cond=self.lstsq_cond, lapack_driver="gelsy", check_finite=False
+        )[0]
 
         # compute CAFA weights w
         A_w = Psi.T @ Psi
         b_w = Psi.T @ (L + Phi_diff @ v)
-        w = lstsq(A_w, b_w, **self.lstsq_kwargs)[0]
+        w = lstsq(
+            A_w, b_w, cond=self.lstsq_cond, lapack_driver="gelsy", check_finite=False
+        )[0]
 
         # compute policy gradient and perform update
         dJdtheta = (dpidtheta @ dpidtheta.transpose((0, 2, 1))).sum(0) @ w
