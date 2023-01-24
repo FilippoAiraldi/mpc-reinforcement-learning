@@ -1,6 +1,5 @@
 from itertools import chain, repeat
 from typing import (
-    Any,
     Collection,
     Dict,
     Generic,
@@ -13,6 +12,7 @@ from typing import (
 )
 
 import casadi as cs
+import numba as nb
 import numpy as np
 import numpy.typing as npt
 from csnlp.util.math import prod
@@ -37,6 +37,32 @@ ExpType: TypeAlias = Tuple[
     npt.NDArray[np.floating],  # rollout's Psi(s,a)
     npt.NDArray[np.floating],  # rollout's gradient of policy
 ]
+
+
+@nb.njit
+def _consolidate_rollout(
+    rollout: List[Tuple[ObsType, ActType, float, ObsType, npt.NDArray[np.floating]]],
+    ns: int,
+    na: int,
+) -> Tuple[
+    int,
+    npt.NDArray[np.floating],
+    npt.NDArray[np.floating],
+    npt.NDArray[np.floating],
+    npt.NDArray[np.floating],
+]:
+    """Internal utility to convert a rollout list to arrays."""
+    N = len(rollout)
+    S = np.empty((N, ns))
+    E = np.empty((N, na, 1))  # additional dim required for Psi
+    L = np.empty(N)
+    sol_vals = np.empty((N, rollout[0][-1].size))
+    for i, (s, e, cost, _, sol_val) in enumerate(rollout):
+        S[i] = s.reshape(-1)  # type: ignore[union-attr]
+        E[i] = e
+        L[i] = cost
+        sol_vals[i] = sol_val.reshape(-1)
+    return N, S, E, L, sol_vals
 
 
 class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, LrType]):
@@ -218,7 +244,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
                 ObsType,
                 npt.NDArray[np.floating],
             ]
-        ] = []
+        ] = nb.typed.List()
         self.policy_performances: Optional[List[float]] = (
             [] if record_policy_performance else None
         )
@@ -229,7 +255,8 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
     def update(self) -> Optional[str]:
         sample = self.experience.sample()
 
-        # congegrate sample's rollout into a unique least-squares problem
+        # congegrate sample's rollout into a unique least-squares problem. Since the
+        # sample is usually shortish, no point in using nb.jit
         L_, Phi_, Psi_, dpidtheta_ = [], [], [], []
         mask_phi = [False]
         for L, Phi, Psi, dpidtheta in sample:
@@ -290,8 +317,8 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
                 # computed with the solution of unpertubed MPC (i.e., sol_opt).
                 # According to Gros and Zanon [2], it is hinted that the perturbed
                 # solution should be used instead (sol).
-                exploration = (action - action_opt).full().reshape(-1)
-                sol_vals = sol.all_vals.full().reshape(-1)
+                exploration = (action - action_opt).full()
+                sol_vals = sol.all_vals.full()
                 self._rollout.append((state, exploration, cost, state_new, sol_vals))
             else:
                 status = f"{sol.status}/{sol_opt.status}"
@@ -389,19 +416,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         """Internal utility to compact the current rollout into a single item in
         memory."""
         # convert to arrays
-        S_, E_, L_, sol_vals_ = [], [], [], []
-        for s, e, cost, _, sol_val in self._rollout:
-            S_.append(s)
-            E_.append(e)
-            L_.append(cost)
-            sol_vals_.append(sol_val)
-        N = len(S_)
-        ns = self._V.ns
-        na = self._V.na
-        S = np.asarray(S_).reshape(N, ns)
-        E = np.asarray(E_).reshape(N, na, 1)  # additional dim required for Psi
-        L = np.asarray(L_)
-        sol_vals = np.asarray(sol_vals_).reshape(N, -1)
+        N, S, E, L, vals = _consolidate_rollout(self._rollout, self._V.ns, self._V.na)
 
         # compute Phi (to avoid repeating computations, compute only the last Phi(s+))
         s_next_last = self._rollout[-1][3]
@@ -411,7 +426,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         # dims, so dpidtheta gets squished in the third dim and needs to be reshaped)
         ntheta, na = self._dpidtheta.size_out(0)
         dpidtheta = (
-            self._dpidtheta(sol_vals.T)
+            self._dpidtheta(vals.T)
             .full()
             .reshape(ntheta, na, N, order="F")
             .transpose((2, 0, 1))
