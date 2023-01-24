@@ -264,7 +264,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         w = lstsq(A_w, b_w, **self.lstsq_kwargs)[0]
 
         # compute policy gradient and perform update
-        dJdtheta = (dpidtheta @ dpidtheta.transpose((0, 2, 1)) @ w).sum(0).reshape(-1)
+        dJdtheta = (dpidtheta @ dpidtheta.transpose((0, 2, 1))).sum(0) @ w
         if self.policy_gradients is not None:
             self.policy_gradients.append(dJdtheta)
         return self._do_gradient_update(dJdtheta)
@@ -405,7 +405,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         na = self._V.na
         S = np.asarray(S_).reshape(N, ns)
         E = np.asarray(E_).reshape(N, na, 1)  # additional dim required for Psi
-        L = np.asarray(L_).reshape(N, 1)
+        L = np.asarray(L_)
         all_vals = np.asarray(all_vals_).reshape(N, -1)
 
         # compute Phi (to avoid repeating computations, compute only the last Phi(s+))
