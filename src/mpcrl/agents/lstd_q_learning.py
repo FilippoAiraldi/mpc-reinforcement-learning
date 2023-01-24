@@ -238,9 +238,9 @@ class LstdQLearningAgent(
                 self.on_mpc_failure(episode, timestep, solV.status, raises)
 
             # increase counters
-            self.on_env_step(env, episode, timestep)  # better to call this at the end
             rewards += float(cost)
             timestep += 1
+            self.on_env_step(env, episode, timestep)  # better to call this at the end
         return rewards
 
     def _init_Q_derivatives(

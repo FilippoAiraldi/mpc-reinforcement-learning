@@ -351,10 +351,10 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbacks, Generic[SymType]):
         self.on_validation_start(env)
 
         for episode, current_seed in zip(range(episodes), generate_seeds(seed)):
-            self.on_episode_start(env, episode)
             self.reset(seed=current_seed)
             state, _ = env.reset(seed=current_seed, options=env_reset_options)
             truncated, terminated, timestep = False, False, 0
+            self.on_episode_start(env, episode)
 
             while not (truncated or terminated):
                 action, sol = self.state_value(state, deterministic)
@@ -362,10 +362,10 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbacks, Generic[SymType]):
                     self.on_mpc_failure(episode, timestep, sol.status, raises)
 
                 state, r, truncated, terminated, _ = env.step(action)
-                self.on_env_step(env, episode, timestep)
 
                 returns[episode] += r
                 timestep += 1
+                self.on_env_step(env, episode, timestep)
 
             self.on_episode_end(env, episode, returns[episode])
 
