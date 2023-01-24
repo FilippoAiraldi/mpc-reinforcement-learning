@@ -15,7 +15,6 @@ from typing import (
 import casadi as cs
 import numpy as np
 import numpy.typing as npt
-from csnlp import Solution
 from csnlp.util.math import prod
 from csnlp.wrappers import Mpc, NlpSensitivity
 from gymnasium import Env
@@ -225,7 +224,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
                 ActType,
                 SupportsFloat,
                 ObsType,
-                Solution[SymType],
+                npt.NDArray[np.floating],
             ]
         ] = []
         self.policy_performances: Optional[List[float]] = (
@@ -295,8 +294,9 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
                 # computed with the solution of unpertubed MPC (i.e., sol_opt).
                 # According to Gros and Zanon [2], it is hinted that the perturbed
                 # solution should be used instead (sol).
-                exploration = action - action_opt
-                self._rollout.append((state, exploration, cost, state_new, sol_opt))
+                exploration = (action - action_opt).full().reshape(-1)
+                sol_vals = sol.all_vals.full().reshape(-1)
+                self._rollout.append((state, exploration, cost, state_new, sol_vals))
             else:
                 status = f"{sol.status}/{sol_opt.status}"
                 self.on_mpc_failure(episode, timestep, status, raises)
@@ -393,20 +393,19 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         """Internal utility to compact the current rollout into a single item in
         memory."""
         # convert to arrays
-        S_, E_, L_, all_vals_ = [], [], [], []
-        for s, e, cost, _, sol in self._rollout:
+        S_, E_, L_, sol_vals_ = [], [], [], []
+        for s, e, cost, _, sol_val in self._rollout:
             S_.append(s)
             E_.append(e)
             L_.append(cost)
-            all_vals = sol.all_vals
-            all_vals_.append(all_vals)
+            sol_vals_.append(sol_val)
         N = len(S_)
         ns = self._V.ns
         na = self._V.na
         S = np.asarray(S_).reshape(N, ns)
         E = np.asarray(E_).reshape(N, na, 1)  # additional dim required for Psi
         L = np.asarray(L_)
-        all_vals = np.asarray(all_vals_).reshape(N, -1)
+        sol_vals = np.asarray(sol_vals_).reshape(N, -1)
 
         # compute Phi (to avoid repeating computations, compute only the last Phi(s+))
         s_next_last = self._rollout[-1][3]
@@ -416,7 +415,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         # dims, so dpidtheta gets squished in the third dim and needs to be reshaped)
         ntheta, na = self._dpidtheta.size_out(0)
         dpidtheta = (
-            self._dpidtheta(all_vals.T)
+            self._dpidtheta(sol_vals.T)
             .full()
             .reshape(ntheta, na, N, order="F")
             .transpose((2, 0, 1))
