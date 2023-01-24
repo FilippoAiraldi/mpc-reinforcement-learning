@@ -419,8 +419,8 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         N, S, E, L, vals = _consolidate_rollout(self._rollout, self._V.ns, self._V.na)
 
         # compute Phi (to avoid repeating computations, compute only the last Phi(s+))
-        s_next_last = self._rollout[-1][3]
-        Phi = np.concatenate((self._Phi(S.T).full().T, self._Phi(s_next_last).T))
+        s_next_last = self._rollout[-1][3].T  # type: ignore[union-attr]
+        Phi = self._Phi(np.concatenate((S, s_next_last)).T).full().T
 
         # compute dpidtheta and Psi (casadi does not support tensors with more than 2
         # dims, so dpidtheta gets squished in the third dim and needs to be reshaped)
