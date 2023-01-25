@@ -7,7 +7,7 @@ from mpcrl.agents.learning_agent import ExpType, LearningAgent
 from mpcrl.core.callbacks import RemovesCallbackHooksInState
 
 
-class Wrapper(SupportsDeepcopyAndPickle, Generic[SymType]):
+class Wrapper(SupportsDeepcopyAndPickle, RemovesCallbackHooksInState, Generic[SymType]):
     """Wraps a learning agent to allow a modular transformation of its methods. This
     class is the base class for all wrappers. The subclass could override some methods
     to change the behavior of the original environment without touching the original
@@ -23,7 +23,8 @@ class Wrapper(SupportsDeepcopyAndPickle, Generic[SymType]):
         agent : Agent or subclass
             The agent to wrap.
         """
-        super().__init__()
+        SupportsDeepcopyAndPickle.__init__(self)
+        RemovesCallbackHooksInState.__init__(self)
         self.agent = agent
 
     @property
@@ -48,6 +49,10 @@ class Wrapper(SupportsDeepcopyAndPickle, Generic[SymType]):
             return True
         return self.agent.is_wrapped(wrapper_type)
 
+    def hook_callback(self, *args, **kwargs) -> None:
+        """See `LearningAgent.hook_callback`."""
+        self.agent.hook_callback(*args, **kwargs)
+
     def __getattr__(self, name: str) -> Any:
         """Reroutes attributes to the wrapped agent instance."""
         if name.startswith("_"):
@@ -63,23 +68,14 @@ class Wrapper(SupportsDeepcopyAndPickle, Generic[SymType]):
         return f"<{self.__class__.__name__}{self.agent.__repr__()}>"
 
 
-class LearningWrapper(
-    Wrapper[SymType],
-    RemovesCallbackHooksInState,
-    Generic[SymType, ExpType],
-):
+class LearningWrapper(Wrapper[SymType], Generic[SymType, ExpType]):
     """Identical to `Wrapper`, but for learning agents."""
 
     def __init__(self, agent: LearningAgent[SymType, ExpType]) -> None:
         Wrapper.__init__(self, agent)
-        RemovesCallbackHooksInState.__init__(self)
         self.agent: LearningAgent[SymType, ExpType]
         self.establish_callback_hooks()
 
     @property
     def unwrapped(self) -> LearningAgent[SymType, ExpType]:
         return self.agent.unwrapped
-
-    def hook_callback(self, *args, **kwargs) -> None:
-        """See `LearningAgent.hook_callback`."""
-        self.agent.hook_callback(*args, **kwargs)
