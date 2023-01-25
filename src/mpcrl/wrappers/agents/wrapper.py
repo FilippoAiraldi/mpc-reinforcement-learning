@@ -26,6 +26,7 @@ class Wrapper(SupportsDeepcopyAndPickle, RemovesCallbackHooksInState, Generic[Sy
         SupportsDeepcopyAndPickle.__init__(self)
         RemovesCallbackHooksInState.__init__(self)
         self.agent = agent
+        self.establish_callback_hooks()
 
     @property
     def unwrapped(self) -> Agent[SymType]:
@@ -74,7 +75,6 @@ class LearningWrapper(Wrapper[SymType], Generic[SymType, ExpType]):
     def __init__(self, agent: LearningAgent[SymType, ExpType]) -> None:
         Wrapper.__init__(self, agent)
         self.agent: LearningAgent[SymType, ExpType]
-        self.establish_callback_hooks()
 
     @property
     def unwrapped(self) -> LearningAgent[SymType, ExpType]:
