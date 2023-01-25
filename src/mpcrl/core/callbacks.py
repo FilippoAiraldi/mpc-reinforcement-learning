@@ -1,6 +1,5 @@
 from functools import wraps
 from inspect import getmembers, isfunction
-from itertools import chain
 from operator import itemgetter
 from typing import (
     Any,
@@ -174,20 +173,13 @@ class LearningAgentCallbacks:
         decaying exploration probabilities or learning rates."""
 
 
-ALL_CALLBACKS = tuple(
-    map(
-        itemgetter(0),
-        chain.from_iterable(
-            (
-                getmembers(
-                    cls,
-                    predicate=lambda o: isfunction(o) and o.__name__.startswith("on_"),
-                )
-                for cls in (AgentCallbacks, LearningAgentCallbacks)
-            )
-        ),
-    )
+_pred = lambda o: isfunction(o) and o.__name__.startswith("on_")
+_AGENT_CALLBACKS, _LEARNING_AGENT_CALLBACKS = (
+    set(map(itemgetter(0), getmembers(cls, predicate=_pred)))
+    for cls in (AgentCallbacks, LearningAgentCallbacks)
 )
+_ALL_CALLBACKS = set.union(_AGENT_CALLBACKS, _LEARNING_AGENT_CALLBACKS)
+del _pred
 
 
 class RemovesCallbackHooksInState:
@@ -266,7 +258,7 @@ class RemovesCallbackHooksInState:
         if state is not None:
             # remove wrapped methods for callbacks due to this object (otherwise, new
             # copies will still be calling the old object).
-            for name in ALL_CALLBACKS:
+            for name in _ALL_CALLBACKS:
                 state.pop(name, None)  # type: ignore[union-attr]
             self.__dict__.update(state)  # type: ignore[arg-type]
         if slotstate is not None:
