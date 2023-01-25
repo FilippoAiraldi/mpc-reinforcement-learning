@@ -1,7 +1,17 @@
+from functools import wraps
 from inspect import getmembers, isfunction
-from itertools import chain
 from operator import itemgetter
-from typing import Any, Dict, Optional, Tuple, TypeVar, Union
+from typing import (
+    Any,
+    Callable,
+    Collection,
+    Dict,
+    Literal,
+    Optional,
+    Tuple,
+    TypeVar,
+    Union,
+)
 
 import numpy as np
 import numpy.typing as npt
@@ -185,6 +195,57 @@ class RemovesCallbackHooksInState:
     object (created from the state) would reference callbacks belonging to the old
     agent. In this way, the callbacks are linked to the new instance.
     """
+
+    def hook_callback(
+        self,
+        attachername: str,
+        callbackname: str,
+        func: Callable,
+        args_idx: Union[None, int, slice] = None,
+        kwargs_keys: Union[None, Collection[str], Literal["all"]] = None,
+    ) -> None:
+        """Hooks a function to be called each time an agent's callback is invoked.
+
+        Parameters
+        ----------
+        attachername : str
+            The name of the object requesting the hook. Has only info purposes.
+        callbackname : str
+            Name of the callback to hook to.
+        func : Callable
+            function to be called when the callback is invoked.
+        args_idx : int or slice, optional
+            Indices of the `args` of the callback to be passed to `func`, if not `None`.
+        kwargs_keys : collection of strings or "all", optional
+            Keys of the `kwargs` of the callback to be passed to `func`, if not `None`.
+            If `'all'`, then all the kwargs are passed.
+        """
+        if args_idx is None:
+            args_idx = slice(0, 0)
+        all_kwargs_keys = False
+        if kwargs_keys is None:
+            kwargs_keys = tuple()
+        elif kwargs_keys == "all":
+            all_kwargs_keys = True
+
+        def decorate(method: Callable) -> Callable:
+            @wraps(method)
+            def wrapper(*args, **kwargs):
+                out = method(*args, **kwargs)
+                func(
+                    *args[args_idx],
+                    **(
+                        kwargs
+                        if all_kwargs_keys
+                        else {k: kwargs[k] for k in kwargs_keys if k in kwargs}
+                    ),
+                )
+                return out
+
+            wrapper.attacher = attachername  # type: ignore[attr-defined]
+            return wrapper
+
+        setattr(self, callbackname, decorate(getattr(self, callbackname)))
 
     def establish_callback_hooks(self) -> None:
         """This method must be used to perform the connections between callbacks and any
