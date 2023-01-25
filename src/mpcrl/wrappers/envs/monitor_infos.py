@@ -1,4 +1,5 @@
 from collections import deque
+from logging import warn
 from typing import (
     Any,
     Deque,
@@ -78,14 +79,14 @@ class MonitorInfos(Wrapper[ObsType, ActType]):
         super().__init__(env)
         # long-term storages
         self.reset_infos: Deque[Dict[str, Any]] = deque(maxlen=deque_size)
-        self.step_infos: Deque[Dict[str, List[Any]]] = deque(maxlen=deque_size)
+        self.step_infos: Deque[List[Dict[str, Any]]] = deque(maxlen=deque_size)
         # current-episode-storages
         self.ep_step_infos: List[Dict[str, Any]] = []
 
     def reset(
         self, *, seed: Optional[int] = None, options: Optional[Dict[str, Any]] = None
     ) -> Tuple[ObsType, Dict[str, Any]]:
-        """Resets the environment and resets the current data accumulators."""
+        """Resets the environment and resets the current info accumulators."""
         observation, info = super().reset(seed=seed, options=options)
         self.ep_step_infos.clear()
         self.reset_infos.append(info)
@@ -94,14 +95,55 @@ class MonitorInfos(Wrapper[ObsType, ActType]):
     def step(
         self, action: ActType
     ) -> Tuple[ObsType, SupportsFloat, bool, bool, Dict[str, Any]]:
-        """Steps through the environment, accumulating the episode data."""
+        """Steps through the environment, accumulating the episode info dicts."""
         obs, reward, terminated, truncated, info = super().step(action)
-
-        # accumulate data
         self.ep_step_infos.append(info)
-
-        # if episode is done, save the current data to history
         if terminated or truncated:
-            self.step_infos.append(compact_dicts_into_one(self.ep_step_infos))
+            self.step_infos.append(self.ep_step_infos.copy())
             self.ep_step_infos.clear()
         return obs, reward, terminated, truncated, info
+
+    def finalized_reset_infos(self, fill_value: Any = None) -> Dict[str, List[Any]]:
+        """Returns a compacted final dictionary containing the reset infos. Missing
+        values are filled automatically.
+
+        Parameters
+        ----------
+        fill_value : Any, optional
+            The value to be used to fill in missing values.
+
+        Returns
+        -------
+        dict of (str, list)
+            A unique dict containing for each entry returned in the reset info the
+            corresponding list of entries, one per each reset call.
+        """
+        return compact_dicts_into_one(self.reset_infos, fill_value)
+
+    def finalized_step_infos(
+        self, fill_value: Any = None
+    ) -> Dict[str, List[List[Any]]]:
+        """Returns a compacted final dictionary containing the step infos. Missing
+        values are filled automatically.
+
+        Parameters
+        ----------
+        fill_value : Any, optional
+            The value to be used to fill in missing values.
+
+        Returns
+        -------
+        dict of (str, list of lists)
+            A unique dict containing for each entry returned in the step info the
+            corresponding list of dicts per episode, with one entry per each step call.
+        """
+
+        if len(self.ep_step_infos) > 0:
+            warn(
+                "Internal buffer of step infos not empty, meaning that the last "
+                "episode did not terminate properly.",
+                RuntimeWarning,
+            )
+        return compact_dicts_into_one(
+            (compact_dicts_into_one(d, fill_value) for d in self.step_infos), fill_value
+        )
