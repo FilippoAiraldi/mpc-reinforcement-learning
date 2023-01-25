@@ -1,5 +1,6 @@
 from functools import wraps
 from inspect import getmembers, isfunction
+from itertools import chain
 from operator import itemgetter
 from typing import (
     Any,
