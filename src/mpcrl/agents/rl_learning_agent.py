@@ -184,10 +184,10 @@ class RlLearningAgent(
         ub = np.minimum(ub, theta + max_update_delta)
         return lb, ub
 
-    def _do_gradient_update(self, gradient: npt.NDArray[np.floating]) -> Optional[str]:
+    def _do_gradient_update(self, step: npt.NDArray[np.floating]) -> Optional[str]:
         """Internal utility to do the actual gradient update by either calling the QP
         solver or by updating the parameters maually."""
-        p = self.learning_rate * gradient
+        p = self.learning_rate * step
         theta = self._learnable_pars.value  # current values of parameters
         solver = self._update_solver
         if solver is None:

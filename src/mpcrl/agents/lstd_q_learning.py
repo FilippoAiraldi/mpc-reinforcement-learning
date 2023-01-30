@@ -201,10 +201,10 @@ class LstdQLearningAgent(
 
     def update(self) -> Optional[str]:
         sample = self.experience.sample()
-        g, H = (np.mean(tuple(o), axis=0) for o in zip(*sample))
-        R = cholesky_added_multiple_identities(H, maxiter=self.cho_maxiter)
-        gradient = cho_solve((R, True), g, **self.cho_solve_kwargs).reshape(-1)
-        return self._do_gradient_update(gradient)
+        gradient, Hessian = (np.mean(tuple(o), axis=0) for o in zip(*sample))
+        R = cholesky_added_multiple_identities(Hessian, maxiter=self.cho_maxiter)
+        step = cho_solve((R, True), gradient, **self.cho_solve_kwargs).reshape(-1)
+        return self._do_gradient_update(step)
 
     def train_one_episode(
         self,
