@@ -8,7 +8,7 @@ from gymnasium import Env
 
 from mpcrl.agents.agent import Agent
 from mpcrl.agents.learning_agent import LearningAgent
-from mpcrl.core.callbacks import _LEARNING_AGENT_CALLBACKS
+from mpcrl.core.callbacks import _LEARNING_AGENT_CALLBACKS, _failure_msg
 from mpcrl.util.iters import bool_cycle
 from mpcrl.wrappers.agents.wrapper import SymType, Wrapper
 
@@ -133,7 +133,7 @@ class Log(Wrapper[SymType]):
         self, episode: int, timestep: Optional[int], status: str, raises: bool
     ) -> None:
         m = self.logger.error if raises else self.logger.warning
-        m(f"Mpc failure at episode {episode}, time {timestep}, status: {status}.")
+        m(_failure_msg("mpc", self.agent.name, episode, timestep, status))
 
     def _on_validation_start(self, env: Env[ObsType, ActType]) -> None:
         self.logger.debug(f"validation of {env} started.")
@@ -168,7 +168,7 @@ class Log(Wrapper[SymType]):
         self, episode: int, timestep: Optional[int], errormsg: str, raises: bool
     ) -> None:
         m = self.logger.error if raises else self.logger.warning
-        m(f"Update failed at episode {episode}, time {timestep}, status: {errormsg}.")
+        m(_failure_msg("update", self.agent.name, episode, timestep, errormsg))
 
     def _on_training_start(self, env: Env[ObsType, ActType]) -> None:
         self.logger.debug(f"training of {env} started.")

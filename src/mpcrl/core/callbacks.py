@@ -26,6 +26,24 @@ ObsType = TypeVar("ObsType")
 ActType = TypeVar("ActType")
 
 
+def _failure_msg(
+    type: Literal["mpc", "update"],
+    name: str,
+    episode: int,
+    timestep: Optional[int],
+    status: str,
+) -> str:
+    """Internal utility for composing message for mpc/update failure."""
+    p = type.title()
+    if timestep is None:
+        return f"{p} failure of {name} at episode {episode}, status: {status}."
+    else:
+        return (
+            f"{p} failure of {name} at episode {episode}, time {timestep}, "
+            f"status: {status}."
+        )
+
+
 class AgentCallbacks:
     """Callbacks for agents."""
 
@@ -46,14 +64,11 @@ class AgentCallbacks:
         raises : bool
             Whether the failure should be raised as exception.
         """
-        if timestep is None:
-            msg = f"Mpc failure at episode {episode}, status: {status}."
-        else:
-            msg = (
-                f"Mpc failure at episode {episode}, time {timestep}, "
-                f"status: {status}."
-            )
-        raise_or_warn_on_mpc_failure(msg, raises)
+        name: str = getattr(self, "name", "agent")
+        raise_or_warn_on_mpc_failure(
+            _failure_msg("mpc", name, episode, timestep, status),
+            raises,
+        )
 
     def on_validation_start(self, env: Env[ObsType, ActType]) -> None:
         """Callback called at the beginning of the validation process.
@@ -137,14 +152,11 @@ class LearningAgentCallbacks:
         raises : bool
             Whether the failure should be raised as exception.
         """
-        if timestep is None:
-            msg = f"Update failed at episode {episode}, status: {errormsg}."
-        else:
-            msg = (
-                f"Update failed at episode {episode}, time {timestep}, "
-                f"status: {errormsg}."
-            )
-        raise_or_warn_on_update_failure(msg, raises)
+        name: str = getattr(self, "name", "agent")
+        raise_or_warn_on_update_failure(
+            _failure_msg("update", name, episode, timestep, errormsg),
+            raises,
+        )
 
     def on_training_start(self, env: Env[ObsType, ActType]) -> None:
         """Callback called at the beginning of the training process.
