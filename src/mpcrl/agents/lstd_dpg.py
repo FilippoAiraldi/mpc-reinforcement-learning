@@ -1,5 +1,6 @@
 from itertools import chain, repeat
 from typing import (
+    Any,
     Collection,
     Dict,
     Generic,
@@ -18,7 +19,7 @@ import numpy.typing as npt
 from csnlp.util.math import prod
 from csnlp.wrappers import Mpc, NlpSensitivity
 from gymnasium import Env
-from scipy.linalg import lstsq
+from scipy.linalg import cho_solve, lstsq
 from typing_extensions import TypeAlias
 
 from mpcrl.agents.agent import ActType, ObsType, SymType
@@ -29,7 +30,7 @@ from mpcrl.core.learning_rate import LearningRate
 from mpcrl.core.parameters import LearnableParametersDict
 from mpcrl.core.schedulers import Scheduler
 from mpcrl.core.update import UpdateStrategy
-from mpcrl.util.math import monomial_powers
+from mpcrl.util.math import cholesky_added_multiple_identities, monomial_powers
 
 ExpType: TypeAlias = Tuple[
     npt.NDArray[np.floating],  # rollout's costs
@@ -93,9 +94,12 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         "_Phi",
         "rollout_length",
         "_rollout",
-        "lstsq_cond",
         "policy_performances",
         "policy_gradients",
+        "lstsq_cond",
+        "hessian_type",
+        "cho_maxiter",
+        "cho_solve_kwargs",
     )
 
     def __init__(
@@ -118,6 +122,9 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         state_features: Optional[cs.Function] = None,
         lstsq_cond: Optional[float] = 1e-7,
         linsolver: Literal["csparse", "qr", "mldivide"] = "mldivide",
+        hessian_type: Literal["none", "natural"] = "none",
+        cho_maxiter: int = 1000,
+        cho_solve_kwargs: Optional[Dict[str, Any]] = None,
         name: Optional[str] = None,
     ) -> None:
         """Instantiates the LSTD DPG agent.
@@ -205,6 +212,18 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
             The type of linear solver to be used for solving the linear system derived
             from the KKT conditions and used to estimate the gradient of the policy. By
             default, `"qr"` is chosen.
+        hessian_type : 'none' or 'natural', optional
+            The type of hessian to use in this second-order algorithm. If `none`, no
+            hessian is used (first-order). If `natural`, the hessian is approximated
+            according to natural policy gradients.
+        cho_maxiter : int, optional
+            Maximum number of iterations in the Cholesky's factorization with additive
+            multiples of the identity to ensure positive definiteness of the hessian. By
+            default, `1000`. Only used if `hessian_type!='none'`.
+        cho_solve_kwargs : kwargs for scipy.linalg.cho_solve, optional
+            The optional kwargs to be passed to `scipy.linalg.cho_solve`. If `None`, it
+            is equivalent to `cho_solve_kwargs = {'check_finite': False }`. Only used if
+            `hessian_type!='none'`.
         name : str, optional
             Name of the agent. If `None`, one is automatically created from a counter of
             the class' instancies.
@@ -225,14 +244,18 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
             warmstart=warmstart,
             name=name,
         )
-        # initialize derivatives and state feature vector
+        # initialize derivatives, state feature vector and hessian approximation
         self._dpidtheta = self._init_dpg_derivatives(linsolver)
-        # TODO: check that monomial with power 0 makes Psi ill-posed
         self._Phi = (
             LstdDpgAgent.monomials_state_features(mpc.ns, mpc.sym_type.__name__, 0, 2)
             if state_features is None
             else state_features
         )
+        self.hessian_type = hessian_type
+        self.cho_maxiter = cho_maxiter
+        if cho_solve_kwargs is None:
+            cho_solve_kwargs = {"check_finite": False}
+        self.cho_solve_kwargs = cho_solve_kwargs
         # initialize others
         self.lstsq_cond = lstsq_cond
         self.rollout_length = rollout_length
@@ -285,11 +308,19 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
             A_w, b_w, cond=self.lstsq_cond, lapack_driver="gelsy", check_finite=False
         )[0]
 
-        # compute policy gradient and perform update
+        # compute policy gradient
         dJdtheta = (dpidtheta @ dpidtheta.transpose((0, 2, 1))).sum(0) @ w
+        if self.hessian_type == "natural":
+            Hessian = (dpidtheta @ dpidtheta.transpose((0, 2, 1))).sum(0)
+            R = cholesky_added_multiple_identities(Hessian, maxiter=self.cho_maxiter)
+            step = cho_solve((R, True), dJdtheta, **self.cho_solve_kwargs)
+        else:
+            step = dJdtheta
+
+        # perform update
         if self.policy_gradients is not None:
-            self.policy_gradients.append(dJdtheta)
-        return self._do_gradient_update(dJdtheta)
+            self.policy_gradients.append(step)
+        return self._do_gradient_update(step)
 
     def train_one_episode(
         self,
