@@ -110,7 +110,7 @@ class LearningAgent(
         if exploration is not None:
             self._exploration = exploration
         if not isinstance(update_strategy, UpdateStrategy):
-            update_strategy = UpdateStrategy(update_strategy)
+            update_strategy = UpdateStrategy(update_strategy, "on_env_step")
         self._update_strategy = update_strategy
         self.establish_callback_hooks()
 

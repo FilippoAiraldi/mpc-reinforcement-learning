@@ -108,7 +108,7 @@ class RlLearningAgent(
             the class' instancies.
         """
         if not isinstance(learning_rate, LearningRate):
-            learning_rate = LearningRate(learning_rate)
+            learning_rate = LearningRate(learning_rate, "on_update")
         self._learning_rate: LearningRate[LrType] = learning_rate
         self.discount_factor = discount_factor
         super().__init__(
