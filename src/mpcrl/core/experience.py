@@ -21,8 +21,7 @@ class ExperienceReplay(Deque[ExpType]):
         include_last: Union[int, float] = 0,
         seed: Optional[int] = None,
     ) -> None:
-        """
-        Instantiate the container for experience replay memory.
+        """Instantiate the container for experience replay memory.
 
         Parameters
         ----------
@@ -50,8 +49,7 @@ class ExperienceReplay(Deque[ExpType]):
         self.np_random = np_random(seed)
 
     def sample(self) -> Iterator[ExpType]:
-        """
-        Samples the experience memory and yields the sampled items.
+        """Samples the experience memory and yields the sampled items.
 
         Returns
         -------

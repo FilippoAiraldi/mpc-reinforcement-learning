@@ -259,7 +259,7 @@ class Agent(
             keys are the names of the MPC variables, and values are the numerical
             initial values of each variable. Use this to warm-start the MPC. If `None`,
             and a previous solution (possibly, successful) is available, the MPC solver
-            is automatically warm-started
+            is automatically warm-started.
 
         Returns
         -------
