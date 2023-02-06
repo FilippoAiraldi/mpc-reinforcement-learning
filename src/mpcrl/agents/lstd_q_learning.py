@@ -235,7 +235,9 @@ class LstdQLearningAgent(
             if solQ.success and solV.success:
                 self.store_experience(cost, solQ, solV)
             else:
-                self.on_mpc_failure(episode, timestep, solV.status, raises)
+                self.on_mpc_failure(
+                    episode, timestep, f"{solQ.status}/{solV.status}", raises
+                )
 
             # increase counters
             rewards += float(cost)
