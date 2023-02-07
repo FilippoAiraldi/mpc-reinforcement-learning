@@ -163,6 +163,7 @@ class Agent(
         vals0: Union[
             None, Dict[str, npt.ArrayLike], Iterable[Dict[str, npt.ArrayLike]]
         ] = None,
+        store_solution: bool = True,
     ) -> Solution[SymType]:
         """Solves the agent's specific MPC optimal control problem.
 
@@ -185,7 +186,11 @@ class Agent(
             keys are the names of the MPC variables, and values are the numerical
             initial values of each variable. Use this to warm-start the MPC. If `None`,
             and a previous solution (possibly, successful) is available, the MPC solver
-            is automatically warm-started
+            is automatically warm-started.
+        store_solution : bool, optional
+            By default, the mpc solution is stored accordingly to the `warmstart`
+            strategy. If set to `False`, this flag allows to disable the behaviour for
+            this particular solution.
 
         Returns
         -------
@@ -230,7 +235,7 @@ class Agent(
 
         # solve and store solution
         sol = mpc(pars=pars, vals0=vals0)
-        if not self._store_last_successful or sol.success:
+        if store_solution and (not self._store_last_successful or sol.success):
             self._last_solution = sol
         return sol
 
@@ -241,6 +246,7 @@ class Agent(
         vals0: Union[
             None, Dict[str, npt.ArrayLike], Iterable[Dict[str, npt.ArrayLike]]
         ] = None,
+        **kwargs,
     ) -> Tuple[cs.DM, Solution[SymType]]:
         """Computes the state value function `V(s)` approximated by the MPC.
 
@@ -269,13 +275,13 @@ class Agent(
             The solution of the MPC approximating `V(s)` at the given state.
         """
         if deterministic or not self._exploration.can_explore():
-            perturbation = None
+            pert = None
         else:
-            perturbation = self._exploration.perturbation(
+            pert = self._exploration.perturbation(
                 self.cost_perturbation_method,
                 size=self.V.parameters[self.cost_perturbation_parameter].shape,
             )
-        sol = self.solve_mpc(self._V, state, perturbation=perturbation, vals0=vals0)
+        sol = self.solve_mpc(self._V, state, perturbation=pert, vals0=vals0, **kwargs)
         first_action = cs.vertcat(*(sol.vals[u][:, 0] for u in self._V.actions.keys()))
         return first_action, sol
 
@@ -286,6 +292,7 @@ class Agent(
         vals0: Union[
             None, Dict[str, npt.ArrayLike], Iterable[Dict[str, npt.ArrayLike]]
         ] = None,
+        **kwargs,
     ) -> Solution[SymType]:
         """Computes the action value function `Q(s,a)` approximated by the MPC.
 
@@ -311,7 +318,7 @@ class Agent(
         Solution
             The solution of the MPC approximating `Q(s,a)` at given state and action.
         """
-        return self.solve_mpc(self._Q, state, action=action, vals0=vals0)
+        return self.solve_mpc(self._Q, state, action=action, vals0=vals0, **kwargs)
 
     def evaluate(
         self,
