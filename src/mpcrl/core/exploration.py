@@ -68,7 +68,7 @@ class GreedyExploration(ExplorationStrategy):
     def __init__(
         self,
         strength: Union[Scheduler[npt.NDArray[np.floating]], npt.NDArray[np.floating]],
-        hook: Literal["on_update", "on_episode_end", "on_env_step"] = "on_update",
+        hook: Literal["on_update", "on_episode_end", "on_timestep_end"] = "on_update",
         seed: Optional[int] = None,
     ) -> None:
         """Initializes the greedy exploration strategy.
@@ -81,13 +81,13 @@ class GreedyExploration(ExplorationStrategy):
             decay/increase every time `exploration.step` is called. If an array or
             something other than a scheduler is passed, then this quantity will get
             wrapped in a base scheduler which will kept it constant.
-        hook : {'on_update', 'on_episode_end', 'on_env_step'}, optional
+        hook : {'on_update', 'on_episode_end', 'on_timestep_end'}, optional
             Specifies to which callback to hook, i.e., when to step the exploration's
             schedulers (if any) to, e.g., decay the chances of exploring or the
             perturbation strength (see `step` method also). The options are:
              - `on_update` steps the exploration after each agent's update
              - `on_episode_end` steps the exploration after each episode's end
-             - `on_env_step` steps the exploration after each env's step.
+             - `on_timestep_end` steps the exploration after each env's timestep.
 
             By default, 'on_update' is selected.
         seed : int or None, optional
@@ -167,7 +167,7 @@ class EpsilonGreedyExploration(GreedyExploration):
         self,
         epsilon: Union[Scheduler[float], float],
         strength: Union[Scheduler[npt.NDArray[np.floating]], npt.NDArray[np.floating]],
-        hook: Literal["on_update", "on_episode_end", "on_env_step"] = "on_update",
+        hook: Literal["on_update", "on_episode_end", "on_timestep_end"] = "on_update",
         seed: Optional[int] = None,
     ) -> None:
         """Initializes the epsilon-greedy exploration strategy.
@@ -182,13 +182,13 @@ class EpsilonGreedyExploration(GreedyExploration):
             wrapped in a base scheduler which will kept it constant.
         strength : scheduler or array/supports-algebraic-operations
             The strength of the exploration. Can be scheduled, see `epsilon`.
-        hook : {'on_update', 'on_episode_end', 'on_env_step'}, optional
+        hook : {'on_update', 'on_episode_end', 'on_timestep_end'}, optional
             Specifies to which callback to hook, i.e., when to step the exploration's
             schedulers (if any) to, e.g., decay the chances of exploring or the
             perturbation strength (see `step` method also). The options are:
              - `on_update` steps the exploration after each agent's update
              - `on_episode_end` steps the exploration after each episode's end
-             - `on_env_step` steps the exploration after each env's step.
+             - `on_timestep_end` steps the exploration after each env's timestep.
 
             By default, 'on_update' is selected.
         seed : int or None, optional

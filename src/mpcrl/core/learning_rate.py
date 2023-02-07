@@ -16,7 +16,7 @@ class LearningRate(Generic[LrType]):
     def __init__(
         self,
         value: Union[LrType, Scheduler[LrType]],
-        hook: Literal["on_update", "on_episode_end", "on_env_step"] = "on_update",
+        hook: Literal["on_update", "on_episode_end", "on_timestep_end"] = "on_update",
     ) -> None:
         """Initializes the learning rate.
 
@@ -27,12 +27,12 @@ class LearningRate(Generic[LrType]):
             scheduler can be passed so that the learning rate is decayed according to
             its stepping strategy. The learning rate can be a single float, or an array
             of rates for each parameter.
-        hook : {'on_update', 'on_episode_end', 'on_env_step'}, optional
+        hook : {'on_update', 'on_episode_end', 'on_timestep_end'}, optional
             Specifies to which callback to hook, i.e., when to step the learning rate's
             scheduler to decay its value (see `step` method also). The options are:
              - `on_update` steps the exploration after each agent's update
              - `on_episode_end` steps the exploration after each episode's end
-             - `on_env_step` steps the exploration after each env's step.
+             - `on_timestep_end` steps the exploration after each env's timestep.
 
             By default, 'on_update' is selected.
         """

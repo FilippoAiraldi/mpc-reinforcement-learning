@@ -177,7 +177,7 @@ agent = Log(  # type: ignore[var-annotated]
             learnable_parameters=learnable_pars,
             discount_factor=mpc.discount_factor,
             learning_rate=1e-6,
-            update_strategy=UpdateStrategy(rollout_length, "on_env_step"),
+            update_strategy=UpdateStrategy(rollout_length, "on_timestep_end"),
             rollout_length=rollout_length,
             exploration=E.GreedyExploration(0.5),  # type: ignore[arg-type]
             record_policy_performance=True,
@@ -185,7 +185,7 @@ agent = Log(  # type: ignore[var-annotated]
         )
     ),
     level=logging.DEBUG,
-    log_frequencies={"on_env_step": 1000},
+    log_frequencies={"on_timestep_end": 1000},
 )
 agent.train(env=env, episodes=1, seed=69)
 

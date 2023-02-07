@@ -63,6 +63,7 @@ class Log(Wrapper[SymType]):
              - `on_episode_start`
              - `on_episode_end`
              - `on_env_step`
+             - `on_timestep_end`
              - `on_update`.
 
             If an entry is not found in the dict, it is assumed that its call is never
@@ -160,6 +161,12 @@ class Log(Wrapper[SymType]):
         self, env: Env[ObsType, ActType], episode: int, timestep: int
     ) -> None:
         if next(self.log_frequencies["on_env_step"]):
+            self.logger.debug(f"env stepped in episode {episode} at time {timestep}.")
+
+    def _on_timestep_end(
+        self, env: Env[ObsType, ActType], episode: int, timestep: int
+    ) -> None:
+        if next(self.log_frequencies["on_timestep_end"]):
             self.logger.debug(f"episode {episode} stepped at time {timestep}.")
 
     # callbacks for LearningAgent

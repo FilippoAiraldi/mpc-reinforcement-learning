@@ -176,7 +176,7 @@ agent = Log(  # type: ignore[var-annotated]
         )
     ),
     level=logging.DEBUG,
-    log_frequencies={"on_env_step": 1000},
+    log_frequencies={"on_timestep_end": 1000},
 )
 agent.train(env=env, episodes=1, seed=69)
 

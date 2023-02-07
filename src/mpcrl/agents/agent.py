@@ -376,10 +376,11 @@ class Agent(
                     self.on_mpc_failure(episode, timestep, sol.status, raises)
 
                 state, r, truncated, terminated, _ = env.step(action)
+                self.on_env_step(env, episode, timestep)
 
                 returns[episode] += r
                 timestep += 1
-                self.on_env_step(env, episode, timestep)
+                self.on_timestep_end(env, episode, timestep)
 
             self.on_episode_end(env, episode, returns[episode])
 

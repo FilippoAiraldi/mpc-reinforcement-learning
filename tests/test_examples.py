@@ -171,7 +171,7 @@ class TestExamples(unittest.TestCase):
                 )
             ),
             level=logging.DEBUG,
-            log_frequencies={"on_env_step": 100},
+            log_frequencies={"on_timestep_end": 100},
         )
 
         agent_copy = agent.copy()

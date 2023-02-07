@@ -133,6 +133,22 @@ class AgentCallbacks:
             Time instant of the current training episode.
         """
 
+    def on_timestep_end(
+        self, env: Env[ObsType, ActType], episode: int, timestep: int
+    ) -> None:
+        """Callback called at the end of each time iteration. It is called with the same
+        frequency as `env.step`, but with different timing.
+
+        Parameters
+        ----------
+        env : gym env
+            A gym environment where the agent is being trained on.
+        episode : int
+            Number of the training episode.
+        timestep : int
+            Time instant of the current training episode.
+        """
+
 
 class LearningAgentCallbacks:
     def on_update_failure(

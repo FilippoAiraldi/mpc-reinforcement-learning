@@ -110,7 +110,7 @@ class LearningAgent(
         if exploration is not None:
             self._exploration = exploration
         if not isinstance(update_strategy, UpdateStrategy):
-            update_strategy = UpdateStrategy(update_strategy, "on_env_step")
+            update_strategy = UpdateStrategy(update_strategy, "on_timestep_end")
         self._update_strategy = update_strategy
         self.establish_callback_hooks()
 
@@ -263,8 +263,8 @@ class LearningAgent(
         # hook updates (always necessary)
         assert self._update_strategy.hook in {
             "on_episode_end",
-            "on_env_step",
-        }, "Updates can be hooked only to episode_end or env_step."
+            "on_timestep_end",
+        }, "Updates can be hooked only to episode_end or on_timestep_end."
         args_idx, kwargs_keys = (
             (1, ("episode",))
             if self._update_strategy.hook == "on_episode_end"

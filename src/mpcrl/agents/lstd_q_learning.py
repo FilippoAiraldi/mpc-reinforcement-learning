@@ -229,6 +229,7 @@ class LstdQLearningAgent(
 
             # step the system with action computed at the previous iteration
             new_state, cost, truncated, terminated, _ = env.step(action)
+            self.on_env_step(env, episode, timestep)
 
             # compute V(s+)
             new_action, solV = self.state_value(new_state, deterministic=False)
@@ -244,7 +245,7 @@ class LstdQLearningAgent(
             action = new_action
             rewards += float(cost)
             timestep += 1
-            self.on_env_step(env, episode, timestep)  # better to call this at the end
+            self.on_timestep_end(env, episode, timestep)
         return rewards
 
     def _init_Q_derivatives(

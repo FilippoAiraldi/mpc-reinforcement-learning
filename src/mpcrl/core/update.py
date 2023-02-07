@@ -11,7 +11,7 @@ class UpdateStrategy:
     def __init__(
         self,
         frequency: int,
-        hook: Literal["on_episode_end", "on_env_step"] = "on_env_step",
+        hook: Literal["on_episode_end", "on_timestep_end"] = "on_timestep_end",
     ) -> None:
         """Initializes the update strategy.
 
@@ -20,13 +20,13 @@ class UpdateStrategy:
         frequency : int
             Frequency at which, each time the hook is called, an update should be
             carried out.
-        hook : {'on_episode_end', 'on_env_step'}, optional
+        hook : {'on_episode_end', 'on_timestep_end'}, optional
             Specifies to which callback to hook, i.e., when to check if an update is due
             according to the given frequency. The options are:
              - `on_episode_end` checks for an update after each episode's end
-             - `on_env_step` checks for an update after each env's step.
+             - `on_timestep_end` checks for an update after each env's timestep.
 
-            By default, 'on_env_step' is selected.
+            By default, 'on_timestep_end' is selected.
         """
         self.frequency = frequency
         self.hook = hook

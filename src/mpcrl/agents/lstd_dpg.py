@@ -341,6 +341,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
 
             # step the system with the action just computed
             state_new, cost, truncated, terminated, _ = env.step(action)
+            self.on_env_step(env, episode, timestep)
 
             # store transition in experience
             if sol.success and sol_opt.success:
@@ -361,13 +362,13 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
             timestep += 1
 
             # first, check if current rollout has reached its length, and only then
-            # invoke on_env_step (as it might trigger an update)
+            # invoke on_timestep_end (as it might trigger an update)
             if (
                 self.rollout_length is not None
                 and len(self._rollout) >= self.rollout_length
             ):
                 self._consolidate_rollout_into_memory()
-            self.on_env_step(env, episode, timestep)
+            self.on_timestep_end(env, episode, timestep)
 
         # consolidate rollout at the end of episode, if no length was specified
         if self.rollout_length is None:
