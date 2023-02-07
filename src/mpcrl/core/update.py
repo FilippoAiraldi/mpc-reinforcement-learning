@@ -20,7 +20,7 @@ class UpdateStrategy:
         frequency : int
             Frequency at which, each time the hook is called, an update should be
             carried out.
-        hook : {'on_update', 'on_episode_end', 'on_env_step'}, optional
+        hook : {'on_episode_end', 'on_env_step'}, optional
             Specifies to which callback to hook, i.e., when to check if an update is due
             according to the given frequency. The options are:
              - `on_episode_end` checks for an update after each episode's end
