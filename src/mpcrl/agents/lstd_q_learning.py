@@ -228,10 +228,10 @@ class LstdQLearningAgent(
             solQ = self.action_value(state, action)
 
             # step the system with action computed at the previous iteration
-            state, cost, truncated, terminated, _ = env.step(action)
+            new_state, cost, truncated, terminated, _ = env.step(action)
 
             # compute V(s+)
-            action, solV = self.state_value(state, deterministic=False)
+            new_action, solV = self.state_value(new_state, deterministic=False)
             if solQ.success and solV.success:
                 self.store_experience(cost, solQ, solV)
             else:
@@ -240,6 +240,8 @@ class LstdQLearningAgent(
                 )
 
             # increase counters
+            state = new_state
+            action = new_action
             rewards += float(cost)
             timestep += 1
             self.on_env_step(env, episode, timestep)  # better to call this at the end
