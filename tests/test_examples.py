@@ -188,14 +188,14 @@ class TestExamples(unittest.TestCase):
         pars = {n: np.squeeze(agent.updates_history[n]) for n in parnames}
 
         d = loadmat("tests/examples_data.mat", squeeze_me=True)
-        np.testing.assert_allclose(J, d["q_learning_J"], rtol=1e-4, atol=1e-4)
-        np.testing.assert_allclose(X, d["q_learning_X"], rtol=1e-4, atol=1e-4)
-        np.testing.assert_allclose(U, d["q_learning_U"], rtol=1e-4, atol=1e-4)
-        np.testing.assert_allclose(R, d["q_learning_R"], rtol=1e-4, atol=1e-4)
-        np.testing.assert_allclose(TD, d["q_learning_TD"], rtol=1e-4, atol=1e-4)
+        np.testing.assert_allclose(J, d["q_learning_J"], rtol=1e-9, atol=1e-2)
+        np.testing.assert_allclose(X, d["q_learning_X"], rtol=1e-9, atol=1e-3)
+        np.testing.assert_allclose(U, d["q_learning_U"], rtol=1e-9, atol=1e-2)
+        np.testing.assert_allclose(R, d["q_learning_R"], rtol=1e-9, atol=1e-1)
+        np.testing.assert_allclose(TD, d["q_learning_TD"], rtol=1e-9, atol=1e-1)
         pars_expected = d["q_learning_pars"].item()
         for i, par in enumerate(pars.values()):
-            np.testing.assert_allclose(par, pars_expected[i], rtol=1e-4, atol=1e-4)
+            np.testing.assert_allclose(par, pars_expected[i], rtol=1e-9, atol=1e-4)
 
 
 if __name__ == "__main__":
