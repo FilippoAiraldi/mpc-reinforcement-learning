@@ -175,30 +175,6 @@ class LstdQLearningAgent(
         self.cho_solve_kwargs = cho_solve_kwargs
         self.td_errors: Optional[List[float]] = [] if record_td_errors else None
 
-    def store_experience(  # type: ignore[override]
-        self, cost: SupportsFloat, solQ: Solution[SymType], solV: Solution[SymType]
-    ) -> None:
-        """Stores the gradient and hessian for the current transition in memoru.
-
-        Parameters
-        ----------
-        cost : float
-            The cost of this state transition.
-        solQ : Solution[SymType]
-            The solution to `Q(s,a)`.
-        solV : Solution[SymType]
-            The solution to `V(s+)`.
-        """
-        sol_values = solQ.all_vals
-        dQ: npt.NDArray[np.floating] = self._dQdtheta(sol_values).full().reshape(-1, 1)
-        ddQ: npt.NDArray[np.floating] = self._d2Qdtheta2(sol_values).full()
-        td_error: float = cost + self.discount_factor * solV.f - solQ.f
-        g = -td_error * dQ
-        H = dQ @ dQ.T - td_error * ddQ
-        if self.td_errors is not None:
-            self.td_errors.append(td_error)
-        return super().store_experience((g, H))
-
     def update(self) -> Optional[str]:
         sample = self.experience.sample()
         gradient, Hessian = (np.mean(tuple(o), 0) for o in zip(*sample))
@@ -231,11 +207,9 @@ class LstdQLearningAgent(
             new_state, cost, truncated, terminated, _ = env.step(action)
             self.on_env_step(env, episode, timestep)
 
-            # compute V(s+)
+            # compute V(s+) and store transition
             new_action, solV = self.state_value(new_state, False)
-            if solQ.success and solV.success:
-                self.store_experience(cost, solQ, solV)
-            else:
+            if not self._try_store_experience(cost, solQ, solV):
                 self.on_mpc_failure(
                     episode, timestep, f"{solQ.status}/{solV.status}", raises
                 )
@@ -274,3 +248,25 @@ class LstdQLearningAgent(
             not dQdtheta_.has_free() and not d2Qdtheta2_.has_free()
         ), "Internal error in Q derivatives."
         return dQdtheta_, d2Qdtheta2_
+
+    def _try_store_experience(
+        self, cost: SupportsFloat, solQ: Solution[SymType], solV: Solution[SymType]
+    ) -> bool:
+        """Internal utility that tries to store the gradient and hessian for the current
+        transition in memory, if both V and Q were successful; otherwise, does not store
+        it. Returns whether it was successful or not."""
+        if solQ.success and solV.success:
+            sol_values = solQ.all_vals
+            dQ = self._dQdtheta(sol_values).full().reshape(-1, 1)
+            ddQ = self._d2Qdtheta2(sol_values).full()
+            td_error = cost + self.discount_factor * solV.f - solQ.f
+            g = -td_error * dQ
+            H = dQ @ dQ.T - td_error * ddQ
+            self.store_experience((g, H))
+            success = True
+        else:
+            td_error = np.nan
+            success = False
+        if self.td_errors is not None:
+            self.td_errors.append(td_error)
+        return success
