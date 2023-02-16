@@ -107,7 +107,7 @@ class Log(Wrapper[SymType]):
 
         # if the agent is non-learning, make sure that both mandatory and callbacks with
         # frequencies do not lead to callbacks reserved to only learning agents.
-        if not isinstance(agent, LearningAgent):
+        if not isinstance(agent.unwrapped, LearningAgent):
             for cb in _LEARNING_AGENT_CALLBACKS:
                 self.exclude_mandatory.add(cb)
                 self.log_frequencies.pop(cb, None)
