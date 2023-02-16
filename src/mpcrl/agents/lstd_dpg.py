@@ -466,7 +466,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         Psi = (dpidtheta @ E).reshape(N, ntheta)
 
         # save to memory and clear rollout
-        super().store_experience((L, Phi, Psi, dpidtheta))
+        self.store_experience((L, Phi, Psi, dpidtheta))
         self._rollout.clear()
         if self.policy_performances is not None:
             self.policy_performances.append(L.sum())
