@@ -7,7 +7,7 @@ from warnings import catch_warnings
 
 import casadi as cs
 import numpy as np
-from csnlp import MultistartNlp, Nlp, Solution, scaling
+from csnlp import Nlp, Solution, StackedMultistartNlp, scaling
 from csnlp.wrappers import Mpc, NlpScaling
 from parameterized import parameterized, parameterized_class
 from scipy import io as matio
@@ -66,7 +66,7 @@ def get_mpc(horizon: int, multistart: bool):
     scaler.register("u1", scale=u_nom)
     scaler.register("u2", scale=u_nom)
     nlp = (
-        MultistartNlp[cs.MX](sym_type="MX", starts=K)
+        StackedMultistartNlp[cs.MX](sym_type="MX", starts=K)
         if multistart
         else Nlp[cs.MX](sym_type="MX")
     )

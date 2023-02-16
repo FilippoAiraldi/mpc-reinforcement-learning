@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mpcrl"
-version = "1.1.1"
+version = "1.1.2"
 authors = [
   { name="Filippo Airaldi", email="filippoairaldi@gmail.com" },
 ]
@@ -22,7 +22,7 @@ classifiers = [
 ]
 dependencies = [
     "typing_extensions >= 4.4.0",
-    "csnlp >= 1.4.3",
+    "csnlp >= 1.5.0",
     "scipy >= 1.8.0",
     "gymnasium >= 0.27.0",
     "numba >= 0.54.6"
