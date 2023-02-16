@@ -206,21 +206,22 @@ class TestAgent(unittest.TestCase):
             call_pars[Agent.init_action_parameter] = a if vector else cs.DM(a.values())
         if self.multistart_nlp:
             mpc.nlp.solve_multi.assert_called_once()
-            kwargs = mpc.nlp.solve_multi.call_args.kwargs
+            call_args = mpc.nlp.solve_multi.call_args.args
         else:
             mpc.nlp.solve.assert_called_once()
-            kwargs = mpc.nlp.solve.call_args.kwargs
-        self.assertIs(kwargs["vals0"], vals0)
+            call_args = mpc.nlp.solve.call_args.args
+        actual_call_pars, actual_call_vals0 = call_args
         if multiple_pars:
-            for pars_i in kwargs["pars"]:
+            for pars_i in actual_call_pars:
                 self.assertEqual(len(mpc.unwrapped._pars.keys() - pars_i.keys()), 0)
                 for key in call_pars:
                     np.testing.assert_allclose(pars_i[key], call_pars[key], rtol=0)
         else:
-            pars = kwargs["pars"]
+            pars = actual_call_pars
             self.assertEqual(len(mpc.unwrapped._pars.keys() - pars.keys()), 0)
             for key in call_pars:
                 np.testing.assert_allclose(pars[key], call_pars[key], rtol=0)
+        self.assertIs(actual_call_vals0, vals0)
 
     @parameterized.expand(product((False, True), (False, True)))
     def test_state_value__computes_right_solution(

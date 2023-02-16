@@ -234,7 +234,7 @@ class Agent(
             vals0 = self._last_solution.vals
 
         # solve and store solution
-        sol = mpc(pars=pars, vals0=vals0)
+        sol = mpc(pars, vals0)
         if store_solution and (not self._store_last_successful or sol.success):
             self._last_solution = sol
         return sol
@@ -318,7 +318,7 @@ class Agent(
         Solution
             The solution of the MPC approximating `Q(s,a)` at given state and action.
         """
-        return self.solve_mpc(self._Q, state, action=action, vals0=vals0, **kwargs)
+        return self.solve_mpc(self._Q, state, action, vals0=vals0, **kwargs)
 
     def evaluate(
         self,
@@ -365,7 +365,7 @@ class Agent(
         self.on_validation_start(env)
 
         for episode, current_seed in zip(range(episodes), generate_seeds(seed)):
-            self.reset(seed=current_seed)
+            self.reset(current_seed)
             state, _ = env.reset(seed=current_seed, options=env_reset_options)
             truncated, terminated, timestep = False, False, 0
             self.on_episode_start(env, episode)

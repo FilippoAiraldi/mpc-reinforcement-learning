@@ -232,17 +232,17 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         if not isinstance(update_strategy, UpdateStrategy):
             update_strategy = UpdateStrategy(update_strategy, "on_episode_end")
         super().__init__(
-            mpc=mpc,
-            update_strategy=update_strategy,
-            discount_factor=discount_factor,
-            learning_rate=learning_rate,  # type: ignore[arg-type]
-            learnable_parameters=learnable_parameters,
-            fixed_parameters=fixed_parameters,
-            exploration=exploration,
-            experience=experience,
-            max_percentage_update=max_percentage_update,
-            warmstart=warmstart,
-            name=name,
+            mpc,
+            update_strategy,
+            discount_factor,
+            learning_rate,  # type: ignore[arg-type]
+            learnable_parameters,
+            fixed_parameters,
+            exploration,
+            experience,
+            max_percentage_update,
+            warmstart,
+            name,
         )
         # initialize derivatives, state feature vector and hessian approximation
         self._dpidtheta = self._init_dpg_derivatives(linsolver)
@@ -297,16 +297,16 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         Phi_diff = self.discount_factor * Phi[mask_phi[:-1]] - Phi[mask_phi[1:]]
         A_v = Phi[mask_phi[1:]].T @ -Phi_diff
         b_v = Phi[mask_phi[1:]].T @ L
-        v = lstsq(
-            A_v, b_v, cond=self.lstsq_cond, lapack_driver="gelsy", check_finite=False
-        )[0]
+        v = lstsq(A_v, b_v, self.lstsq_cond, lapack_driver="gelsy", check_finite=False)[
+            0
+        ]
 
         # compute CAFA weights w
         A_w = Psi.T @ Psi
         b_w = Psi.T @ (L + Phi_diff @ v)
-        w = lstsq(
-            A_w, b_w, cond=self.lstsq_cond, lapack_driver="gelsy", check_finite=False
-        )[0]
+        w = lstsq(A_w, b_w, self.lstsq_cond, lapack_driver="gelsy", check_finite=False)[
+            0
+        ]
 
         # compute policy gradient
         dJdtheta = (dpidtheta @ dpidtheta.transpose((0, 2, 1))).sum(0) @ w
@@ -336,8 +336,8 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
 
         while not (truncated or terminated):
             # compute V(s) (perturbed and not perturbed)
-            action, sol = self.state_value(state, deterministic=False)
-            action_opt, sol_opt = self.state_value(state, deterministic=True)
+            action, sol = self.state_value(state, False)
+            action_opt, sol_opt = self.state_value(state, True)
 
             # step the system with the action just computed
             state_new, cost, truncated, terminated, _ = env.step(action)
@@ -424,7 +424,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         )
 
         # compute first bunch of derivatives
-        nlp_ = NlpSensitivity(nlp, target_parameters=theta)
+        nlp_ = NlpSensitivity(nlp, theta)
         Kt = nlp_.jacobians["K-p"].T
         Ky = nlp_.jacobians["K-y"].T
         dydu0 = cs.evalf(cs.jacobian(u0, y)).T

@@ -78,5 +78,5 @@ class ExperienceReplay(Deque[ExpType]):
 
         # get last n indices and the sampled indices from the remaining
         last = range(L - last_n, L)
-        sampled = self.np_random.choice(range(L - last_n), n - last_n, replace=False)
+        sampled = self.np_random.choice(range(L - last_n), n - last_n, False)
         yield from (self[i] for i in chain(last, sampled))

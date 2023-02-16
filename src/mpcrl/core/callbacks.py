@@ -203,7 +203,7 @@ class LearningAgentCallbacks:
 
 _pred = lambda o: isfunction(o) and o.__name__.startswith("on_")
 _AGENT_CALLBACKS, _LEARNING_AGENT_CALLBACKS = (
-    set(map(itemgetter(0), getmembers(cls, predicate=_pred)))
+    set(map(itemgetter(0), getmembers(cls, _pred)))
     for cls in (AgentCallbacks, LearningAgentCallbacks)
 )
 _ALL_CALLBACKS = set.union(_AGENT_CALLBACKS, _LEARNING_AGENT_CALLBACKS)

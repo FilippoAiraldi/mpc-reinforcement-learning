@@ -156,17 +156,17 @@ class LstdQLearningAgent(
             the class' instancies.
         """
         super().__init__(
-            mpc=mpc,
-            update_strategy=update_strategy,
-            discount_factor=discount_factor,
-            learning_rate=learning_rate,  # type: ignore[arg-type]
-            learnable_parameters=learnable_parameters,
-            fixed_parameters=fixed_parameters,
-            exploration=exploration,
-            experience=experience,
-            max_percentage_update=max_percentage_update,
-            warmstart=warmstart,
-            name=name,
+            mpc,
+            update_strategy,
+            discount_factor,
+            learning_rate,  # type: ignore[arg-type]
+            learnable_parameters,
+            fixed_parameters,
+            exploration,
+            experience,
+            max_percentage_update,
+            warmstart,
+            name,
         )
         self._dQdtheta, self._d2Qdtheta2 = self._init_Q_derivatives(hessian_type)
         self.cho_maxiter = cho_maxiter
@@ -201,7 +201,7 @@ class LstdQLearningAgent(
 
     def update(self) -> Optional[str]:
         sample = self.experience.sample()
-        gradient, Hessian = (np.mean(tuple(o), axis=0) for o in zip(*sample))
+        gradient, Hessian = (np.mean(tuple(o), 0) for o in zip(*sample))
         R = cholesky_added_multiple_identities(Hessian, maxiter=self.cho_maxiter)
         step = cho_solve((R, True), gradient, **self.cho_solve_kwargs).reshape(-1)
         return self._do_gradient_update(step)
@@ -232,7 +232,7 @@ class LstdQLearningAgent(
             self.on_env_step(env, episode, timestep)
 
             # compute V(s+)
-            new_action, solV = self.state_value(new_state, deterministic=False)
+            new_action, solV = self.state_value(new_state, False)
             if solQ.success and solV.success:
                 self.store_experience(cost, solQ, solV)
             else:
@@ -255,7 +255,7 @@ class LstdQLearningAgent(
         parameters, a.k.a., theta."""
         theta = cs.vertcat(*self._learnable_pars.sym.values())
         nlp = self._Q.nlp
-        nlp_ = NlpSensitivity(nlp, target_parameters=theta)
+        nlp_ = NlpSensitivity(nlp, theta)
         Lt = nlp_.jacobians["L-p"]  # a.k.a., dQdtheta
         Ltt = nlp_.hessians["L-pp"]  # a.k.a., approximated d2Qdtheta2
         if hessian_type == "approx":

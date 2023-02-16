@@ -107,14 +107,14 @@ class RlLearningAgent(
         self._learning_rate: LearningRate[LrType] = learning_rate
         self.discount_factor = discount_factor
         super().__init__(
-            mpc=mpc,
-            update_strategy=update_strategy,
-            learnable_parameters=learnable_parameters,
-            fixed_parameters=fixed_parameters,
-            exploration=exploration,
-            experience=experience,
-            warmstart=warmstart,
-            name=name,
+            mpc,
+            update_strategy,
+            learnable_parameters,
+            fixed_parameters,
+            exploration,
+            experience,
+            warmstart,
+            name,
         )
         if max_percentage_update <= 0.0:
             raise ValueError("Max percentage update must be in range (0, +inf).")

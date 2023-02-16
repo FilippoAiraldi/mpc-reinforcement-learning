@@ -94,13 +94,7 @@ class LearningAgent(
             Name of the agent. If `None`, one is automatically created from a counter of
             the class' instancies.
         """
-        Agent.__init__(
-            self,
-            mpc=mpc,
-            fixed_parameters=fixed_parameters,
-            warmstart=warmstart,
-            name=name,
-        )
+        Agent.__init__(self, mpc, fixed_parameters, warmstart, name)
         LearningAgentCallbacks.__init__(self)
         self._raises: bool = True
         self._learnable_pars = learnable_parameters
@@ -182,21 +176,15 @@ class LearningAgent(
         UpdateError or UpdateWarning
             Raises the error or the warning (depending on `raises`) if the update fails.
         """
-        # prepare for training start
         self._raises = raises
-        returns = np.zeros(episodes, dtype=float)
+        returns = np.zeros(episodes, float)
         self.on_training_start(env)
 
         for episode, current_seed in zip(range(episodes), generate_seeds(seed)):
-            self.reset(seed=current_seed)
+            self.reset(current_seed)
             state, _ = env.reset(seed=current_seed, options=env_reset_options)
             self.on_episode_start(env, episode)
-            returns[episode] = self.train_one_episode(
-                env=env,
-                episode=episode,
-                init_state=state,
-                raises=raises,
-            )
+            returns[episode] = self.train_one_episode(env, episode, state, raises)
             self.on_episode_end(env, episode, returns[episode])
 
         self.on_training_end(env, returns)

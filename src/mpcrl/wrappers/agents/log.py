@@ -117,16 +117,11 @@ class Log(Wrapper[SymType]):
         super().establish_callback_hooks()
         # hook only the callbacks for which a frequency was given + the mandatory ones
         repr_self = repr(self)
-        optional = self.log_frequencies.keys()
-        mandatory = _MANDATORY_CALLBACKS.difference(self.exclude_mandatory)
-        for name in chain(optional, mandatory):
-            self.hook_callback(
-                repr_self,
-                name,
-                getattr(self, f"_{name}"),
-                args_idx=slice(None),
-                kwargs_keys="all",
-            )
+        optional_cbs = self.log_frequencies.keys()
+        mandatory_cbs = _MANDATORY_CALLBACKS.difference(self.exclude_mandatory)
+        for name in chain(optional_cbs, mandatory_cbs):
+            method = getattr(self, f"_{name}")
+            self.hook_callback(repr_self, name, method, slice(None), "all")
 
     # callbacks for Agent
 

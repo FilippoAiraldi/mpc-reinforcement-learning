@@ -139,7 +139,7 @@ class LogLinearScheduler(ExponentialScheduler[ScType]):
         self.final_value = final_value
         self.total_steps = total_steps
         self.generator = accumulate(
-            repeat(factor, total_steps), func=mul, initial=init_value
+            repeat(factor, total_steps), mul, initial=init_value
         )
         next(self.generator)
 
