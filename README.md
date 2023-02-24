@@ -42,6 +42,8 @@ pip install mpcrl
 
 - [csnlp](https://pypi.org/project/csnlp/)
 - [SciPy](https://scipy.org/)
+- [Gymnasium](https://gymnasium.farama.org/)
+- [Numba](https://numba.pydata.org/)
 - [typing_extensions](https://pypi.org/project/typing-extensions/)
 
 For playing around with the source code instead, run
