@@ -1,10 +1,10 @@
 import unittest
-from typing import Iterable, Optional, Tuple, Union
+from typing import Iterable, Tuple, Union
 
 import numpy as np
 from parameterized import parameterized
 
-from mpcrl.util import iters, math, named, random
+from mpcrl.util import iters, math, named
 
 
 class DummyAgent(named.Named):
@@ -97,17 +97,12 @@ class TestMath(unittest.TestCase):
             np.testing.assert_allclose(p, out)
 
 
-class TestRandom(unittest.TestCase):
-    def test_np_random__raises__with_invalid_seed(self):
-        with self.assertRaisesRegex(
-            ValueError, "Seed must be a non-negative integer or omitted, not -1."
-        ):
-            random.np_random(-1)
-
-    @parameterized.expand([(69,), (None,)])
-    def test_np_random__initializes_rng_with_correct_seed(self, seed: Optional[int]):
-        rng = random.np_random(seed)
-        self.assertIsInstance(rng, np.random.Generator)
+class TestIters(unittest.TestCase):
+    @parameterized.expand([(5,), (1,), (22,)])
+    def test_bool_cycle__raises__with_negative_freq(self, frequency: int):
+        T = frequency * 10
+        cycle = iters.bool_cycle(frequency)
+        self.assertEqual(T // frequency, sum((next(cycle) for _ in range(T))))
 
     @parameterized.expand([(5,), (None,), (range(100),)])
     def test_make_seeds__returns_expected(self, seed: Union[None, int, Iterable[int]]):
@@ -118,16 +113,8 @@ class TestRandom(unittest.TestCase):
             expected_seeds = [seed + i for i in range(N)]
         else:
             expected_seeds = seed
-        seeds1, seeds2 = list(zip(*zip(expected_seeds, random.generate_seeds(seed))))
+        seeds1, seeds2 = list(zip(*zip(expected_seeds, iters.generate_seeds(seed))))
         self.assertListEqual(list(seeds1), list(seeds2))
-
-
-class TestIters(unittest.TestCase):
-    @parameterized.expand([(5,), (1,), (22,)])
-    def test_bool_cycle__raises__with_negative_freq(self, frequency: int):
-        T = frequency * 10
-        cycle = iters.bool_cycle(frequency)
-        self.assertEqual(T // frequency, sum((next(cycle) for _ in range(T))))
 
 
 if __name__ == "__main__":

@@ -5,7 +5,8 @@ from unittest.mock import Mock, call
 
 import casadi as cs
 import numpy as np
-from csnlp import Nlp, StackedMultistartNlp, scaling
+from csnlp import Nlp, scaling
+from csnlp.multistart import StackedMultistartNlp
 from csnlp.wrappers import Mpc, NlpScaling
 
 from mpcrl import (

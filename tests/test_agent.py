@@ -7,7 +7,8 @@ from warnings import catch_warnings
 
 import casadi as cs
 import numpy as np
-from csnlp import Nlp, Solution, StackedMultistartNlp, scaling
+from csnlp import Nlp, Solution, scaling
+from csnlp.multistart import StackedMultistartNlp
 from csnlp.wrappers import Mpc, NlpScaling
 from parameterized import parameterized, parameterized_class
 from scipy import io as matio

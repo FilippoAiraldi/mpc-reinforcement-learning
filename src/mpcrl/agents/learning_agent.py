@@ -22,7 +22,7 @@ from mpcrl.core.experience import ExperienceReplay
 from mpcrl.core.exploration import ExplorationStrategy
 from mpcrl.core.parameters import LearnableParametersDict
 from mpcrl.core.update import UpdateStrategy
-from mpcrl.util.random import generate_seeds
+from mpcrl.util.iters import generate_seeds
 
 ExpType = TypeVar("ExpType")
 

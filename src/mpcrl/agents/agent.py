@@ -24,8 +24,8 @@ from typing_extensions import TypeAlias
 
 from mpcrl.core.callbacks import AgentCallbacks, RemovesCallbackHooksInState
 from mpcrl.core.exploration import ExplorationStrategy, NoExploration
+from mpcrl.util.iters import generate_seeds
 from mpcrl.util.named import Named
-from mpcrl.util.random import generate_seeds
 
 SymType = TypeVar("SymType", cs.SX, cs.MX)
 ActType: TypeAlias = Union[npt.ArrayLike, Dict[str, npt.ArrayLike]]

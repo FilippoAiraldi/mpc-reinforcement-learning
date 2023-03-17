@@ -1,7 +1,7 @@
 from itertools import chain
 from typing import Deque, Iterable, Iterator, Optional, TypeVar, Union
 
-from mpcrl.util.random import np_random
+from csnlp.util.random import np_random
 
 ExpType = TypeVar("ExpType")
 
