@@ -56,7 +56,7 @@ git clone https://github.com/FilippoAiraldi/mpc-reinforcement-learning.git
 
 ## Examples
 
-Our [examples](https://github.com/FilippoAiraldi/mpc-reinforcement-learning/tree/main/examples) subdirectory contains example applications of this package for Q-learning. In the future, an example for Deterministic Policy Gradient methods will be implemented.
+Our [examples](https://github.com/FilippoAiraldi/mpc-reinforcement-learning/tree/main/examples) subdirectory contains an example application on a small linear time-invariant (LTI) system, tackled both with Q-learning and Deterministic Policy Gradient (DPG).
 
 ---
 

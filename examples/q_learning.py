@@ -28,7 +28,7 @@ from mpcrl.wrappers.envs import MonitorEpisodes
 
 
 class LtiSystem(gym.Env[npt.NDArray[np.floating], float]):
-    """A simple discrete-time LTI system affected by noise.ad"""
+    """A simple discrete-time LTI system affected by noise."""
 
     nx = 2  # number of states
     nu = 1  # number of inputs
