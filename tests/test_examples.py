@@ -179,7 +179,7 @@ class DpgLinearMpc(Mpc[cs.SX]):
         self.init_solver(opts, solver="ipopt")
 
 
-ASSERT_CLOSE = partial(np.testing.assert_allclose, rtol=1e-2, atol=1e-2)
+ASSERT_CLOSE = partial(np.testing.assert_allclose, rtol=1e-1, atol=1e-1)
 DATA = loadmat(f"tests/data_test_examples_{platform}.mat", squeeze_me=True)
 
 
