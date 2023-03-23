@@ -20,7 +20,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install "casadi==3.5.5,!=3.5.6.pre2"
+          python -m pip install "casadi>=3.5.*,!=3.5.6.pre2"
           python -m pip install -r requirements-dev.txt
           python -m pip install -e .
           python -m pip install -r requirements-tests.txt
