@@ -170,7 +170,7 @@ learnable_pars = LearnableParametersDict[cs.SX](
 )
 env = MonitorEpisodes(TimeLimit(LtiSystem(), max_episode_steps=int(5e3)))
 rollout_length = 200
-agent = Log(  # type: ignore[var-annotated]
+agent = Log(
     RecordUpdates(
         LstdDpgAgent(
             mpc=mpc,
