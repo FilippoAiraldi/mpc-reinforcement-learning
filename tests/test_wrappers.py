@@ -1,9 +1,11 @@
 import unittest
 from functools import lru_cache
 from itertools import count
+from typing import Any, Dict, Tuple
 from unittest.mock import Mock, call
 
 import casadi as cs
+import gymnasium as gym
 import numpy as np
 from csnlp import Nlp, scaling
 from csnlp.multistart import StackedMultistartNlp
@@ -14,8 +16,9 @@ from mpcrl import (
     LearnableParametersDict,
     LearningAgent,
     wrappers_agents,
+    wrappers_envs,
 )
-from mpcrl.wrappers.envs.monitor_infos import compact_dicts_into_one
+from mpcrl.wrappers.envs.monitor_infos import compact_dicts
 
 
 @lru_cache
@@ -81,6 +84,47 @@ AGENT = DummyLearningAgent(
 )
 
 
+class SimpleEnv(gym.Env[object, object]):
+    T_MAX = 10
+
+    def __init__(self, *args: Any, **kwargs: Any):
+        super().__init__(*args, **kwargs)
+        self.INTERNAL_RESET_INFOS = []
+        self.INTERNAL_FINALIZED_RESET_INFOS = {"reset_info": []}
+        self.INTERNAL_STEP_INFOS = []
+        self.INTERNAL_FINALIZED_STEP_INFOS = {"step_info": []}
+        self.INTERNAL_OBSERVATIONS = []
+        self.INTERNAL_ACTIONS = []
+        self.INTERNAL_REWARDS = []
+
+    def reset(self, *args: Any, **kwargs: Any) -> Tuple[object, Dict[str, Any]]:
+        super().reset(*args, **kwargs)
+        self.t = 0
+        obs = object()
+        info = {"reset_info": object()}
+        self.INTERNAL_RESET_INFOS.append(info)
+        self.INTERNAL_FINALIZED_RESET_INFOS["reset_info"].append(info["reset_info"])
+        self.INTERNAL_STEP_INFOS.append([])
+        self.INTERNAL_FINALIZED_STEP_INFOS["step_info"].append([])
+        self.INTERNAL_OBSERVATIONS.append([obs])
+        self.INTERNAL_ACTIONS.append([])
+        self.INTERNAL_REWARDS.append([])
+        return obs, info
+
+    def step(self, action: object) -> Tuple[object, float, bool, bool, Dict[str, Any]]:
+        self.t += 1
+        obs = object()
+        reward = np.random.rand()
+        terminated = self.t >= self.T_MAX
+        info = {"step_info": object()}
+        self.INTERNAL_STEP_INFOS[-1].append(info)
+        self.INTERNAL_FINALIZED_STEP_INFOS["step_info"][-1].append(info["step_info"])
+        self.INTERNAL_OBSERVATIONS[-1].append(obs)
+        self.INTERNAL_ACTIONS[-1].append(action)
+        self.INTERNAL_REWARDS[-1].append(reward)
+        return obs, reward, terminated, False, info
+
+
 class TestWrapperAndLearningWrapper(unittest.TestCase):
     def test_attr__raises__when_accessing_private_attrs(self):
         wrapped = wrappers_agents.LearningWrapper(AGENT)
@@ -142,9 +186,9 @@ class TestRecordUpdates(unittest.TestCase):
         )
 
 
-class TestMonitorEpisode(unittest.TestCase):
-    def test__compact_dicts_into_one(self):
-        act = compact_dicts_into_one(
+class TestMonitorEpisodesAndInfos(unittest.TestCase):
+    def test__compact_dicts(self):
+        act = compact_dicts(
             [
                 {"a": 3, "b": 2},
                 {"b": 3, "c": 2},
@@ -161,6 +205,36 @@ class TestMonitorEpisode(unittest.TestCase):
             "d": [np.nan, np.nan, np.nan, 2, 2],
         }
         self.assertDictEqual(act, exp)
+
+    def test_monitor_infos__records_infos_correctly(self):
+        env = wrappers_envs.MonitorInfos(SimpleEnv())
+        n_episodes = 3
+        for _ in range(n_episodes):
+            env.reset()
+            terminated = truncated = False
+            while not (terminated or truncated):
+                _, _, terminated, truncated, _ = env.step(object())
+        self.assertListEqual(list(env.reset_infos), env.INTERNAL_RESET_INFOS)
+        self.assertDictEqual(
+            env.finalized_reset_infos(), env.INTERNAL_FINALIZED_RESET_INFOS
+        )
+        self.assertListEqual(list(env.step_infos), env.INTERNAL_STEP_INFOS)
+        self.assertDictEqual(
+            env.finalized_step_infos(), env.INTERNAL_FINALIZED_STEP_INFOS
+        )
+
+    def test_monitor_episodes__records_episodes_correctly(self):
+        env = wrappers_envs.MonitorEpisodes(SimpleEnv())
+        n_episodes = 3
+        for _ in range(n_episodes):
+            env.reset()
+            terminated = truncated = False
+            while not (terminated or truncated):
+                _, _, terminated, truncated, _ = env.step(object())
+        np.testing.assert_array_equal(env.observations, env.INTERNAL_OBSERVATIONS)
+        np.testing.assert_array_equal(env.actions, env.INTERNAL_ACTIONS)
+        np.testing.assert_array_equal(env.rewards, env.INTERNAL_REWARDS)
+        self.assertListEqual(list(env.episode_lengths), [env.T_MAX] * n_episodes)
 
 
 if __name__ == "__main__":

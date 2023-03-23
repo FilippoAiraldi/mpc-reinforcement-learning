@@ -18,7 +18,7 @@ ObsType = TypeVar("ObsType")
 ActType = TypeVar("ActType")
 
 
-def compact_dicts_into_one(
+def compact_dicts(
     dicts: Iterable[Dict[str, Any]], fill_value: Any = None
 ) -> Dict[str, List[Any]]:
     """Compacts an iterable of dictionaries into a single dict with lists of entries. If
@@ -118,7 +118,7 @@ class MonitorInfos(Wrapper[ObsType, ActType]):
             A unique dict containing for each entry returned in the reset info the
             corresponding list of entries, one per each reset call.
         """
-        return compact_dicts_into_one(self.reset_infos, fill_value)
+        return compact_dicts(self.reset_infos, fill_value)
 
     def finalized_step_infos(
         self, fill_value: Any = None
@@ -138,12 +138,12 @@ class MonitorInfos(Wrapper[ObsType, ActType]):
             corresponding list of dicts per episode, with one entry per each step call.
         """
 
-        if len(self.ep_step_infos) > 0:
+        if self.ep_step_infos:
             warn(
                 "Internal buffer of step infos not empty, meaning that the last "
                 "episode did not terminate properly.",
                 RuntimeWarning,
             )
-        return compact_dicts_into_one(
-            (compact_dicts_into_one(d, fill_value) for d in self.step_infos), fill_value
+        return compact_dicts(
+            (compact_dicts(d, fill_value) for d in self.step_infos), fill_value
         )

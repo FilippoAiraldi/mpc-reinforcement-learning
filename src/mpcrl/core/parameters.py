@@ -133,28 +133,24 @@ class LearnableParametersDict(
     @cached_property
     def lb(self) -> npt.NDArray[np.floating]:
         """Gets the lower bound of all the learnable parameters, concatenated."""
-        if len(self) == 0:
-            return np.asarray([])
-        return np.concatenate(tuple(p.lb for p in self.values()))
+        return np.concatenate([p.lb for p in self.values()]) if self else np.asarray([])
 
     @cached_property
     def ub(self) -> npt.NDArray[np.floating]:
         """Gets the upper bound of all the learnable parameters, concatenated."""
-        if len(self) == 0:
-            return np.asarray([])
-        return np.concatenate(tuple(p.ub for p in self.values()))
+        return np.concatenate([p.ub for p in self.values()]) if self else np.asarray([])
 
     @cached_property
     def value(self) -> npt.NDArray[np.floating]:
         """Gets the values of all the learnable parameters, concatenated."""
-        if len(self) == 0:
-            return np.asarray([])
-        return np.concatenate(tuple(p.value for p in self.values()))
+        return (
+            np.concatenate([p.value for p in self.values()]) if self else np.asarray([])
+        )
 
     @cached_property
     def value_as_dict(self) -> Dict[str, npt.NDArray[np.floating]]:
         """Gets the values of all the learnable parameters, in a dict."""
-        return {} if len(self) == 0 else {p.name: p.value for p in self.values()}
+        return {p.name: p.value for p in self.values()}
 
     @cached_property
     def sym(self) -> Dict[str, Optional[SymType]]:
