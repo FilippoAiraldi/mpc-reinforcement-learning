@@ -1,4 +1,3 @@
-from functools import partial
 import logging
 import pickle
 import unittest
@@ -179,7 +178,6 @@ class DpgLinearMpc(Mpc[cs.SX]):
         self.init_solver(opts, solver="ipopt")
 
 
-ASSERT_CLOSE = partial(np.testing.assert_allclose, rtol=1e-1, atol=1e-1)
 DATA = loadmat(f"tests/data_test_examples_{platform}.mat", squeeze_me=True)
 
 
@@ -229,14 +227,14 @@ class TestExamples(unittest.TestCase):
         parnames = ["V0", "x_lb", "x_ub", "b", "f", "A", "B"]
         pars = {n: np.squeeze(agent.updates_history[n]) for n in parnames}
 
-        ASSERT_CLOSE(J, DATA["ql_J"])
-        ASSERT_CLOSE(X, DATA["ql_X"])
-        ASSERT_CLOSE(U, DATA["ql_U"])
-        ASSERT_CLOSE(R, DATA["ql_R"])
-        ASSERT_CLOSE(TD, DATA["ql_TD"])
+        np.testing.assert_allclose(J, DATA["ql_J"], rtol=1e-9, atol=1e-2)
+        np.testing.assert_allclose(X, DATA["ql_X"], rtol=1e-9, atol=1e-3)
+        np.testing.assert_allclose(U, DATA["ql_U"], rtol=1e-9, atol=1e-2)
+        np.testing.assert_allclose(R, DATA["ql_R"], rtol=1e-9, atol=1e-1)
+        np.testing.assert_allclose(TD, DATA["ql_TD"], rtol=1e-9, atol=1e-1)
         pars_expected = DATA["ql_pars"].item()
         for i, par in enumerate(pars.values()):
-            ASSERT_CLOSE(par, pars_expected[i])
+            np.testing.assert_allclose(par, pars_expected[i], rtol=1e-9, atol=1e-4)
 
     @parameterized.expand([(False,), (True,)])
     def test_dpg__with_copy_and_pickle(self, use_copy: bool):
@@ -287,15 +285,15 @@ class TestExamples(unittest.TestCase):
         parnames = ["V0", "x_lb", "x_ub", "b", "f", "A", "B"]
         pars = {n: np.squeeze(agent.updates_history[n]) for n in parnames}
 
-        ASSERT_CLOSE(J, DATA["dpg_J"])
-        ASSERT_CLOSE(X, DATA["dpg_X"])
-        ASSERT_CLOSE(U, DATA["dpg_U"])
-        ASSERT_CLOSE(R, DATA["dpg_R"])
-        ASSERT_CLOSE(Jest, DATA["dpg_Jest"])
-        ASSERT_CLOSE(Gest, DATA["dpg_Gest"])
+        np.testing.assert_allclose(J, DATA["dpg_J"], rtol=1e-9, atol=1e-2)
+        np.testing.assert_allclose(X, DATA["dpg_X"], rtol=1e-9, atol=1e-3)
+        np.testing.assert_allclose(U, DATA["dpg_U"], rtol=1e-9, atol=1e-2)
+        np.testing.assert_allclose(R, DATA["dpg_R"], rtol=1e-9, atol=1e-1)
+        np.testing.assert_allclose(Jest, DATA["dpg_Jest"], rtol=1e-9, atol=1e-1)
+        np.testing.assert_allclose(Gest, DATA["dpg_Gest"], rtol=1e-9, atol=1e-1)
         pars_expected = DATA["dpg_pars"].item()
         for i, par in enumerate(pars.values()):
-            ASSERT_CLOSE(par, pars_expected[i])
+            np.testing.assert_allclose(par, pars_expected[i], rtol=1e-9, atol=1e-4)
 
 
 if __name__ == "__main__":
