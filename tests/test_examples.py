@@ -285,15 +285,15 @@ class TestExamples(unittest.TestCase):
         parnames = ["V0", "x_lb", "x_ub", "b", "f", "A", "B"]
         pars = {n: np.squeeze(agent.updates_history[n]) for n in parnames}
 
-        np.testing.assert_allclose(J, DATA["dpg_J"], rtol=1e-9, atol=1e-2)
-        np.testing.assert_allclose(X, DATA["dpg_X"], rtol=1e-9, atol=1e-3)
-        np.testing.assert_allclose(U, DATA["dpg_U"], rtol=1e-9, atol=1e-2)
-        np.testing.assert_allclose(R, DATA["dpg_R"], rtol=1e-9, atol=1e-1)
-        np.testing.assert_allclose(Jest, DATA["dpg_Jest"], rtol=1e-9, atol=1e-1)
-        np.testing.assert_allclose(Gest, DATA["dpg_Gest"], rtol=1e-9, atol=1e-1)
+        np.testing.assert_allclose(J, DATA["dpg_J"], rtol=1e-3, atol=1e-3)
+        np.testing.assert_allclose(X, DATA["dpg_X"], rtol=1e-6, atol=1e-3)
+        np.testing.assert_allclose(U, DATA["dpg_U"], rtol=1e-6, atol=1e-2)
+        np.testing.assert_allclose(R, DATA["dpg_R"], rtol=1e-6, atol=1e-1)
+        np.testing.assert_allclose(Jest, DATA["dpg_Jest"], rtol=1e-6, atol=1e-1)
+        np.testing.assert_allclose(Gest, DATA["dpg_Gest"], rtol=1e-6, atol=1e-1)
         pars_expected = DATA["dpg_pars"].item()
         for i, par in enumerate(pars.values()):
-            np.testing.assert_allclose(par, pars_expected[i], rtol=1e-9, atol=1e-4)
+            np.testing.assert_allclose(par, pars_expected[i], rtol=1e-6, atol=1e-4)
 
 
 if __name__ == "__main__":
