@@ -1,8 +1,8 @@
 import logging
 import pickle
 import unittest
-from typing import Any, Dict, Optional, Tuple
 from sys import platform
+from typing import Any, Dict, Optional, Tuple
 
 import casadi as cs
 import gymnasium as gym

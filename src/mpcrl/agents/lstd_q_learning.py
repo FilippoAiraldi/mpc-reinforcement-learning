@@ -195,7 +195,7 @@ class LstdQLearningAgent(
         state = init_state
 
         # solve for the first action
-        action, solV = self.state_value(state, deterministic=False)
+        action, solV = self.state_value(state, False)
         if not solV.success:
             self.on_mpc_failure(episode, None, solV.status, raises)
 
@@ -227,7 +227,7 @@ class LstdQLearningAgent(
     ) -> Tuple[cs.Function, cs.Function]:
         """Internal utility to compute the derivative of Q(s,a) w.r.t. the learnable
         parameters, a.k.a., theta."""
-        theta = cs.vertcat(*self._learnable_pars.sym.values())
+        theta = cs.vcat(self._learnable_pars.sym.values())
         nlp = self._Q.nlp
         nlp_ = NlpSensitivity(nlp, theta)
         Lt = nlp_.jacobians["L-p"]  # a.k.a., dQdtheta

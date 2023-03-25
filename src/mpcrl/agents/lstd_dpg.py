@@ -417,8 +417,8 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         and other functions in order to estimate the policy gradient."""
         nlp = self._V.nlp
         y = nlp.primal_dual_vars()
-        theta = cs.vertcat(*self._learnable_pars.sym.values())
-        u0 = cs.vertcat(*self._V.first_actions.values())
+        theta = cs.vcat(self._learnable_pars.sym.values())
+        u0 = cs.vcat(self._V.first_actions.values())
         all_syms = cs.vertcat(
             nlp.p, nlp.x, nlp.lam_g, nlp.lam_h, nlp.lam_lbx, nlp.lam_ubx
         )
