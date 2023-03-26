@@ -4,13 +4,15 @@ from typing import Any, Deque, Dict, List, Optional, SupportsFloat, Tuple, TypeV
 
 import numpy as np
 import numpy.typing as npt
-from gymnasium import Env, Wrapper
+from gymnasium import Env, Wrapper, utils
 
 ObsType = TypeVar("ObsType")
 ActType = TypeVar("ActType")
 
 
-class MonitorEpisodes(Wrapper[ObsType, ActType]):
+class MonitorEpisodes(
+    Wrapper[ObsType, ActType, ObsType, ActType], utils.RecordConstructorArgs
+):
     """This wrapper keeps track of
         - observations
         - actions
@@ -52,7 +54,8 @@ class MonitorEpisodes(Wrapper[ObsType, ActType]):
             The maximum number of episodes to hold as historical data in the internal
             deques. By default, `None`, i.e., unlimited.
         """
-        super().__init__(env)
+        utils.RecordConstructorArgs.__init__(self, deque_size=deque_size)
+        Wrapper.__init__(self, env)
         # long-term storages
         self.observations: Deque[npt.NDArray[ObsType]] = deque(  # type: ignore
             maxlen=deque_size
