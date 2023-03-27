@@ -1,5 +1,5 @@
 typing_extensions>=4.4.0
-csnlp>=1.5.1
+csnlp>=1.5.2
 scipy>=1.8.0
 gymnasium>= 0.28.1
 numba>=0.54.6
