@@ -10,9 +10,7 @@ ObsType = TypeVar("ObsType")
 ActType = TypeVar("ActType")
 
 
-class MonitorEpisodes(
-    Wrapper[ObsType, ActType, ObsType, ActType], utils.RecordConstructorArgs
-):
+class MonitorEpisodes(Wrapper, utils.RecordConstructorArgs):
     """This wrapper keeps track of
         - observations
         - actions
