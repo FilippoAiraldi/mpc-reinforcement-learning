@@ -39,26 +39,6 @@ ExpType: TypeAlias = Tuple[
 ]
 
 
-@nb.njit
-def _consolidate_rollout(
-    rollout: List[Tuple[ObsType, ActType, float, ObsType, np.ndarray]],
-    ns: int,
-    na: int,
-) -> Tuple[int, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """Internal utility to convert a rollout list to arrays."""
-    N = len(rollout)
-    S = np.empty((N, ns))
-    E = np.empty((N, na, 1))  # additional dim required for Psi
-    L = np.empty(N)
-    sol_vals = np.empty((N, rollout[0][-1].size))
-    for i, (s, e, cost, _, sol_val) in enumerate(rollout):
-        S[i] = s.reshape(-1)  # type: ignore[union-attr]
-        E[i] = e
-        L[i] = cost
-        sol_vals[i] = sol_val.reshape(-1)
-    return N, S, E, L, sol_vals
-
-
 class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, LrType]):
     """Least-Squares Temporal Difference (LSTD) Deterministic Policy Gradient (DPG)
     agent, as first introduced in [1] as its stochastic counterpart, and then refined in
@@ -428,3 +408,23 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         self._rollout.clear()
         if self.policy_performances is not None:
             self.policy_performances.append(L.sum())
+
+
+@nb.njit
+def _consolidate_rollout(
+    rollout: List[Tuple[ObsType, ActType, float, ObsType, np.ndarray]],
+    ns: int,
+    na: int,
+) -> Tuple[int, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Internal utility to convert a rollout list to arrays."""
+    N = len(rollout)
+    S = np.empty((N, ns))
+    E = np.empty((N, na, 1))  # additional dim required for Psi
+    L = np.empty(N)
+    sol_vals = np.empty((N, rollout[0][-1].size))
+    for i, (s, e, cost, _, sol_val) in enumerate(rollout):
+        S[i] = s.reshape(-1)  # type: ignore[union-attr]
+        E[i] = e
+        L[i] = cost
+        sol_vals[i] = sol_val.reshape(-1)
+    return N, S, E, L, sol_vals
