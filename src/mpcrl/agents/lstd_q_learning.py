@@ -56,13 +56,7 @@ class LstdQLearningAgent(
         132-137. IEEE.
     """
 
-    __slots__ = (
-        "_dQdtheta",
-        "_d2Qdtheta2",
-        "td_errors",
-        "cho_maxiter",
-        "cho_solve_kwargs",
-    )
+    __slots__ = ("_sensitivities", "td_errors", "cho_maxiter", "cho_solve_kwargs")
 
     def __init__(
         self,
@@ -168,7 +162,7 @@ class LstdQLearningAgent(
             warmstart,
             name,
         )
-        self._dQdtheta, self._d2Qdtheta2 = self._init_Q_derivatives(hessian_type)
+        self._sensitivities = self._init_sensitivities(hessian_type)
         self.cho_maxiter = cho_maxiter
         if cho_solve_kwargs is None:
             cho_solve_kwargs = {"check_finite": False}
@@ -222,9 +216,7 @@ class LstdQLearningAgent(
             self.on_timestep_end(env, episode, timestep)
         return rewards
 
-    def _init_Q_derivatives(
-        self, hessian_type: Literal["approx", "full"]
-    ) -> Tuple[cs.Function, cs.Function]:
+    def _init_sensitivities(self, hess_type: Literal["approx", "full"]) -> cs.Function:
         """Internal utility to compute the derivative of Q(s,a) w.r.t. the learnable
         parameters, a.k.a., theta."""
         theta = cs.vcat(self._learnable_pars.sym.values())
@@ -232,22 +224,25 @@ class LstdQLearningAgent(
         nlp_ = NlpSensitivity(nlp, theta)
         Lt = nlp_.jacobians["L-p"]  # a.k.a., dQdtheta
         Ltt = nlp_.hessians["L-pp"]  # a.k.a., approximated d2Qdtheta2
-        if hessian_type == "approx":
+        if hess_type == "approx":
             d2Qdtheta2 = Ltt
-        elif hessian_type == "full":
+        elif hess_type == "full":
             dydtheta, _ = nlp_.parametric_sensitivity(second_order=False)
             d2Qdtheta2 = dydtheta.T @ nlp_.jacobians["K-p"] + Ltt
         else:
-            raise ValueError(f"Invalid type of hessian; got {hessian_type}.")
+            raise ValueError(f"Invalid type of hessian; got {hess_type}.")
 
-        # convert to functions (much faster runtime)
-        input = cs.vertcat(nlp.p, nlp.x, nlp.lam_g, nlp.lam_h, nlp.lam_lbx, nlp.lam_ubx)
-        dQdtheta_ = cs.Function("dQdtheta", [input], [Lt])
-        d2Qdtheta2_ = cs.Function("d2Qdtheta2", [input], [d2Qdtheta2])
-        assert (
-            not dQdtheta_.has_free() and not d2Qdtheta2_.has_free()
-        ), "Internal error in Q derivatives."
-        return dQdtheta_, d2Qdtheta2_
+        # convert to function (much faster runtime)
+        x_lam_p = cs.vertcat(nlp.primal_dual, nlp.p)
+        sensitivities = cs.Function("dQ", (x_lam_p,), (Lt, d2Qdtheta2))
+        assert not sensitivities.has_free(), "Internal error in Q sensitivities."
+
+        # wrap to conveniently return numpy arrays
+        def func(sol_values: cs.DM) -> Tuple[np.ndarray, np.ndarray]:
+            dQ, ddQ = sensitivities(sol_values)
+            return dQ.full().reshape(-1, 1), ddQ.full()
+
+        return func
 
     def _try_store_experience(
         self, cost: SupportsFloat, solQ: Solution[SymType], solV: Solution[SymType]
@@ -257,8 +252,7 @@ class LstdQLearningAgent(
         it. Returns whether it was successful or not."""
         if solQ.success and solV.success:
             sol_values = solQ.all_vals
-            dQ = self._dQdtheta(sol_values).full().reshape(-1, 1)
-            ddQ = self._d2Qdtheta2(sol_values).full()
+            dQ, ddQ = self._sensitivities(sol_values)
             td_error = cost + self.discount_factor * solV.f - solQ.f
             g = -td_error * dQ
             H = dQ @ dQ.T - td_error * ddQ
