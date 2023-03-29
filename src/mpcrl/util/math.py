@@ -1,8 +1,10 @@
 from itertools import combinations
 from typing import Optional, Tuple, Union
 
+import casadi as cs
 import numpy as np
 import numpy.typing as npt
+from csnlp.util.math import prod
 from scipy.linalg import solve_discrete_are
 from scipy.special import comb
 
@@ -181,3 +183,32 @@ def monomial_powers(d: int, k: int) -> npt.NDArray[np.int64]:
         )
     )
     return np.flipud(np.diff(dividers, axis=1) - 1).astype(int)
+
+
+def monomials_basis_function(n_in: int, mindegree: int, maxdegree: int) -> cs.Function:
+    """Creates a function made of monomials as bases.
+
+    Parameters
+    ----------
+    ns : int
+        Number of states.
+    mindegree : int
+        Minimum degree of monomials (included).
+    maxdegree : int
+        Maximum degree of monomials (included).
+
+    Returns
+    -------
+    casadi.Function
+        A casadi function of the form `Phi(s)`, where `s` is the input and `Phi` the
+        basis vector.
+    """
+    s = cs.SX.sym("x", n_in, 1)  # prod is faster with SX, and during runtime
+    y = cs.vertcat(
+        *(
+            prod(s**p)
+            for k in range(mindegree, maxdegree + 1)
+            for p in monomial_powers(n_in, k)
+        )
+    )
+    return cs.Function("Phi", [s], [y], ["s"], ["Phi(s)"])

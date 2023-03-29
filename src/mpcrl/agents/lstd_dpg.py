@@ -16,7 +16,6 @@ import casadi as cs
 import numba as nb
 import numpy as np
 import numpy.typing as npt
-from csnlp.util.math import prod
 from csnlp.wrappers import Mpc, NlpSensitivity
 from gymnasium import Env
 from scipy.linalg import cho_solve, lstsq
@@ -30,7 +29,7 @@ from mpcrl.core.learning_rate import LearningRate
 from mpcrl.core.parameters import LearnableParametersDict
 from mpcrl.core.schedulers import Scheduler
 from mpcrl.core.update import UpdateStrategy
-from mpcrl.util.math import cholesky_added_multiple_identities, monomial_powers
+from mpcrl.util.math import cholesky_added_multiple_identities, monomials_basis_function
 
 ExpType: TypeAlias = Tuple[
     npt.NDArray[np.floating],  # rollout's costs
@@ -205,7 +204,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
             where `s` is the state, `v` are the weights, and `Phi(s)` is the state
             feature vector. This function is assumed to have one input and one output.
             By default, if not provided, it is designed as all monomials of the state
-            with degrees <= 2 (see `LstdDpgAgent.monomials_state_features`).
+            with degrees <= 2 (see `mpcrl.util.math.monomials_basis_function`).
         lstsq_cond : float, optional
             Conditional number to be passed to `scipy.linalg.lstsq`. By default, `None`.
         linsolver : "csparse" or "qr" or "mldivide", optional
@@ -247,7 +246,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         # initialize derivatives, state feature vector and hessian approximation
         self._dpidtheta = self._init_dpg_derivatives(linsolver)
         self._Phi = (
-            LstdDpgAgent.monomials_state_features(mpc.ns, mpc.sym_type.__name__, 0, 2)
+            monomials_basis_function(mpc.ns, 0, 2)
             if state_features is None
             else state_features
         )
@@ -374,43 +373,6 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         if self.rollout_length is None:
             self._consolidate_rollout_into_memory()
         return rewards
-
-    @staticmethod
-    def monomials_state_features(
-        ns: int,
-        sym_type: Literal["SX", "MX"],
-        mindegree: int,
-        maxdegree: int,
-    ) -> cs.Function:
-        """Gets the state feature vector composed of all monomials of degree in the
-        given range.
-
-        Parameters
-        ----------
-        ns : int
-            Number of states.
-        sym_type : {"MX" or "SX"}
-            CasADi symbolic type to be used to build the function.
-        mindegree : int
-            Minimum degree of monomials (included).
-        maxdegree : int
-            Maximum degree of monomials (included).
-
-        Returns
-        -------
-        casadi.Function
-            A casadi function of the form `Phi(s)`, where `s` is the state and `Phi` the
-            state feature vector.
-        """
-        s: SymType = getattr(cs, sym_type).sym("x", ns, 1)
-        y = cs.vertcat(
-            *(
-                prod(s**p)
-                for k in range(mindegree, maxdegree + 1)
-                for p in monomial_powers(ns, k)
-            )
-        )
-        return cs.Function("Phi", [s], [y], ["s"], ["Phi(s)"])
 
     def _init_dpg_derivatives(self, linsolvertype: str) -> cs.Function:
         """Internal utility to compute the derivatives w.r.t. the learnable parameters
