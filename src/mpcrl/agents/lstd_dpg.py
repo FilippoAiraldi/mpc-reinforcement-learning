@@ -63,7 +63,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
     """
 
     __slots__ = (
-        "_dpidtheta",
+        "_sensitivity",
         "_Phi",
         "rollout_length",
         "_rollout",
@@ -218,7 +218,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
             name,
         )
         # initialize derivatives, state feature vector and hessian approximation
-        self._dpidtheta = self._init_sensitivities(linsolver)
+        self._sensitivity = self._init_sensitivities(linsolver)
         self._Phi = (
             monomials_basis_function(mpc.ns, 0, 2)
             if state_features is None
@@ -400,7 +400,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
 
         # compute dpidtheta and Psi (casadi does not support tensors with more than 2
         # dims, so dpidtheta gets squished in the third dim and needs to be reshaped)
-        dpidtheta = self._dpidtheta(vals, N)
+        dpidtheta = self._sensitivity(vals, N)
         Psi = (dpidtheta @ E).reshape(N, dpidtheta.shape[1])
 
         # save to memory and clear rollout
