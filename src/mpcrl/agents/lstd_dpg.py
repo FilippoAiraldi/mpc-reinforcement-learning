@@ -372,12 +372,10 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         """Internal utility to compute the derivatives w.r.t. the learnable parameters
         and other functions in order to estimate the policy gradient."""
         nlp = self._V.nlp
-        y = nlp.primal_dual_vars()
+        y = nlp.primal_dual
         theta = cs.vcat(self._learnable_pars.sym.values())
         u0 = cs.vcat(self._V.first_actions.values())
-        all_syms = cs.vertcat(
-            nlp.p, nlp.x, nlp.lam_g, nlp.lam_h, nlp.lam_lbx, nlp.lam_ubx
-        )
+        x_lam_p = cs.vertcat(nlp.primal_dual, nlp.p)
 
         # compute first bunch of derivatives
         nlp_ = NlpSensitivity(nlp, theta)
@@ -387,9 +385,9 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
 
         # convert SX to MX (so that we can use the linsolver)
         if nlp.sym_type is cs.SX:
-            all_syms, all_syms_sx = cs.MX.sym("in", *all_syms.shape), all_syms
-            Kt = cs.Function("dKdtheta", [all_syms_sx], [Kt]).wrap()(all_syms)
-            Ky = cs.Function("dKdy", [all_syms_sx], [Ky]).wrap()(all_syms)
+            x_lam_p, x_lam_p_sx = cs.MX.sym("in", *x_lam_p.shape), x_lam_p
+            Kt = cs.Function("dKdtheta", [x_lam_p_sx], [Kt]).wrap()(x_lam_p)
+            Ky = cs.Function("dKdy", [x_lam_p_sx], [Ky]).wrap()(x_lam_p)
 
         # compute last bunch derivative and convert to function for faster runtime
         if linsolvertype == "mldivide":
@@ -398,7 +396,21 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
             linsolver = cs.Linsol("linsolver", linsolvertype, Ky.sparsity())
             q = linsolver.solve(Ky, dydu0)
         dpidtheta = -Kt @ q
-        return cs.Function("dpidtheta", [all_syms], [dpidtheta])
+        sensitivity = cs.Function("dpidtheta", (x_lam_p,), (dpidtheta,))
+
+        # wrap to conveniently return arrays. Casadi does not support tensors with more
+        # than 2 dims, so dpidtheta gets squished in the 3rd dim and needs reshaping
+        ntheta, na = dpidtheta.shape
+
+        def func(sol_values: cs.DM, N: int) -> np.ndarray:
+            return (
+                sensitivity(sol_values.T)
+                .full()
+                .reshape(ntheta, na, N, order="F")
+                .transpose((2, 0, 1))
+            )
+
+        return func
 
     def _consolidate_rollout_into_memory(self) -> None:
         """Internal utility to compact current rollout into a single item in memory."""
@@ -411,14 +423,8 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
 
         # compute dpidtheta and Psi (casadi does not support tensors with more than 2
         # dims, so dpidtheta gets squished in the third dim and needs to be reshaped)
-        ntheta, na = self._dpidtheta.size_out(0)
-        dpidtheta = (
-            self._dpidtheta(vals.T)
-            .full()
-            .reshape(ntheta, na, N, order="F")
-            .transpose((2, 0, 1))
-        )
-        Psi = (dpidtheta @ E).reshape(N, ntheta)
+        dpidtheta = self._dpidtheta(vals, N)
+        Psi = (dpidtheta @ E).reshape(N, dpidtheta.shape[1])
 
         # save to memory and clear rollout
         self.store_experience((L, Phi, Psi, dpidtheta))
