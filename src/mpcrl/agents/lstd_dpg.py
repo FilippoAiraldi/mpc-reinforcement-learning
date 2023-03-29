@@ -41,16 +41,10 @@ ExpType: TypeAlias = Tuple[
 
 @nb.njit
 def _consolidate_rollout(
-    rollout: List[Tuple[ObsType, ActType, float, ObsType, npt.NDArray[np.floating]]],
+    rollout: List[Tuple[ObsType, ActType, float, ObsType, np.ndarray]],
     ns: int,
     na: int,
-) -> Tuple[
-    int,
-    npt.NDArray[np.floating],
-    npt.NDArray[np.floating],
-    npt.NDArray[np.floating],
-    npt.NDArray[np.floating],
-]:
+) -> Tuple[int, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Internal utility to convert a rollout list to arrays."""
     N = len(rollout)
     S = np.empty((N, ns))
@@ -244,7 +238,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
             name,
         )
         # initialize derivatives, state feature vector and hessian approximation
-        self._dpidtheta = self._init_dpg_derivatives(linsolver)
+        self._dpidtheta = self._init_sensitivities(linsolver)
         self._Phi = (
             monomials_basis_function(mpc.ns, 0, 2)
             if state_features is None
@@ -277,7 +271,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
     def update(self) -> Optional[str]:
         sample = self.experience.sample()
 
-        # congegrate sample's rollout into a unique least-squares problem. Since the
+        # congregate sample's rollout into a unique least-squares problem. Since the
         # sample is usually shortish, no point in using nb.jit
         L_, Phi_, Psi_, dpidtheta_ = [], [], [], []
         mask_phi = [False]
@@ -374,7 +368,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
             self._consolidate_rollout_into_memory()
         return rewards
 
-    def _init_dpg_derivatives(self, linsolvertype: str) -> cs.Function:
+    def _init_sensitivities(self, linsolvertype: str) -> cs.Function:
         """Internal utility to compute the derivatives w.r.t. the learnable parameters
         and other functions in order to estimate the policy gradient."""
         nlp = self._V.nlp
@@ -407,8 +401,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         return cs.Function("dpidtheta", [all_syms], [dpidtheta])
 
     def _consolidate_rollout_into_memory(self) -> None:
-        """Internal utility to compact the current rollout into a single item in
-        memory."""
+        """Internal utility to compact current rollout into a single item in memory."""
         # convert to arrays
         N, S, E, L, vals = _consolidate_rollout(self._rollout, self._V.ns, self._V.na)
 
