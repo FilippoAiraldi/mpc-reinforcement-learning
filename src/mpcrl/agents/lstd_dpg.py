@@ -251,7 +251,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         self.cho_solve_kwargs = cho_solve_kwargs
         # initialize others
         self.lstsq_cond = lstsq_cond
-        self.rollout_length = rollout_length
+        self.rollout_length = rollout_length or float("+inf")
         self._rollout: List[
             Tuple[
                 ObsType,
@@ -356,10 +356,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
 
             # first, check if current rollout has reached its length, and only then
             # invoke on_timestep_end (as it might trigger an update)
-            if (
-                self.rollout_length is not None
-                and len(self._rollout) >= self.rollout_length
-            ):
+            if len(self._rollout) >= self.rollout_length:
                 self._consolidate_rollout_into_memory()
             self.on_timestep_end(env, episode, timestep)
 
