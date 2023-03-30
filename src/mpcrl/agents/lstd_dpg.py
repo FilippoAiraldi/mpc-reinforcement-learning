@@ -1,9 +1,10 @@
-from itertools import chain, repeat
+from itertools import repeat
 from typing import (
     Any,
     Collection,
     Dict,
     Generic,
+    Iterator,
     List,
     Literal,
     Optional,
@@ -249,22 +250,9 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         )
 
     def update(self) -> Optional[str]:
+        # sample and congregate sampled rollouts into a unique least-squares problem
         sample = self.experience.sample()
-
-        # congregate sample's rollout into a unique least-squares problem. Since the
-        # sample is usually shortish, no point in using nb.jit
-        L_, Phi_, Psi_, dpidtheta_ = [], [], [], []
-        mask_phi = [False]
-        for L, Phi, Psi, dpidtheta in sample:
-            L_.append(L)
-            Phi_.append(Phi)
-            Psi_.append(Psi)
-            mask_phi.extend(chain(repeat(True, L.shape[0]), (False,)))
-            dpidtheta_.append(dpidtheta)
-        L = np.concatenate(L_)
-        Phi = np.concatenate(Phi_)
-        Psi = np.concatenate(Psi_)
-        dpidtheta = np.concatenate(dpidtheta_)
+        L, Phi, Psi, dpidtheta, mask_phi = _congregate_rollouts_sample(sample)
 
         # compute CAFA weights v
         Phi_diff = self.discount_factor * Phi[mask_phi[:-1]] - Phi[mask_phi[1:]]
@@ -428,3 +416,23 @@ def _consolidate_rollout(
         L[i] = cost
         sol_vals[i] = sol_val.reshape(-1)
     return N, S, E, L, sol_vals
+
+
+def _congregate_rollouts_sample(
+    sample: Iterator[ExpType],
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, List[bool]]:
+    """Internal utility to congregate a sample of rollouts into single arrays."""
+    # jit does not seem to provide any speedup here
+    L_, Phi_, Psi_, dpidtheta_, mask_phi = [], [], [], [], [False]
+    for L, Phi, Psi, dpidtheta in sample:
+        L_.append(L)
+        Phi_.append(Phi)
+        Psi_.append(Psi)
+        dpidtheta_.append(dpidtheta)
+        mask_phi.extend(repeat(True, L.shape[0]))
+        mask_phi.append(False)
+    L = np.concatenate(L_)
+    Phi = np.concatenate(Phi_)
+    Psi = np.concatenate(Psi_)
+    dpidtheta = np.concatenate(dpidtheta_)
+    return L, Phi, Psi, dpidtheta, mask_phi
