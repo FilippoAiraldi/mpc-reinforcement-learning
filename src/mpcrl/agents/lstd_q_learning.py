@@ -239,7 +239,7 @@ class LstdQLearningAgent(
         x_lam_p = cs.vertcat(nlp.primal_dual, nlp.p)
         sensitivity = cs.Function(
             "Q_sensitivity", (x_lam_p,), (Lt, d2Qdtheta2), ("x_lam_p",), ("dQ", "d2Q")
-        )
+        ).expand()
         assert not sensitivity.has_free(), "Internal error in Q sensitivities."
 
         # wrap to conveniently return numpy arrays

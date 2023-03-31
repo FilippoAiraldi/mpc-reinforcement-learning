@@ -211,4 +211,4 @@ def monomials_basis_function(n_in: int, mindegree: int, maxdegree: int) -> cs.Fu
             for p in monomial_powers(n_in, k)
         )
     )
-    return cs.Function("Phi", [s], [y], ["s"], ["Phi(s)"])
+    return cs.Function("Phi", (s,), (y,), ("s",), ("Phi(s)",))
