@@ -8,8 +8,8 @@
 
 [![Tests](https://github.com/FilippoAiraldi/mpc-reinforcement-learning/actions/workflows/ci.yml/badge.svg)](https://github.com/FilippoAiraldi/mpc-reinforcement-learning/actions/workflows/ci.yml)
 [![Downloads](https://pepy.tech/badge/mpcrl)](https://pepy.tech/project/mpcrl)
-[![Maintainability](https://api.codeclimate.com/v1/badges/ae755de23bae510c09ef/maintainability)](https://codeclimate.com/github/FilippoAiraldi/mpc-rl/maintainability)
-[![Test Coverage](https://api.codeclimate.com/v1/badges/ae755de23bae510c09ef/test_coverage)](https://codeclimate.com/github/FilippoAiraldi/mpc-rl/test_coverage)
+[![Maintainability](https://api.codeclimate.com/v1/badges/9a46f52603d29c684c48/maintainability)](https://codeclimate.com/github/FilippoAiraldi/mpc-reinforcement-learning/maintainability)
+[![Test Coverage](https://api.codeclimate.com/v1/badges/9a46f52603d29c684c48/test_coverage)](https://codeclimate.com/github/FilippoAiraldi/mpc-reinforcement-learning/test_coverage)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
 ---
