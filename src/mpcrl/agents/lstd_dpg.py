@@ -351,23 +351,22 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         Ky = nlp_.jacobians["K-y"].T
         dydu0 = cs.evalf(cs.jacobian(u0, y)).T
 
-        # convert SX to MX (so that we can use the linsolver)
+        # instantiate linear solver (must be MX)
         if nlp.sym_type is cs.SX:
+            # convert SX to MX (so that we can use the linsolver)
             x_lam_p, x_lam_p_sx = cs.MX.sym("in", *x_lam_p.shape), x_lam_p
-            Kt = cs.Function("dKdtheta", [x_lam_p_sx], [Kt]).wrap()(x_lam_p)
-            Ky = cs.Function("dKdy", [x_lam_p_sx], [Ky]).wrap()(x_lam_p)
+            Kt, Ky = cs.Function("sx2mx", (x_lam_p_sx,), (Kt, Ky))(x_lam_p)
+        linsolver = (
+            cs.solve  # cs.mldivide
+            if linsolver_type == "mldivide"
+            else cs.Linsol("linsolver", linsolver_type, Ky.sparsity()).solve
+        )
 
-        # compute last bunch derivative and convert to function for faster runtime
-        if linsolvertype == "mldivide":
-            q = cs.solve(Ky, dydu0)  # cs.mldivide
-        else:
-            linsolver = cs.Linsol("linsolver", linsolvertype, Ky.sparsity())
-            q = linsolver.solve(Ky, dydu0)
-        dpidtheta = -Kt @ q
-        sensitivity = cs.Function("dpidtheta", (x_lam_p,), (dpidtheta,))
-
-        # wrap to conveniently return arrays. Casadi does not support tensors with more
-        # than 2 dims, so dpidtheta gets squished in the 3rd dim and needs reshaping
+        # compute sensitivity and convert to function (faster runtime)
+        dpidtheta = -Kt @ linsolver(Ky, dydu0)
+        sensitivity = cs.Function(
+            "pi_sensitivity", (x_lam_p,), (dpidtheta,), ("x_lam_p",), ("dpidtheta",)
+        )
         ntheta, na = dpidtheta.shape
 
         def func(sol_values: cs.DM, N: int) -> np.ndarray:
