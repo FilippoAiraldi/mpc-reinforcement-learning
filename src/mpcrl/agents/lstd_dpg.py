@@ -1,6 +1,7 @@
 from itertools import repeat
 from typing import (
     Any,
+    Callable,
     Collection,
     Dict,
     Generic,
@@ -219,7 +220,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
             name,
         )
         # initialize derivatives, state feature vector and hessian approximation
-        self._sensitivity = self._init_sensitivities(linsolver)
+        self._sensitivity = self._init_sensitivity(linsolver)
         self._Phi = (
             monomials_basis_function(mpc.ns, 0, 2)
             if state_features is None
@@ -333,7 +334,9 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
             self._consolidate_rollout_into_memory()
         return rewards
 
-    def _init_sensitivities(self, linsolvertype: str) -> cs.Function:
+    def _init_sensitivity(
+        self, linsolver_type: str
+    ) -> Callable[[cs.DM, int], np.ndarray]:
         """Internal utility to compute the derivatives w.r.t. the learnable parameters
         and other functions in order to estimate the policy gradient."""
         nlp = self._V.nlp
@@ -368,6 +371,8 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         ntheta, na = dpidtheta.shape
 
         def func(sol_values: cs.DM, N: int) -> np.ndarray:
+            # wrap to conveniently return arrays. Casadi does not support tensors with
+            # >2 dims, so dpidtheta gets squished in the 3rd dim and needs reshaping
             return (
                 sensitivity(sol_values.T)
                 .full()
