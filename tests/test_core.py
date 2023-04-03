@@ -409,10 +409,25 @@ class TestUpdateStrategy(unittest.TestCase):
 
     def test_can_update__has_right_frequency(self):
         N = 50
-        frequency = 3
-        strategy = UpdateStrategy(frequency)
-        tot = sum(strategy.can_update() for _ in range(N))
-        self.assertEqual(tot, N // frequency)
+        freq = 3
+        strategy = UpdateStrategy(freq)
+        flags = np.asarray([strategy.can_update() for _ in range(N)])
+        mask = np.asarray(([False] * (freq - 1) + [True]) * (N // freq + 1))[:N]
+        self.assertEqual(flags.sum(), N // freq)
+        self.assertTrue(flags[mask].all())
+        self.assertTrue((~flags[~mask]).all())
+
+    def test_can_update__with_skip_first__skips_first_updates_correctly(self):
+        N = 50
+        freq = 3
+        skip = 2
+        strategy = UpdateStrategy(freq, skip_first=skip)
+        flags = np.asarray([strategy.can_update() for _ in range(N)])
+        mask = np.asarray(([False] * (freq - 1) + [True]) * (N // freq + 1))[:N]
+        self.assertEqual(flags.sum(), N // freq - skip)
+        self.assertTrue((~flags[mask][:skip]).all())
+        self.assertTrue(flags[mask][skip:].all())
+        self.assertTrue((~flags[~mask]).all())
 
 
 if __name__ == "__main__":

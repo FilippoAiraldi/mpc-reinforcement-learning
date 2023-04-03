@@ -1,17 +1,18 @@
 from typing import Iterator, Literal
 
-from mpcrl.util.iters import bool_cycle
+from mpcrl.util.iters import bool_cycle, chain, repeat
 
 
 class UpdateStrategy:
     """A class for the update strategy."""
 
-    __slots__ = ("frequency", "hook", "update_cycle")
+    __slots__ = ("frequency", "hook", "_update_cycle", "_skip")
 
     def __init__(
         self,
         frequency: int,
         hook: Literal["on_episode_end", "on_timestep_end"] = "on_timestep_end",
+        skip_first: int = 0,
     ) -> None:
         """Initializes the update strategy.
 
@@ -20,6 +21,10 @@ class UpdateStrategy:
         frequency : int
             Frequency at which, each time the hook is called, an update should be
             carried out.
+        skip_first : int, optional
+            Skips the first `n` updates, where `n=skip_first`. By default, 0 so no
+            update is skipped. This is useful when, e.g., the agent has to wait for the
+            experience buffer to be filled before starting to update.
         hook : {'on_episode_end', 'on_timestep_end'}, optional
             Specifies to which callback to hook, i.e., when to check if an update is due
             according to the given frequency. The options are:
@@ -30,7 +35,8 @@ class UpdateStrategy:
         """
         self.frequency = frequency
         self.hook = hook
-        self.update_cycle = bool_cycle(frequency)
+        self._update_cycle = bool_cycle(frequency)
+        self._skip = chain(repeat(True, skip_first), repeat(False))
 
     def can_update(self) -> bool:
         """Returns whether an update must be carried out at the current instant
@@ -38,7 +44,7 @@ class UpdateStrategy:
 
         Notes
         -----
-        This methods steps an internal iterator to check whether an update is due, so
+        This methods steps internal iterators to check whether an update is due, so
         calling this method again will return a different value.
 
         Returns
@@ -47,15 +53,16 @@ class UpdateStrategy:
             `True` if the agent should update according to this strategy; otherwise,
             `False`.
         """
-        return next(self.update_cycle)
+        can_update = next(self._update_cycle)
+        return not next(self._skip) if can_update else False
 
     def __iter__(self) -> Iterator[bool]:
         """With `__next__`, makes this class act like an iterator."""
-        return self.update_cycle
+        return self._update_cycle
 
     def __next__(self) -> bool:
         """With `__iter__`, makes this class act like an iterator."""
-        return next(self.update_cycle)
+        return next(self._update_cycle)
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(frequency={self.frequency},hook={self.hook})"
