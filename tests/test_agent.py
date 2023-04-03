@@ -35,7 +35,7 @@ OPTS = {
         "print_options_documentation": "no",
     },
 }
-RESULTS = matio.loadmat(r"tests/tests_data.mat")
+RESULTS = matio.loadmat(r"tests/data_test_agent.mat")
 
 
 @lru_cache
