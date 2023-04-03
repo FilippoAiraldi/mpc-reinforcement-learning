@@ -78,11 +78,11 @@ class LinearMpc(Mpc[cs.SX]):
     horizon = 10
     discount_factor = 0.9
     learnable_pars_init = {
-        "V0": np.asarray([[0.0]]),
-        "x_lb": np.asarray([[0], [0]]),
-        "x_ub": np.asarray([[1], [0]]),
-        "b": np.full((LtiSystem.nx, 1), 0.0),
-        "f": np.full((LtiSystem.nx + LtiSystem.nu, 1), 0.0),
+        "V0": np.asarray(0.0),
+        "x_lb": np.asarray([0, 0]),
+        "x_ub": np.asarray([1, 0]),
+        "b": np.zeros(LtiSystem.nx),
+        "f": np.zeros(LtiSystem.nx + LtiSystem.nu),
         "A": np.asarray([[1, 0.25], [0, 1]]),
         "B": np.asarray([[0.0312], [0.25]]),
     }
@@ -96,14 +96,14 @@ class LinearMpc(Mpc[cs.SX]):
         nlp = Nlp[cs.SX]()
         super().__init__(nlp, N)
 
-        # parameters (need to be flat)
+        # parameters
         V0 = self.parameter("V0")
         x_lb = self.parameter("x_lb", (nx,))
         x_ub = self.parameter("x_ub", (nx,))
         b = self.parameter("b", (nx, 1))
         f = self.parameter("f", (nx + nu, 1))
-        A = self.parameter("A", (nx * nx, 1)).reshape((nx, nx))
-        B = self.parameter("B", (nx * nu, 1)).reshape((nx, nu))
+        A = self.parameter("A", (nx, nx))
+        B = self.parameter("B", (nx, nu))
 
         # variables (state, action, slack)
         x, _ = self.state("x", nx)
@@ -155,17 +155,12 @@ class LinearMpc(Mpc[cs.SX]):
 mpc = LinearMpc()
 learnable_pars = LearnableParametersDict[cs.SX](
     (
-        LearnableParameter(
-            name=name,
-            size=int(np.prod(val.shape)),
-            value=val.flatten(order="F"),
-            sym=cs.vec(mpc.parameters[name]),
-        )
+        LearnableParameter(name, val.shape, val, sym=mpc.parameters[name])
         for name, val in mpc.learnable_pars_init.items()
     )
 )
 
-env = MonitorEpisodes(TimeLimit(LtiSystem(), max_episode_steps=int(5e3)))
+env = MonitorEpisodes(TimeLimit(LtiSystem(), max_episode_steps=int(1e3)))
 agent = Log(  # type: ignore[var-annotated]
     RecordUpdates(
         LstdQLearningAgent(
@@ -210,13 +205,13 @@ _, axs = plt.subplots(3, 2, constrained_layout=True, sharex=True)
 axs[0, 0].plot(np.asarray(agent.updates_history["b"]))
 axs[0, 1].plot(
     np.stack(
-        [np.asarray(agent.updates_history[n])[:, 0] for n in ("x_lb", "x_ub")], axis=-1
+        [np.asarray(agent.updates_history[n])[:, 0] for n in ("x_lb", "x_ub")], -1
     ),
 )
 axs[1, 0].plot(np.asarray(agent.updates_history["f"]))
 axs[1, 1].plot(np.asarray(agent.updates_history["V0"]))
-axs[2, 0].plot(np.asarray(agent.updates_history["A"]))
-axs[2, 1].plot(np.asarray(agent.updates_history["B"]))
+axs[2, 0].plot(np.asarray(agent.updates_history["A"]).reshape(-1, 4))
+axs[2, 1].plot(np.asarray(agent.updates_history["B"]).squeeze())
 axs[0, 0].set_ylabel("$b$")
 axs[0, 1].set_ylabel("$x_1$")
 axs[1, 0].set_ylabel("$f$")

@@ -222,7 +222,7 @@ class LstdQLearningAgent(
     ) -> Callable[[cs.DM], Tuple[np.ndarray, np.ndarray]]:
         """Internal utility to compute the derivative of Q(s,a) w.r.t. the learnable
         parameters, a.k.a., theta."""
-        theta = cs.vcat(self._learnable_pars.sym.values())
+        theta = cs.vvcat(self._learnable_pars.sym.values())
         nlp = self._Q.nlp
         nlp_ = NlpSensitivity(nlp, theta)
         Lt = nlp_.jacobians["L-p"]  # a.k.a., dQdtheta

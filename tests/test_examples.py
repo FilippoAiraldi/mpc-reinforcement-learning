@@ -72,11 +72,11 @@ class QLearningLinearMpc(Mpc[cs.SX]):
     horizon = 10
     discount_factor = 0.9
     learnable_pars_init = {
-        "V0": np.asarray([[0.0]]),
-        "x_lb": np.asarray([[0], [0]]),
-        "x_ub": np.asarray([[1], [0]]),
-        "b": np.full((LtiSystem.nx, 1), 0.0),
-        "f": np.full((LtiSystem.nx + LtiSystem.nu, 1), 0.0),
+        "V0": np.asarray(0.0),
+        "x_lb": np.asarray([0, 0]),
+        "x_ub": np.asarray([1, 0]),
+        "b": np.full(LtiSystem.nx, 0.0),
+        "f": np.full(LtiSystem.nx + LtiSystem.nu, 0.0),
         "A": np.asarray([[1, 0.25], [0, 1]]),
         "B": np.asarray([[0.0312], [0.25]]),
     }
@@ -94,8 +94,8 @@ class QLearningLinearMpc(Mpc[cs.SX]):
         x_ub = self.parameter("x_ub", (nx,))
         b = self.parameter("b", (nx, 1))
         f = self.parameter("f", (nx + nu, 1))
-        A = self.parameter("A", (nx * nx, 1)).reshape((nx, nx))
-        B = self.parameter("B", (nx * nu, 1)).reshape((nx, nu))
+        A = self.parameter("A", (nx, nx))
+        B = self.parameter("B", (nx, nu))
         x, _ = self.state("x", nx)
         u, _ = self.action("u", nu, lb=a_bnd[0], ub=a_bnd[1])
         s, _, _ = self.variable("s", (nx, N), lb=0)
@@ -126,7 +126,7 @@ class QLearningLinearMpc(Mpc[cs.SX]):
 class DpgLinearMpc(Mpc[cs.SX]):
     horizon = 10
     discount_factor = 0.9
-    learnable_pars_init = {
+    learnable_pars_init = {  # test also with pars with additional dims
         "V0": np.asarray([[0.0], [0.0]]),
         "x_lb": np.asarray([[0], [0]]),
         "x_ub": np.asarray([[1], [0]]),
@@ -188,10 +188,7 @@ class TestExamples(unittest.TestCase):
         learnable_pars = LearnableParametersDict[cs.SX](
             (
                 LearnableParameter(
-                    name=name,
-                    size=np.prod(val.shape),
-                    value=val.flatten(order="F"),
-                    sym=cs.vec(mpc.parameters[name]),
+                    name=name, shape=val.shape, value=val, sym=mpc.parameters[name]
                 )
                 for name, val in mpc.learnable_pars_init.items()
             )
@@ -234,6 +231,8 @@ class TestExamples(unittest.TestCase):
         np.testing.assert_allclose(TD, DATA["ql_TD"], rtol=1e-9, atol=1e-1)
         pars_expected = DATA["ql_pars"].item()
         for i, par in enumerate(pars.values()):
+            if i == 5:  # this is for A
+                par = par.reshape(-1, 4, order="F")  # from (n_up, 2, 2) to (n_up, 4)
             np.testing.assert_allclose(par, pars_expected[i], rtol=1e-9, atol=1e-4)
 
     @parameterized.expand([(False,), (True,)])
@@ -243,7 +242,7 @@ class TestExamples(unittest.TestCase):
             (
                 LearnableParameter(
                     name=name,
-                    size=np.prod(val.shape),
+                    shape=np.prod(val.shape),
                     value=val.flatten(order="F"),
                     sym=cs.vec(mpc.parameters[name]),
                 )

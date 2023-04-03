@@ -1346,7 +1346,7 @@ class TestQuadRotorQlearning(unittest.TestCase):
             (
                 LearnableParameter(
                     name=name,
-                    size=1,
+                    shape=1,
                     value=init,
                     lb=lb,
                     ub=ub,
