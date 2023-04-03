@@ -89,13 +89,13 @@ class TestExperienceReplay(unittest.TestCase):
             self.assertIn(item, mem)
 
     @parameterized.expand([(20, 10), (20, 0.5), (0.2, 10), (0.2, 0.5)])
-    def test_sample__last_n__includes_last_n_items(
+    def test_sample__latest_n__includes_latest_n_items(
         self, n: Union[int, float], last_n: Union[int, float]
     ):
         N = 100
         Nsample = 20
         Nlast = 10
-        mem = ExperienceReplay[int](maxlen=N, sample_size=n, include_last=last_n)
+        mem = ExperienceReplay[int](maxlen=N, sample_size=n, include_latest=last_n)
         mem.extend(range(N))
         sample = list(mem.sample())
         self.assertEqual(len(sample), Nsample)

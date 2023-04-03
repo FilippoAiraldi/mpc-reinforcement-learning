@@ -11,14 +11,14 @@ class ExperienceReplay(Deque[ExpType]):
     class inherits from `collections.deque`, adding a couple of simple functionalities
     to it for sampling transitions at random from past observed data."""
 
-    __slots__ = ("np_random", "sample_size", "include_last")
+    __slots__ = ("np_random", "sample_size", "include_latest")
 
     def __init__(
         self,
         iterable: Iterable[ExpType] = (),
         maxlen: Optional[int] = None,
         sample_size: Union[int, float] = 1,
-        include_last: Union[int, float] = 0,
+        include_latest: Union[int, float] = 0,
         seed: Optional[int] = None,
     ) -> None:
         """Instantiate the container for experience replay memory.
@@ -33,15 +33,15 @@ class ExperienceReplay(Deque[ExpType]):
         sample_size : int or float, optional
             Size (or percentage of replay `maxlen`) of the experience replay items to
             draw when performing an update. By default, one item per sampling is drawn.
-        include_last : int or float, optional
-            Size (or percentage of sample size) dedicated to including the latest
+        include_latest : int or float, optional
+            Size (or percentage of `sample_size`) dedicated to including the latest
             experience transitions. By default, 0, i.e., no last item is included.
         seed : int, optional
             Seed for the random number generator. By default, `None`.
         """
         super().__init__(iterable, maxlen=maxlen)
         self.sample_size = sample_size
-        self.include_last = include_last
+        self.include_latest = include_latest
         self.reset(seed)
 
     def reset(self, seed: Optional[int] = None) -> None:
@@ -65,7 +65,7 @@ class ExperienceReplay(Deque[ExpType]):
         """
         L = len(self)
         n = self.sample_size
-        last_n = self.include_last
+        last_n = self.include_latest
         if isinstance(n, float):
             assert (
                 self.maxlen is not None
@@ -79,4 +79,4 @@ class ExperienceReplay(Deque[ExpType]):
         # get last n indices and the sampled indices from the remaining
         last = range(L - last_n, L)
         sampled = self.np_random.choice(range(L - last_n), n - last_n, False)
-        yield from (self[i] for i in chain(last, sampled))
+        yield from (self[i] for i in chain(sampled, last))
