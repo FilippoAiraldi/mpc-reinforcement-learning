@@ -1,6 +1,6 @@
 from functools import cached_property
 from itertools import chain
-from typing import Any, Dict, Generic, Iterable, Optional, TypeVar, Union
+from typing import Any, Dict, Generic, Iterable, Optional, Tuple, TypeVar, Union
 
 import numpy as np
 import numpy.typing as npt
@@ -13,22 +13,15 @@ SymType = TypeVar("SymType")  # most likely, T is cs.SX or MX
 
 
 class LearnableParameter(SupportsDeepcopyAndPickle, Generic[SymType]):
-    """A 1D parameter that is learnable, that is, it can be adjusted via . This class
+    """A parameter that is learnable, that is, it can be adjusted via RL. This class
     is useful for managing symbols, bounds and value of learnable parameters."""
 
-    __slots__ = (
-        "name",
-        "size",
-        "value",
-        "lb",
-        "ub",
-        "sym",
-    )
+    __slots__ = ("name", "shape", "value", "lb", "ub", "sym")
 
     def __init__(
         self,
         name: str,
-        size: int,
+        shape: Union[int, Tuple[int, ...]],
         value: npt.ArrayLike,
         lb: npt.ArrayLike = -np.inf,
         ub: npt.ArrayLike = +np.inf,
@@ -40,8 +33,8 @@ class LearnableParameter(SupportsDeepcopyAndPickle, Generic[SymType]):
         ----------
         name : str
             Name of the learnable parameter.
-        size : int
-            Size of the 1D parameter vector.
+        shape : int or tuple of ints
+            Shape of the parameter.
         value : array_like
             Starting value of the parameter. This can then be updated via `update`.
         lb : array_like, optional
@@ -55,16 +48,20 @@ class LearnableParameter(SupportsDeepcopyAndPickle, Generic[SymType]):
         ------
         ValueError
             Raises if `value`, `lb` or `ub` cannot be broadcasted to a 1D vector with
-            shape equal to `(size,)`.
+            shape equal to `shape`.
         """
         super().__init__()
         self.name = name
-        self.size = size
+        self.shape = (shape,) if isinstance(shape, int) else shape
         self.sym = sym
-        shape = (size,)
         self.lb: npt.NDArray[np.floating] = np.broadcast_to(lb, shape)
         self.ub: npt.NDArray[np.floating] = np.broadcast_to(ub, shape)
         self._update_value(value)
+
+    @property
+    def size(self) -> int:
+        """Gets the number of elements in the parameter."""
+        return np.prod(self.shape, dtype=int).item()
 
     def _update_value(self, v: npt.ArrayLike, **is_close_kwargs: Any) -> None:
         """Internal utility for updating the parameter value with a new value.
@@ -81,10 +78,10 @@ class LearnableParameter(SupportsDeepcopyAndPickle, Generic[SymType]):
         ------
         ValueError
             Raises if `new_value` cannot be broadcasted to a 1D vector with shape equal
-            to `(size,)`; or if it does not lie inside the upper and lower bounds within
+            to `shape`; or if it does not lie inside the upper and lower bounds within
             the specified tolerances.
         """
-        v = np.broadcast_to(v, (self.size,))
+        v = np.broadcast_to(v, self.shape)
         lb = self.lb
         ub = self.ub
         if ((v < lb) & ~np.isclose(v, lb, **is_close_kwargs)).any() or (
@@ -94,10 +91,10 @@ class LearnableParameter(SupportsDeepcopyAndPickle, Generic[SymType]):
         self.value: npt.NDArray[np.floating] = np.clip(v, lb, ub)
 
     def __str__(self) -> str:
-        return f"<{self.name}(size={self.size})>"
+        return f"<{self.name}(shape={self.shape})>"
 
     def __repr__(self) -> str:
-        return f"<{self.__class__.__name__}(name={self.name},size={self.size})>"
+        return f"<{self.__class__.__name__}(name={self.name},shape={self.shape})>"
 
 
 class LearnableParametersDict(
@@ -133,18 +130,28 @@ class LearnableParametersDict(
     @cached_property
     def lb(self) -> npt.NDArray[np.floating]:
         """Gets the lower bound of all the learnable parameters, concatenated."""
-        return np.concatenate([p.lb for p in self.values()]) if self else np.asarray([])
+        return (
+            np.concatenate([p.lb.reshape(-1, order="F") for p in self.values()])
+            if self
+            else np.empty(0)
+        )
 
     @cached_property
     def ub(self) -> npt.NDArray[np.floating]:
         """Gets the upper bound of all the learnable parameters, concatenated."""
-        return np.concatenate([p.ub for p in self.values()]) if self else np.asarray([])
+        return (
+            np.concatenate([p.ub.reshape(-1, order="F") for p in self.values()])
+            if self
+            else np.empty(0)
+        )
 
     @cached_property
     def value(self) -> npt.NDArray[np.floating]:
         """Gets the values of all the learnable parameters, concatenated."""
         return (
-            np.concatenate([p.value for p in self.values()]) if self else np.asarray([])
+            np.concatenate([p.value.reshape(-1, order="F") for p in self.values()])
+            if self
+            else np.empty(0)
         )
 
     @cached_property
@@ -194,8 +201,8 @@ class LearnableParametersDict(
         else:
             cumsizes = np.cumsum([p.size for p in self.values()])[:-1]
             values_ = np.split(new_values, cumsizes)
-            for par, value in zip(self.values(), values_):
-                par._update_value(value, **is_close_kwargs)
+            for par, val in zip(self.values(), values_):
+                par._update_value(val.reshape(par.shape, order="F"), **is_close_kwargs)
 
     __cache_decorator = invalidate_cache(size, lb, ub, value, value_as_dict, sym)
 

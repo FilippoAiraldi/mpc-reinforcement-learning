@@ -265,11 +265,11 @@ class TestParameters(unittest.TestCase):
     def test_learnable_parameters_dict__is_deepcopyable_and_pickleable(
         self, cstype: Union[cs.SX, cs.MX], copy: bool
     ):
-        size = 5
-        theta_sym = cstype.sym("theta", size)
+        shape = (5, 2)
+        theta_sym = cstype.sym("theta", shape)
         f = theta_sym[0]
         df = cs.evalf(cs.jacobian(f, theta_sym)[0])
-        p1 = LearnableParameter[float]("theta", size, 1, -1, 2, sym={"v": theta_sym})
+        p1 = LearnableParameter[float]("theta", shape, 1, -1, 2, sym={"v": theta_sym})
         pars = LearnableParametersDict((p1,))
         if copy:
             new_pars = pars.copy(deep=True)
@@ -278,6 +278,7 @@ class TestParameters(unittest.TestCase):
         p2: LearnableParameter = new_pars["theta"]
         self.assertIsNot(p1, p2)
         self.assertEqual(p1.name, p2.name)
+        self.assertEqual(p1.shape, p2.shape)
         self.assertEqual(p1.size, p2.size)
         np.testing.assert_array_equal(p1.value, p2.value)
         np.testing.assert_array_equal(p1.lb, p2.lb)
@@ -324,19 +325,26 @@ class TestParameters(unittest.TestCase):
         )
     )
     def test_parameters_dict__caches_get_cleared_properly(self, method: str):
-        assert_array_equal = np.testing.assert_array_equal
+        array_equal = np.testing.assert_array_equal
+        cat = np.concatenate
 
         def check(pars, PARS):
             self.assertEqual(pars.size, sum(p.size for p in PARS))
-            assert_array_equal(pars.lb, sum((p.lb.tolist() for p in PARS), []))
-            assert_array_equal(pars.ub, sum((p.ub.tolist() for p in PARS), []))
-            assert_array_equal(pars.value, sum((p.value.tolist() for p in PARS), []))
             if len(pars) > 0 and len(PARS) > 0:
-                sym1 = cs.vertcat(*(p.sym for p in pars.values()))
-                sym2 = cs.vertcat(*(p.sym for p in PARS))
-                assert_array_equal(cs.evalf(cs.simplify(sym1 - sym2)), 0)
+                array_equal(pars.lb, cat([p.lb.flatten("F") for p in PARS]))
+                array_equal(pars.ub, cat([p.ub.flatten("F") for p in PARS]))
+                array_equal(pars.value, cat([p.value.flatten("F") for p in PARS]))
+                sym1 = cs.veccat(*(p.sym for p in pars.values()))
+                sym2 = cs.veccat(*(p.sym for p in PARS))
+                array_equal(cs.evalf(cs.simplify(sym1 - sym2)), 0)
+            else:
+                self.assertTupleEqual(pars.lb.shape, (0,))
+                self.assertTupleEqual(pars.ub.shape, (0,))
+                self.assertTupleEqual(pars.value.shape, (0,))
 
-        p1 = LearnableParameter[float]("t1", 1, 1.0, -1.0, 2.0, cs.SX.sym("t1", 1))
+        p1 = LearnableParameter[float](
+            "t1", (4, 6), 1.0, -1.0, 2.0, cs.SX.sym("t1", 4, 6)
+        )
         p2 = LearnableParameter[float]("t2", 2, 2.0, -2.0, 3.0, cs.SX.sym("t2", 2))
         PARS = [p1, p2]
         pars = LearnableParametersDict(PARS)
