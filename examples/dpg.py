@@ -167,7 +167,7 @@ learnable_pars = LearnableParametersDict[cs.SX](
         for name, val in mpc.learnable_pars_init.items()
     )
 )
-env = MonitorEpisodes(TimeLimit(LtiSystem(), max_episode_steps=int(5e2)))
+env = MonitorEpisodes(TimeLimit(LtiSystem(), max_episode_steps=int(5e3)))
 rollout_length = 200
 agent = Log(
     RecordUpdates(
@@ -217,7 +217,7 @@ _, axs = plt.subplots(3, 2, constrained_layout=True, sharex=True)
 axs[0, 0].plot(np.asarray(agent.updates_history["b"]))
 axs[0, 1].plot(
     np.stack(
-        [np.asarray(agent.updates_history[n])[:, 0, 0] for n in ("x_lb", "x_ub")], -1
+        [np.asarray(agent.updates_history[n])[:, 0] for n in ("x_lb", "x_ub")], -1
     ),
 )
 axs[1, 0].plot(np.asarray(agent.updates_history["f"]))
