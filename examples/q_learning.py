@@ -142,7 +142,9 @@ class LinearMpc(Mpc[cs.SX]):
             # "jit": True,
             # "jit_cleanup": True,
             "ipopt": {
-                # "linear_solver": "pardiso",
+                # "linear_solver": "ma97",
+                # "linear_system_scaling": "mc19",
+                # "nlp_scaling_method": "equilibration-based",
                 "max_iter": 500,
                 "sb": "yes",
                 "print_level": 0,
