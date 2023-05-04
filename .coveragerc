@@ -4,3 +4,9 @@ omit =
     tests/*
     examples/*
     */csnlp/*
+
+[report]
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    def __str__
