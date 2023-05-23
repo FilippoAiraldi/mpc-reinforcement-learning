@@ -222,7 +222,7 @@ class RemovesCallbackHooksInState:
         attachername: str,
         callbackname: str,
         func: Callable,
-        args_idx: Union[None, int, slice] = None,
+        args_idx: Union[None, slice] = None,
         kwargs_keys: Union[None, Collection[str], Literal["all"]] = None,
     ) -> None:
         """Hooks a function to be called each time an agent's callback is invoked.
@@ -235,7 +235,7 @@ class RemovesCallbackHooksInState:
             Name of the callback to hook to.
         func : Callable
             function to be called when the callback is invoked.
-        args_idx : int or slice, optional
+        args_idx : slice, optional
             Indices of the `args` of the callback to be passed to `func`, if not `None`.
         kwargs_keys : collection of strings or "all", optional
             Keys of the `kwargs` of the callback to be passed to `func`, if not `None`.
@@ -245,7 +245,7 @@ class RemovesCallbackHooksInState:
             args_idx = slice(0, 0)
         all_kwargs_keys = False
         if kwargs_keys is None:
-            kwargs_keys = tuple()
+            kwargs_keys = ()
         elif kwargs_keys == "all":
             all_kwargs_keys = True
 

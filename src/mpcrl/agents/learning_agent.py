@@ -254,7 +254,7 @@ class LearningAgent(
             "on_timestep_end",
         }, "Updates can be hooked only to episode_end or on_timestep_end."
         args_idx, kwargs_keys = (
-            (1, ("episode",))
+            (slice(1, 2), ("episode",))
             if self._update_strategy.hook == "on_episode_end"
             else (slice(1, 3), ("episode", "timestep"))
         )
@@ -266,7 +266,9 @@ class LearningAgent(
             kwargs_keys,
         )
 
-    def _check_and_perform_update(self, episode: int, timestep: Optional[int]) -> None:
+    def _check_and_perform_update(
+        self, episode: int, timestep: Optional[int] = None
+    ) -> None:
         """Internal utility to check if an update is due and perform it."""
         if not self._update_strategy.can_update():
             return
