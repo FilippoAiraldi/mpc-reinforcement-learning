@@ -38,7 +38,13 @@ class LearningAgent(
     Note: this class makes no assumptions on the learning methodology used to update the
     MPC's learnable parameters."""
 
-    __slots__ = ("_experience", "_learnable_pars", "_update_strategy", "_raises")
+    __slots__ = (
+        "_experience",
+        "_learnable_pars",
+        "_update_strategy",
+        "_updates_enabled",
+        "_raises",
+    )
 
     def __init__(
         self,
@@ -106,6 +112,7 @@ class LearningAgent(
         if not isinstance(update_strategy, UpdateStrategy):
             update_strategy = UpdateStrategy(update_strategy, "on_timestep_end")
         self._update_strategy = update_strategy
+        self._updates_enabled = True
         self.establish_callback_hooks()
 
     @property
@@ -137,6 +144,10 @@ class LearningAgent(
             Item to be stored in memory.
         """
         self._experience.append(item)
+
+    def evaluate(self, *args: Any, **kwargs: Any) -> npt.NDArray[np.floating]:
+        self._updates_enabled = False
+        return super().evaluate(*args, **kwargs)
 
     def train(
         self,
@@ -176,6 +187,7 @@ class LearningAgent(
         UpdateError or UpdateWarning
             Raises the error or the warning (depending on `raises`) if the update fails.
         """
+        self._updates_enabled = True
         self._raises = raises
         returns = np.zeros(episodes, float)
         self.on_training_start(env)
@@ -268,7 +280,7 @@ class LearningAgent(
 
     def _check_and_perform_update(self, episode: int, timestep: Optional[int]) -> None:
         """Internal utility to check if an update is due and perform it."""
-        if not self._update_strategy.can_update():
+        if not self._updates_enabled or not self._update_strategy.can_update():
             return
         update_msg = self.update()
         if update_msg is not None:
