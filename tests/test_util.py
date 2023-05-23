@@ -1,6 +1,7 @@
 import unittest
 from typing import Iterable, Tuple, Union
 
+import casadi as cs
 import numpy as np
 from parameterized import parameterized
 
@@ -97,6 +98,21 @@ class TestControl(unittest.TestCase):
         K, P = control.dlqr(A, B, Q, R)
         np.testing.assert_allclose(K, K_exp)
         np.testing.assert_allclose(P, P_exp)
+
+    def test_rk4__returns_correcly(self):
+        def f(x):
+            return -3 * x
+
+        dt = 0.01
+        x = cs.SX.sym("x")
+        fd = cs.Function("fd", [x], [control.rk4(f, x, dt)])
+
+        Y = [1]
+        for _ in range(100):
+            Y.append(fd(Y[-1]))
+        Y = cs.hcat(Y).full().squeeze()
+        Y_exact = np.exp(-3 * (np.arange(Y.size) * dt))
+        np.testing.assert_allclose(Y, Y_exact)
 
 
 class TestIters(unittest.TestCase):
