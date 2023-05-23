@@ -4,7 +4,7 @@ from typing import Iterable, Tuple, Union
 import numpy as np
 from parameterized import parameterized
 
-from mpcrl.util import iters, math, named
+from mpcrl.util import control, iters, math, named
 
 
 class DummyAgent(named.Named):
@@ -47,22 +47,6 @@ class TestMath(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Maximum iterations reached."):
             math.cholesky_added_multiple_identities(A, maxiter=1)
 
-    def test_dlqr__returns_correctly(self):
-        K_exp = np.array([[1.075936290787970, 1.824593914133278]])
-        P_exp = np.array(
-            [
-                [6.783278637425703, 2.903698804441288],
-                [2.903698804441288, 5.026668672843932],
-            ]
-        )
-        A = np.array([[1, 0.25], [0, 1]])
-        B = np.array([[0.03], [0.25]])
-        Q = np.eye(2)
-        R = 0.5
-        K, P = math.dlqr(A, B, Q, R)
-        np.testing.assert_allclose(K, K_exp)
-        np.testing.assert_allclose(P, P_exp)
-
     @parameterized.expand(
         [
             ((1, 1), 1),
@@ -95,6 +79,24 @@ class TestMath(unittest.TestCase):
         np.testing.assert_allclose(p.sum(axis=1), k)
         if out is not None:
             np.testing.assert_allclose(p, out)
+
+
+class TestControl(unittest.TestCase):
+    def test_dlqr__returns_correctly(self):
+        K_exp = np.array([[1.075936290787970, 1.824593914133278]])
+        P_exp = np.array(
+            [
+                [6.783278637425703, 2.903698804441288],
+                [2.903698804441288, 5.026668672843932],
+            ]
+        )
+        A = np.array([[1, 0.25], [0, 1]])
+        B = np.array([[0.03], [0.25]])
+        Q = np.eye(2)
+        R = 0.5
+        K, P = control.dlqr(A, B, Q, R)
+        np.testing.assert_allclose(K, K_exp)
+        np.testing.assert_allclose(P, P_exp)
 
 
 class TestIters(unittest.TestCase):

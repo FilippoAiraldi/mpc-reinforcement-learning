@@ -23,7 +23,7 @@ from mpcrl import (
     UpdateStrategy,
 )
 from mpcrl import exploration as E
-from mpcrl.util.math import dlqr
+from mpcrl.util.control import dlqr
 from mpcrl.wrappers.agents import Log, RecordUpdates
 from mpcrl.wrappers.envs import MonitorEpisodes
 

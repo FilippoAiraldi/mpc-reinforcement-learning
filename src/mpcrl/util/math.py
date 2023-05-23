@@ -1,11 +1,10 @@
 from itertools import combinations
-from typing import Optional, Tuple, Union
+from typing import Union
 
 import casadi as cs
 import numpy as np
 import numpy.typing as npt
 from csnlp.util.math import prod
-from scipy.linalg import solve_discrete_are
 from scipy.special import comb
 
 
@@ -78,56 +77,6 @@ def cholesky_added_multiple_identities(
         except np.linalg.LinAlgError:
             tau = max(1.05 * tau, beta)
     raise ValueError("Maximum iterations reached.")
-
-
-def dlqr(
-    A: npt.NDArray[np.floating],
-    B: npt.NDArray[np.floating],
-    Q: npt.NDArray[np.floating],
-    R: npt.NDArray[np.floating],
-    M: Optional[npt.NDArray[np.floating]] = None,
-) -> Tuple[npt.NDArray[np.floating], npt.NDArray[np.floating]]:
-    """Get the discrete-time LQR for the given system. Stage costs are
-    ```
-        x'Qx + 2*x'Mu + u'Ru
-    ```
-    with `M = 0`, if not provided.
-
-    Parameters
-    ----------
-    A : array
-        State matrix.
-    B : array
-        Control input matrix.
-    Q : array
-        State weighting matrix.
-    R : array
-        Control input weighting matrix.
-    M : array, optional
-        Mixed state-input weighting matrix, by default None.
-
-    Returns
-    -------
-    tuple of two arrays
-        Returns the optimal state feedback matrix `K` and the quadratic terminal
-        cost-to-go matrix `P`.
-
-    Note
-    ----
-    Inspired by
-    https://bitbucket.org/rawlings-group/mpc-tools-casadi/src/master/mpctools/util.py.
-    """
-    if M is not None:
-        RinvMT = np.linalg.solve(R, M.T)
-        Atilde = A - B.dot(RinvMT)
-        Qtilde = Q - M.dot(RinvMT)
-    else:
-        Atilde = A
-        Qtilde = Q
-        M = np.zeros(B.shape)
-    P = solve_discrete_are(Atilde, B, Qtilde, R)
-    K = np.linalg.solve(B.T.dot(P).dot(B) + R, B.T.dot(P).dot(A) + M.T)
-    return K, P
 
 
 def nchoosek(n: Union[int, npt.ArrayLike], k: int) -> Union[int, np.ndarray]:

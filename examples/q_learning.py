@@ -20,7 +20,7 @@ from csnlp.wrappers import Mpc
 from gymnasium.wrappers import TimeLimit
 
 from mpcrl import LearnableParameter, LearnableParametersDict, LstdQLearningAgent
-from mpcrl.util.math import dlqr
+from mpcrl.util.control import dlqr
 from mpcrl.wrappers.agents import Log, RecordUpdates
 from mpcrl.wrappers.envs import MonitorEpisodes
 
