@@ -330,7 +330,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
             self.on_timestep_end(env, episode, timestep)
 
         # consolidate rollout at the end of episode, if no length was specified
-        if self.rollout_length is None:
+        if self.rollout_length == float("+inf"):
             self._consolidate_rollout_into_memory()
         return rewards
 
