@@ -166,8 +166,7 @@ class QuadRotorEnv:
         xf: np.ndarray = None,
         options: Optional[Dict[str, Any]] = None,
     ) -> Tuple[np.ndarray, Dict[str, Any]]:
-        seed_seq = np.random.SeedSequence(seed)
-        self.np_random = np.random.Generator(np.random.PCG64(seed_seq))
+        self.np_random = np.random.default_rng(seed)
         if x0 is None:
             x0 = self.config.x0
         if xf is None:
@@ -664,8 +663,7 @@ class ReplayMemory(Deque[T]):
         self, iterable: Iterable[T] = (), maxlen: int = None, seed: int = None
     ) -> None:
         super().__init__(iterable, maxlen=maxlen)
-        seed_seq = np.random.SeedSequence(seed)
-        self.np_random = np.random.Generator(np.random.PCG64(seed_seq))
+        self.np_random = np.random.default_rng(seed)
 
     def sample(
         self, n: Union[int, float], include_last_n: Union[int, float]
@@ -814,8 +812,7 @@ class QuadRotorBaseAgent(ABC):
         )
         self.fixed_pars = {} if fixed_pars is None else fixed_pars
         self.seed = seed
-        seed_seq = np.random.SeedSequence(seed)
-        self.np_random = np.random.Generator(np.random.PCG64(seed_seq))
+        self.np_random = np.random.default_rng(seed)
         self.perturbation_chance = 0.0
         self.perturbation_strength = 0.0
         self.last_solution: Solution = None
