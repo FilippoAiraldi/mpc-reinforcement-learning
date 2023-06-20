@@ -1,5 +1,6 @@
 from functools import cached_property
 from itertools import chain
+from numbers import Integral
 from typing import Any, Dict, Generic, Iterable, Optional, Tuple, TypeVar, Union
 
 import numpy as np
@@ -53,7 +54,9 @@ class LearnableParameter(SupportsDeepcopyAndPickle, Generic[SymType]):
         """
         super().__init__()
         self.name = name
-        self.shape = (shape,) if isinstance(shape, int) else shape
+        self.shape: Tuple[int, ...] = (
+            (shape,) if isinstance(shape, Integral) else shape  # type: ignore
+        )
         self.sym = sym
         self.lb: npt.NDArray[np.floating] = np.broadcast_to(lb, shape)
         self.ub: npt.NDArray[np.floating] = np.broadcast_to(ub, shape)
