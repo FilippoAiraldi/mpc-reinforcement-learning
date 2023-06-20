@@ -48,7 +48,8 @@ class LearnableParameter(SupportsDeepcopyAndPickle, Generic[SymType]):
         ------
         ValueError
             Raises if `value`, `lb` or `ub` cannot be broadcasted to a 1D vector with
-            shape equal to `shape`.
+            shape equal to `shape`; or if the shape of the symbolic variable `sym` does
+            not match the shape of the parameter.
         """
         super().__init__()
         self.name = name
@@ -56,6 +57,7 @@ class LearnableParameter(SupportsDeepcopyAndPickle, Generic[SymType]):
         self.sym = sym
         self.lb: npt.NDArray[np.floating] = np.broadcast_to(lb, shape)
         self.ub: npt.NDArray[np.floating] = np.broadcast_to(ub, shape)
+        self._check_sym_shape()
         self._update_value(value)
 
     @property
@@ -89,6 +91,16 @@ class LearnableParameter(SupportsDeepcopyAndPickle, Generic[SymType]):
         ).any():
             raise ValueError(f"Updated parameter {self.name} is outside bounds.")
         self.value: npt.NDArray[np.floating] = np.clip(v, lb, ub)
+
+    def _check_sym_shape(self) -> None:
+        """Internal utility for checking that the shape of the symbolic variable matches
+        the shape of the parameter."""
+        if self.sym is None or not hasattr(self.sym, "shape"):
+            return
+        sym_shape = tuple(self.sym.shape)
+        shape = self.shape + tuple(1 for _ in range(len(sym_shape) - len(self.shape)))
+        if sym_shape != shape:
+            raise ValueError("Shape of `sym` does not match `shape`.")
 
     def __str__(self) -> str:
         return f"<{self.name}(shape={self.shape})>"
