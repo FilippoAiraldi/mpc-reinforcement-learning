@@ -1,7 +1,7 @@
 from itertools import chain
 from typing import Deque, Iterable, Iterator, Optional, TypeVar, Union
 
-from csnlp.util.random import np_random
+import numpy as np
 
 ExpType = TypeVar("ExpType")
 
@@ -46,7 +46,7 @@ class ExperienceReplay(Deque[ExpType]):
 
     def reset(self, seed: Optional[int] = None) -> None:
         """Resets the sampling RNG."""
-        self.np_random = np_random(seed)
+        self.np_random = np.random.default_rng(seed)
 
     def sample(self) -> Iterator[ExpType]:
         """Samples the experience memory and yields the sampled items.
