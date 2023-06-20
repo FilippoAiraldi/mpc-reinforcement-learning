@@ -3,7 +3,6 @@ from typing import Any, Literal, Optional, Union
 
 import numpy as np
 import numpy.typing as npt
-from csnlp.util.random import np_random
 
 from mpcrl.core.schedulers import NoScheduling, Scheduler
 
@@ -116,7 +115,7 @@ class GreedyExploration(ExplorationStrategy):
 
     def reset(self, seed: Optional[int] = None) -> None:
         """Resets the exploration RNG."""
-        self.np_random = np_random(seed)
+        self.np_random = np.random.default_rng(seed)
 
     def can_explore(self) -> bool:
         return True
