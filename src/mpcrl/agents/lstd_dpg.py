@@ -164,12 +164,12 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
             rollout length must be given in order to save the current trajectory as an
             atomic item in memory.
         record_policy_performance: bool, optional
-            If `True`, the performance of each rollout is stored in the filed
+            If `True`, the performance of each rollout is stored in the field
             `policy_performances`, which otherwise is `None`. By default, does not
             record them.
         record_policy_gradient: bool, optional
             If `True`, the (estimated) policy gradient of each update is stored in the
-            filed `policy_gradients`, which otherwise is `None`. By default, does not
+            field `policy_gradients`, which otherwise is `None`. By default, does not
             record them.
         state_features : casadi.Function, optional
             The state feature vector to be used in the linear approximation of the
@@ -186,10 +186,10 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         linsolver : "csparse" or "qr" or "mldivide", optional
             The type of linear solver to be used for solving the linear system derived
             from the KKT conditions and used to estimate the gradient of the policy. By
-            default, `"qr"` is chosen.
+            default, `"mldivide"` is chosen.
         hessian_type : 'none' or 'natural', optional
-            The type of hessian to use in this second-order algorithm. If `none`, no
-            hessian is used (first-order). If `natural`, the hessian is approximated
+            The type of hessian to use in this second-order algorithm. If `"none"`, no
+            hessian is used (first-order). If `"natural"`, the hessian is approximated
             according to natural policy gradients.
         cho_maxiter : int, optional
             Maximum number of iterations in the Cholesky's factorization with additive
@@ -197,8 +197,8 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
             default, `1000`. Only used if `hessian_type!='none'`.
         cho_solve_kwargs : kwargs for scipy.linalg.cho_solve, optional
             The optional kwargs to be passed to `scipy.linalg.cho_solve`. If `None`, it
-            is equivalent to `cho_solve_kwargs = {'check_finite': False }`. Only used if
-            `hessian_type!='none'`.
+            is equivalent to `cho_solve_kwargs = {"check_finite": False }`. Only used if
+            `hessian_type!="none"`.
         name : str, optional
             Name of the agent. If `None`, one is automatically created from a counter of
             the class' instancies.
