@@ -257,18 +257,14 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
 
         # compute CAFA weights v
         Phi_diff = self.discount_factor * Phi[mask_phi[:-1]] - Phi[mask_phi[1:]]
-        A_v = Phi[mask_phi[1:]].T @ -Phi_diff
-        b_v = Phi[mask_phi[1:]].T @ L
-        v = lstsq(A_v, b_v, self.lstsq_cond, lapack_driver="gelsy", check_finite=False)[
-            0
-        ]
+        Av = Phi[mask_phi[1:]].T @ -Phi_diff
+        bv = Phi[mask_phi[1:]].T @ L
+        v = lstsq(Av, bv, self.lstsq_cond, lapack_driver="gelsy", check_finite=False)[0]
 
         # compute CAFA weights w
-        A_w = Psi.T @ Psi
-        b_w = Psi.T @ (L + Phi_diff @ v)
-        w = lstsq(A_w, b_w, self.lstsq_cond, lapack_driver="gelsy", check_finite=False)[
-            0
-        ]
+        Aw = Psi.T @ Psi
+        bw = Psi.T @ (L + Phi_diff @ v)
+        w = lstsq(Aw, bw, self.lstsq_cond, lapack_driver="gelsy", check_finite=False)[0]
 
         # compute policy gradient
         dJdtheta = (dpidtheta @ dpidtheta.transpose((0, 2, 1))).sum(0) @ w
@@ -402,7 +398,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
             self.policy_performances.append(L.sum())
 
 
-@nb.njit
+@nb.njit(cache=True, nogil=True, parallel=True)
 def _consolidate_rollout(
     rollout: List[Tuple[ObsType, ActType, float, ObsType, np.ndarray]],
     ns: int,
@@ -414,8 +410,9 @@ def _consolidate_rollout(
     E = np.empty((N, na, 1))  # additional dim required for Psi
     L = np.empty(N)
     sol_vals = np.empty((N, rollout[0][-1].size))
-    for i, (s, e, cost, _, sol_val) in enumerate(rollout):
-        S[i] = s.reshape(-1)  # type: ignore[union-attr]
+    for i in nb.prange(N):
+        s, e, cost, _, sol_val = rollout[i]
+        S[i] = s.reshape(-1)
         E[i] = e
         L[i] = cost
         sol_vals[i] = sol_val.reshape(-1)
