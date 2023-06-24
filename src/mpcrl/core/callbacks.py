@@ -292,5 +292,5 @@ class RemovesCallbackHooksInState:
         if slotstate is not None:
             for key, value in slotstate.items():
                 setattr(self, key, value)
-        # re-perform hooks
+        # re-establish hooks
         self.establish_callback_hooks()
