@@ -1,4 +1,4 @@
-from typing import Callable, Optional, Tuple, TypeVar
+from typing import Callable, Optional, TypeVar
 
 import numpy as np
 import numpy.typing as npt
@@ -13,7 +13,7 @@ def dlqr(
     Q: npt.NDArray[np.floating],
     R: npt.NDArray[np.floating],
     M: Optional[npt.NDArray[np.floating]] = None,
-) -> Tuple[npt.NDArray[np.floating], npt.NDArray[np.floating]]:
+) -> tuple[npt.NDArray[np.floating], npt.NDArray[np.floating]]:
     """Get the discrete-time LQR for the given system. Stage costs are
     ```
         x'Qx + 2*x'Mu + u'Ru

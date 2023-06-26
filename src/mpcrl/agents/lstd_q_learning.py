@@ -2,13 +2,10 @@ from typing import (
     Any,
     Callable,
     Collection,
-    Dict,
     Generic,
-    List,
     Literal,
     Optional,
     SupportsFloat,
-    Tuple,
     Union,
 )
 
@@ -31,7 +28,7 @@ from mpcrl.core.schedulers import Scheduler
 from mpcrl.core.update import UpdateStrategy
 from mpcrl.util.math import cholesky_added_multiple_identities
 
-ExpType: TypeAlias = Tuple[
+ExpType: TypeAlias = tuple[
     npt.NDArray[np.floating],  # gradient of Q(s,a)
     npt.NDArray[np.floating],  # (approximate) hessian of Q(s,a)
 ]
@@ -67,7 +64,7 @@ class LstdQLearningAgent(
         learning_rate: Union[LrType, Scheduler[LrType], LearningRate[LrType]],
         learnable_parameters: LearnableParametersDict[SymType],
         fixed_parameters: Union[
-            None, Dict[str, npt.ArrayLike], Collection[Dict[str, npt.ArrayLike]]
+            None, dict[str, npt.ArrayLike], Collection[dict[str, npt.ArrayLike]]
         ] = None,
         exploration: Optional[ExplorationStrategy] = None,
         experience: Optional[ExperienceReplay[ExpType]] = None,
@@ -76,7 +73,7 @@ class LstdQLearningAgent(
         hessian_type: Literal["approx", "full"] = "approx",
         record_td_errors: bool = False,
         cho_maxiter: int = 1000,
-        cho_solve_kwargs: Optional[Dict[str, Any]] = None,
+        cho_solve_kwargs: Optional[dict[str, Any]] = None,
         name: Optional[str] = None,
     ) -> None:
         """Instantiates the LSTD Q-learning agent.
@@ -168,7 +165,7 @@ class LstdQLearningAgent(
         if cho_solve_kwargs is None:
             cho_solve_kwargs = {"check_finite": False}
         self.cho_solve_kwargs = cho_solve_kwargs
-        self.td_errors: Optional[List[float]] = [] if record_td_errors else None
+        self.td_errors: Optional[list[float]] = [] if record_td_errors else None
 
     def update(self) -> Optional[str]:
         sample = self.experience.sample()
@@ -219,7 +216,7 @@ class LstdQLearningAgent(
 
     def _init_sensitivity(
         self, hessian_type: Literal["approx", "full"]
-    ) -> Callable[[cs.DM], Tuple[np.ndarray, np.ndarray]]:
+    ) -> Callable[[cs.DM], tuple[np.ndarray, np.ndarray]]:
         """Internal utility to compute the derivative of Q(s,a) w.r.t. the learnable
         parameters, a.k.a., theta."""
         theta = cs.vvcat(self._learnable_pars.sym.values())
@@ -247,7 +244,7 @@ class LstdQLearningAgent(
         )
 
         # wrap to conveniently return numpy arrays
-        def func(sol_values: cs.DM) -> Tuple[np.ndarray, np.ndarray]:
+        def func(sol_values: cs.DM) -> tuple[np.ndarray, np.ndarray]:
             dQ, ddQ = sensitivity(sol_values)
             return dQ.full().reshape(-1, 1), ddQ.full()
 

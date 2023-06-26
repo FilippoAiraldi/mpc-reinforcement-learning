@@ -1,5 +1,4 @@
 import unittest
-from typing import Tuple
 
 import casadi as cs
 import numpy as np
@@ -68,7 +67,7 @@ class TestMath(unittest.TestCase):
         ]
     )
     def test_nchoosek__computes_correct_combinations(
-        self, inp: Tuple[int, int], out: int
+        self, inp: tuple[int, int], out: int
     ):
         out_ = math.nchoosek(*inp)
         np.testing.assert_allclose(out_, out)

@@ -1,15 +1,12 @@
 from typing import (
     Any,
     Collection,
-    Dict,
     Generic,
     Iterable,
     Iterator,
-    List,
     Literal,
     Optional,
     Sequence,
-    Tuple,
     TypeVar,
     Union,
 )
@@ -28,11 +25,11 @@ from mpcrl.core.exploration import ExplorationStrategy, NoExploration
 from mpcrl.util.named import Named
 
 SymType = TypeVar("SymType", cs.SX, cs.MX)
-ActType: TypeAlias = Union[npt.ArrayLike, Dict[str, npt.ArrayLike]]
-ObsType: TypeAlias = Union[npt.ArrayLike, Dict[str, npt.ArrayLike]]
+ActType: TypeAlias = Union[npt.ArrayLike, dict[str, npt.ArrayLike]]
+ObsType: TypeAlias = Union[npt.ArrayLike, dict[str, npt.ArrayLike]]
 
 
-def _update_dicts(sinks: Iterable[Dict], source: Dict) -> Iterator[Dict]:
+def _update_dicts(sinks: Iterable[dict], source: dict) -> Iterator[dict]:
     """Internal utility for updating dicts `sinks` with one `source`."""
     for sink in sinks:
         sink.update(source)
@@ -69,7 +66,7 @@ class Agent(
         self,
         mpc: Mpc[SymType],
         fixed_parameters: Union[
-            None, Dict[str, npt.ArrayLike], Collection[Dict[str, npt.ArrayLike]]
+            None, dict[str, npt.ArrayLike], Collection[dict[str, npt.ArrayLike]]
         ] = None,
         warmstart: Literal["last", "last-successful"] = "last-successful",
         name: Optional[str] = None,
@@ -137,7 +134,7 @@ class Agent(
     @property
     def fixed_parameters(
         self,
-    ) -> Union[None, Dict[str, npt.ArrayLike], Collection[Dict[str, npt.ArrayLike]]]:
+    ) -> Union[None, dict[str, npt.ArrayLike], Collection[dict[str, npt.ArrayLike]]]:
         """Gets the fixed parameters of the MPC controller (i.e., non-learnable). Can be
         an iterable in the case of `csnlp.MultistartNpl`, where multiple parameters can
         be specified, one for each scenario in the MPC scheme."""
@@ -159,11 +156,11 @@ class Agent(
     def solve_mpc(
         self,
         mpc: Mpc[SymType],
-        state: Union[npt.ArrayLike, Dict[str, npt.ArrayLike]],
-        action: Union[None, npt.ArrayLike, Dict[str, npt.ArrayLike]] = None,
+        state: Union[npt.ArrayLike, dict[str, npt.ArrayLike]],
+        action: Union[None, npt.ArrayLike, dict[str, npt.ArrayLike]] = None,
         perturbation: Optional[npt.ArrayLike] = None,
         vals0: Union[
-            None, Dict[str, npt.ArrayLike], Iterable[Dict[str, npt.ArrayLike]]
+            None, dict[str, npt.ArrayLike], Iterable[dict[str, npt.ArrayLike]]
         ] = None,
         store_solution: bool = True,
     ) -> Solution[SymType]:
@@ -243,13 +240,13 @@ class Agent(
 
     def state_value(
         self,
-        state: Union[npt.ArrayLike, Dict[str, npt.ArrayLike]],
+        state: Union[npt.ArrayLike, dict[str, npt.ArrayLike]],
         deterministic: bool = False,
         vals0: Union[
-            None, Dict[str, npt.ArrayLike], Iterable[Dict[str, npt.ArrayLike]]
+            None, dict[str, npt.ArrayLike], Iterable[dict[str, npt.ArrayLike]]
         ] = None,
         **kwargs,
-    ) -> Tuple[cs.DM, Solution[SymType]]:
+    ) -> tuple[cs.DM, Solution[SymType]]:
         """Computes the state value function `V(s)` approximated by the MPC.
 
         Parameters
@@ -289,10 +286,10 @@ class Agent(
 
     def action_value(
         self,
-        state: Union[npt.ArrayLike, Dict[str, npt.ArrayLike]],
-        action: Union[npt.ArrayLike, Dict[str, npt.ArrayLike]],
+        state: Union[npt.ArrayLike, dict[str, npt.ArrayLike]],
+        action: Union[npt.ArrayLike, dict[str, npt.ArrayLike]],
         vals0: Union[
-            None, Dict[str, npt.ArrayLike], Iterable[Dict[str, npt.ArrayLike]]
+            None, dict[str, npt.ArrayLike], Iterable[dict[str, npt.ArrayLike]]
         ] = None,
         **kwargs,
     ) -> Solution[SymType]:
@@ -329,7 +326,7 @@ class Agent(
         deterministic: bool = True,
         seed: Union[None, int, Sequence[int]] = None,
         raises: bool = True,
-        env_reset_options: Optional[Dict[str, Any]] = None,
+        env_reset_options: Optional[dict[str, Any]] = None,
     ) -> npt.NDArray[np.floating]:
         """Evaluates the agent in a given environment.
 
@@ -390,7 +387,7 @@ class Agent(
         self.on_validation_end(env, returns)
         return returns
 
-    def _setup_V_and_Q(self, mpc: Mpc[SymType]) -> Tuple[Mpc[SymType], Mpc[SymType]]:
+    def _setup_V_and_Q(self, mpc: Mpc[SymType]) -> tuple[Mpc[SymType], Mpc[SymType]]:
         """Internal utility to setup the function approximators for the value function
         V(s) and the quality function Q(s,a)."""
         na = mpc.na
@@ -414,12 +411,12 @@ class Agent(
 
     def _get_parameters(
         self,
-    ) -> Union[None, Dict[str, npt.ArrayLike], Collection[Dict[str, npt.ArrayLike]]]:
+    ) -> Union[None, dict[str, npt.ArrayLike], Collection[dict[str, npt.ArrayLike]]]:
         """Internal utility to retrieve parameters of the MPC in order to solve it.
         `Agent` has no learnable parameter, so only fixed parameters are returned."""
         return self._fixed_pars
 
-    def __deepcopy__(self, memo: Optional[Dict[int, List[Any]]] = None) -> "Agent":
+    def __deepcopy__(self, memo: Optional[dict[int, list[Any]]] = None) -> "Agent":
         """Ensures that the copy has a new name."""
         y = super().__deepcopy__(memo)
         if hasattr(y, "name"):
