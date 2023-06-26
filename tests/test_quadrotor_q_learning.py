@@ -939,6 +939,7 @@ class QuadRotorBaseLearningAgent(QuadRotorBaseAgent, ABC):
     ]:
         ok = True
         results = []
+        seeds = iter(map(int, np.random.SeedSequence(seed).generate_state(n_epochs)))
         for e in range(n_epochs):
             self._epoch_n = e  # just for logging
             try:
@@ -946,7 +947,7 @@ class QuadRotorBaseLearningAgent(QuadRotorBaseAgent, ABC):
                     self.learn_one_epoch(
                         n_episodes=n_episodes,
                         perturbation_decay=perturbation_decay,
-                        seed=None if seed is None else seed + n_episodes * e,
+                        seed=next(seeds),
                         return_info=return_info,
                     )
                 )

@@ -8,6 +8,7 @@ from typing import (
     List,
     Literal,
     Optional,
+    Sequence,
     Tuple,
     TypeVar,
     Union,
@@ -24,7 +25,6 @@ from typing_extensions import TypeAlias
 
 from mpcrl.core.callbacks import AgentCallbacks, RemovesCallbackHooksInState
 from mpcrl.core.exploration import ExplorationStrategy, NoExploration
-from mpcrl.util.iters import generate_seeds
 from mpcrl.util.named import Named
 
 SymType = TypeVar("SymType", cs.SX, cs.MX)
@@ -148,7 +148,9 @@ class Agent(
         """Gets the exploration strategy used within this agent."""
         return self._exploration
 
-    def reset(self, seed: Optional[int] = None) -> None:
+    def reset(
+        self, seed: Union[None, int, Sequence[int], np.random.SeedSequence] = None
+    ) -> None:
         """Resets the agent's internal variables and exploration's RNG."""
         self._last_solution: Optional[Solution[SymType]] = None
         if hasattr(self.exploration, "reset"):
@@ -325,7 +327,7 @@ class Agent(
         env: Env[ObsType, ActType],
         episodes: int,
         deterministic: bool = True,
-        seed: Union[None, int, Iterable[int]] = None,
+        seed: Union[None, int, Sequence[int]] = None,
         raises: bool = True,
         env_reset_options: Optional[Dict[str, Any]] = None,
     ) -> npt.NDArray[np.floating]:
@@ -343,8 +345,8 @@ class Agent(
             Number of evaluation episodes.
         deterministic : bool, optional
             Whether the agent should act deterministically; by default, `True`.
-        seed : int or iterable of ints, optional
-            Each env's seed for RNG.
+        seed : None, int or sequence of ints, optional
+            Agent's and each env's RNG seed.
         raises : bool, optional
             If `True`, when any of the MPC solver runs fails, or when an update fails,
             the corresponding error is raised; otherwise, only a warning is raised.
@@ -363,8 +365,9 @@ class Agent(
         """
         returns = np.zeros(episodes)
         self.on_validation_start(env)
+        seeds = map(int, np.random.SeedSequence(seed).generate_state(episodes))
 
-        for episode, current_seed in zip(range(episodes), generate_seeds(seed)):
+        for episode, current_seed in zip(range(episodes), seeds):
             self.reset(current_seed)
             state, _ = env.reset(seed=current_seed, options=env_reset_options)
             truncated, terminated, timestep = False, False, 0

@@ -1,5 +1,5 @@
 import unittest
-from typing import Iterable, Tuple, Union
+from typing import Tuple
 
 import casadi as cs
 import numpy as np
@@ -121,18 +121,6 @@ class TestIters(unittest.TestCase):
         T = frequency * 10
         cycle = iters.bool_cycle(frequency)
         self.assertEqual(T // frequency, sum((next(cycle) for _ in range(T))))
-
-    @parameterized.expand([(5,), (None,), (range(100),)])
-    def test_make_seeds__returns_expected(self, seed: Union[None, int, Iterable[int]]):
-        N = 100
-        if seed is None:
-            expected_seeds = [None] * N
-        elif isinstance(seed, int):
-            expected_seeds = [seed + i for i in range(N)]
-        else:
-            expected_seeds = seed
-        seeds1, seeds2 = list(zip(*zip(expected_seeds, iters.generate_seeds(seed))))
-        self.assertListEqual(list(seeds1), list(seeds2))
 
 
 if __name__ == "__main__":

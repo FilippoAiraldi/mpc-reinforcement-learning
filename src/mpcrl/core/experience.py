@@ -1,5 +1,5 @@
 from itertools import chain
-from typing import Deque, Iterable, Iterator, Optional, TypeVar, Union
+from typing import Deque, Iterable, Iterator, Optional, Sequence, TypeVar, Union
 
 import numpy as np
 
@@ -19,7 +19,7 @@ class ExperienceReplay(Deque[ExpType]):
         maxlen: Optional[int] = None,
         sample_size: Union[int, float] = 1,
         include_latest: Union[int, float] = 0,
-        seed: Optional[int] = None,
+        seed: Union[None, int, Sequence[int], np.random.SeedSequence] = None,
     ) -> None:
         """Instantiate the container for experience replay memory.
 
@@ -36,7 +36,7 @@ class ExperienceReplay(Deque[ExpType]):
         include_latest : int or float, optional
             Size (or percentage of `sample_size`) dedicated to including the latest
             experience transitions. By default, 0, i.e., no last item is included.
-        seed : int, optional
+        seed : None, int, sequence of ints or SeedSequence, optional
             Seed for the random number generator. By default, `None`.
         """
         super().__init__(iterable, maxlen=maxlen)
@@ -44,7 +44,9 @@ class ExperienceReplay(Deque[ExpType]):
         self.include_latest = include_latest
         self.reset(seed)
 
-    def reset(self, seed: Optional[int] = None) -> None:
+    def reset(
+        self, seed: Union[None, int, Sequence[int], np.random.SeedSequence] = None
+    ) -> None:
         """Resets the sampling RNG."""
         self.np_random = np.random.default_rng(seed)
 
