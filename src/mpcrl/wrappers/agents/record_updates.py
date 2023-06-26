@@ -33,4 +33,4 @@ class RecordUpdates(LearningWrapper[SymType, ExpType]):
     def establish_callback_hooks(self) -> None:
         super().establish_callback_hooks()
         # connect the agent's on_update callback to this wrapper storing action
-        self.hook_callback(repr(self), "on_update", self._on_update)
+        self.hook_callback(repr(self), "on_update", lambda *_, **__: self._on_update())
