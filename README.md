@@ -4,7 +4,7 @@
 
 [![PyPI version](https://badge.fury.io/py/mpcrl.svg)](https://badge.fury.io/py/mpcrl)
 [![Source Code License](https://img.shields.io/badge/license-MIT-blueviolet)](https://github.com/FilippoAiraldi/casadi-nlp/blob/release/LICENSE)
-![Python 3.8](https://img.shields.io/badge/python->=3.8-green.svg)
+![Python 3.9](https://img.shields.io/badge/python->=3.9-green.svg)
 
 [![Tests](https://github.com/FilippoAiraldi/mpc-reinforcement-learning/actions/workflows/ci.yml/badge.svg)](https://github.com/FilippoAiraldi/mpc-reinforcement-learning/actions/workflows/ci.yml)
 [![Downloads](https://pepy.tech/badge/mpcrl)](https://pepy.tech/project/mpcrl)
