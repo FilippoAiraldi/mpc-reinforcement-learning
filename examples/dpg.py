@@ -167,7 +167,7 @@ learnable_pars = LearnableParametersDict[cs.SX](
         for name, val in mpc.learnable_pars_init.items()
     )
 )
-env = MonitorEpisodes(TimeLimit(LtiSystem(), max_episode_steps=int(5e3)))
+env = MonitorEpisodes(TimeLimit(LtiSystem(), max_episode_steps=int(3e3)))
 rollout_length = 200
 agent = Log(
     RecordUpdates(
@@ -178,7 +178,7 @@ agent = Log(
             learning_rate=1e-6,
             update_strategy=UpdateStrategy(rollout_length, "on_timestep_end"),
             rollout_length=rollout_length,
-            exploration=E.GreedyExploration(0.1),  # type: ignore[arg-type]
+            exploration=E.GreedyExploration(0.2),  # type: ignore[arg-type]
             record_policy_performance=True,
             record_policy_gradient=True,
         )
