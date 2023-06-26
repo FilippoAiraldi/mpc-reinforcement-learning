@@ -5,9 +5,9 @@ from typing import (
     Collection,
     Dict,
     Generic,
-    Iterable,
     Literal,
     Optional,
+    Sequence,
     TypeVar,
     Union,
 )
@@ -23,7 +23,6 @@ from mpcrl.core.experience import ExperienceReplay
 from mpcrl.core.exploration import ExplorationStrategy
 from mpcrl.core.parameters import LearnableParametersDict
 from mpcrl.core.update import UpdateStrategy
-from mpcrl.util.iters import generate_seeds
 
 ExpType = TypeVar("ExpType")
 
@@ -131,7 +130,9 @@ class LearningAgent(
         """Gets the parameters of the MPC that can be learnt by the agent."""
         return self._learnable_pars
 
-    def reset(self, seed: Optional[int] = None) -> None:
+    def reset(
+        self, seed: Union[None, int, Sequence[int], np.random.SeedSequence] = None
+    ) -> None:
         """Resets agent's internal variables, exploration and experience's RNG"""
         super().reset(seed)
         self.experience.reset(seed)
@@ -154,7 +155,7 @@ class LearningAgent(
         self,
         env: Env[ObsType, ActType],
         episodes: int,
-        seed: Union[None, int, Iterable[int]] = None,
+        seed: Union[None, int, Sequence[int]] = None,
         raises: bool = True,
         env_reset_options: Optional[Dict[str, Any]] = None,
     ) -> npt.NDArray[np.floating]:
@@ -166,8 +167,8 @@ class LearningAgent(
             A gym environment where to train the agent in.
         episodes : int
             Number of training episodes.
-        seed : int or iterable of ints, optional
-            Each env's seed for RNG.
+        seed : None, int or sequence of ints, optional
+            Agent's and each env's RNG seed.
         raises : bool, optional
             If `True`, when any of the MPC solver runs fails, or when an update fails,
             the corresponding error is raised; otherwise, only a warning is raised.
@@ -192,8 +193,9 @@ class LearningAgent(
         self._raises = raises
         returns = np.zeros(episodes, float)
         self.on_training_start(env)
+        seeds = map(int, np.random.SeedSequence(seed).generate_state(episodes))
 
-        for episode, current_seed in zip(range(episodes), generate_seeds(seed)):
+        for episode, current_seed in zip(range(episodes), seeds):
             self.reset(current_seed)
             state, _ = env.reset(seed=current_seed, options=env_reset_options)
             self.on_episode_start(env, episode)
