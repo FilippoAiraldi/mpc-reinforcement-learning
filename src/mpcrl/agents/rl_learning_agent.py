@@ -1,5 +1,5 @@
 from abc import ABC
-from typing import Collection, Dict, Generic, Literal, Optional, Tuple, TypeVar, Union
+from typing import Collection, Generic, Literal, Optional, TypeVar, Union
 
 import casadi as cs
 import numpy as np
@@ -39,7 +39,7 @@ class RlLearningAgent(
         learning_rate: Union[LrType, Scheduler[LrType], LearningRate[LrType]],
         learnable_parameters: LearnableParametersDict[SymType],
         fixed_parameters: Union[
-            None, Dict[str, npt.ArrayLike], Collection[Dict[str, npt.ArrayLike]]
+            None, dict[str, npt.ArrayLike], Collection[dict[str, npt.ArrayLike]]
         ] = None,
         exploration: Optional[ExplorationStrategy] = None,
         experience: Optional[ExperienceReplay[ExpType]] = None,
@@ -165,7 +165,7 @@ class RlLearningAgent(
         self,
         theta: npt.NDArray[np.floating],
         eps: float = 0.1,
-    ) -> Tuple[npt.NDArray[np.floating], npt.NDArray[np.floating]]:
+    ) -> tuple[npt.NDArray[np.floating], npt.NDArray[np.floating]]:
         """Internal utility to retrieve the current bounds on the QP solver for an
         update. Only called if the update problem is not unconstrained, i.e., there are
         either some lb or ub, or a maximum percentage update"""

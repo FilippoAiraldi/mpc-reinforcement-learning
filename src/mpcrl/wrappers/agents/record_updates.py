@@ -1,5 +1,3 @@
-from typing import Dict, List
-
 import numpy as np
 import numpy.typing as npt
 
@@ -21,7 +19,7 @@ class RecordUpdates(LearningWrapper[SymType, ExpType]):
             The agent whose updates need recording.
         """
         super().__init__(agent)
-        self.updates_history: Dict[str, List[npt.NDArray[np.floating]]] = {
+        self.updates_history: dict[str, list[npt.NDArray[np.floating]]] = {
             p.name: [p.value] for p in agent.learnable_parameters.values()
         }
 

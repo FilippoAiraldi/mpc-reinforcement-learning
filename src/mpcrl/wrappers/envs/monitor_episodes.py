@@ -1,6 +1,6 @@
 from collections import deque
 from time import perf_counter
-from typing import Any, Deque, Dict, List, Optional, SupportsFloat, Tuple, TypeVar
+from typing import Any, Deque, Optional, SupportsFloat, TypeVar
 
 import numpy as np
 import numpy.typing as npt
@@ -67,15 +67,15 @@ class MonitorEpisodes(
         self.episode_lengths: Deque[int] = deque(maxlen=deque_size)
         self.exec_times: Deque[float] = deque(maxlen=deque_size)
         # current-episode-storages
-        self.ep_observations: List[ObsType] = []
-        self.ep_actions: List[ActType] = []
-        self.ep_rewards: List[SupportsFloat] = []
+        self.ep_observations: list[ObsType] = []
+        self.ep_actions: list[ActType] = []
+        self.ep_rewards: list[SupportsFloat] = []
         self.t0: float = perf_counter()
         self.ep_length: int = 0
 
     def reset(
-        self, *, seed: Optional[int] = None, options: Optional[Dict[str, Any]] = None
-    ) -> Tuple[ObsType, Dict[str, Any]]:
+        self, *, seed: Optional[int] = None, options: Optional[dict[str, Any]] = None
+    ) -> tuple[ObsType, dict[str, Any]]:
         """Resets the environment and resets the current data accumulators."""
         observation, info = super().reset(seed=seed, options=options)
         self._clear_ep_data()
@@ -84,7 +84,7 @@ class MonitorEpisodes(
 
     def step(
         self, action: ActType
-    ) -> Tuple[ObsType, SupportsFloat, bool, bool, Dict[str, Any]]:
+    ) -> tuple[ObsType, SupportsFloat, bool, bool, dict[str, Any]]:
         # sourcery skip: extract-method
         """Steps through the environment, accumulating the episode data."""
         obs, reward, terminated, truncated, info = super().step(action)

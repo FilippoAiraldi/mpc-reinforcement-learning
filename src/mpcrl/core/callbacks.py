@@ -1,7 +1,7 @@
 from functools import wraps
 from inspect import getmembers, isfunction
 from operator import itemgetter
-from typing import Any, Callable, Dict, Literal, Optional, Tuple, TypeVar, Union
+from typing import Any, Callable, Literal, Optional, TypeVar, Union
 
 import numpy as np
 import numpy.typing as npt
@@ -244,7 +244,7 @@ class RemovesCallbackHooksInState:
     def __setstate__(
         self,
         state: Union[
-            None, Dict[str, Any], Tuple[Optional[Dict[str, Any]], Dict[str, Any]]
+            None, dict[str, Any], tuple[Optional[dict[str, Any]], dict[str, Any]]
         ],
     ) -> None:
         if isinstance(state, tuple) and len(state) == 2:

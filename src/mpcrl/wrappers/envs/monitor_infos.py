@@ -1,16 +1,6 @@
 from collections import deque
 from logging import warn
-from typing import (
-    Any,
-    Deque,
-    Dict,
-    Iterable,
-    List,
-    Optional,
-    SupportsFloat,
-    Tuple,
-    TypeVar,
-)
+from typing import Any, Deque, Iterable, Optional, SupportsFloat, TypeVar
 
 from gymnasium import Env, Wrapper, utils
 
@@ -19,8 +9,8 @@ ActType = TypeVar("ActType")
 
 
 def compact_dicts(
-    dicts: Iterable[Dict[str, Any]], fill_value: Any = None
-) -> Dict[str, List[Any]]:
+    dicts: Iterable[dict[str, Any]], fill_value: Any = None
+) -> dict[str, list[Any]]:
     """Compacts an iterable of dictionaries into a single dict with lists of entries. If
     an entry is missing for any given dict, `fill_value` is used in place.
 
@@ -33,10 +23,10 @@ def compact_dicts(
 
     Returns
     -------
-    Dict[str, list of any | fill_value]
+    dict[str, list of any | fill_value]
         A unique dictionary made from all the passed dicts.
     """
-    out: Dict[str, List[Any]] = {}
+    out: dict[str, list[Any]] = {}
     for i, dict in enumerate(dicts):
         for k, v in dict.items():
             if k in out:
@@ -81,14 +71,14 @@ class MonitorInfos(
         utils.RecordConstructorArgs.__init__(self, deque_size=deque_size)
         Wrapper.__init__(self, env)
         # long-term storages
-        self.reset_infos: Deque[Dict[str, Any]] = deque(maxlen=deque_size)
-        self.step_infos: Deque[List[Dict[str, Any]]] = deque(maxlen=deque_size)
+        self.reset_infos: Deque[dict[str, Any]] = deque(maxlen=deque_size)
+        self.step_infos: Deque[list[dict[str, Any]]] = deque(maxlen=deque_size)
         # current-episode-storages
-        self.ep_step_infos: List[Dict[str, Any]] = []
+        self.ep_step_infos: list[dict[str, Any]] = []
 
     def reset(
-        self, *, seed: Optional[int] = None, options: Optional[Dict[str, Any]] = None
-    ) -> Tuple[ObsType, Dict[str, Any]]:
+        self, *, seed: Optional[int] = None, options: Optional[dict[str, Any]] = None
+    ) -> tuple[ObsType, dict[str, Any]]:
         """Resets the environment and resets the current info accumulators."""
         observation, info = super().reset(seed=seed, options=options)
         self.ep_step_infos.clear()
@@ -97,7 +87,7 @@ class MonitorInfos(
 
     def step(
         self, action: ActType
-    ) -> Tuple[ObsType, SupportsFloat, bool, bool, Dict[str, Any]]:
+    ) -> tuple[ObsType, SupportsFloat, bool, bool, dict[str, Any]]:
         """Steps through the environment, accumulating the episode info dicts."""
         obs, reward, terminated, truncated, info = super().step(action)
         self.ep_step_infos.append(info)
@@ -106,7 +96,7 @@ class MonitorInfos(
             self.ep_step_infos.clear()
         return obs, reward, terminated, truncated, info
 
-    def finalized_reset_infos(self, fill_value: Any = None) -> Dict[str, List[Any]]:
+    def finalized_reset_infos(self, fill_value: Any = None) -> dict[str, list[Any]]:
         """Returns a compacted final dictionary containing the reset infos. Missing
         values are filled automatically.
 
@@ -125,7 +115,7 @@ class MonitorInfos(
 
     def finalized_step_infos(
         self, fill_value: Any = None
-    ) -> Dict[str, List[List[Any]]]:
+    ) -> dict[str, list[list[Any]]]:
         """Returns a compacted final dictionary containing the step infos. Missing
         values are filled automatically.
 

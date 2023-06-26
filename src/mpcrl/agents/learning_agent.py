@@ -3,7 +3,6 @@ from typing import (
     Any,
     Callable,
     Collection,
-    Dict,
     Generic,
     Literal,
     Optional,
@@ -52,7 +51,7 @@ class LearningAgent(
         update_strategy: Union[int, UpdateStrategy],
         learnable_parameters: LearnableParametersDict[SymType],
         fixed_parameters: Union[
-            None, Dict[str, npt.ArrayLike], Collection[Dict[str, npt.ArrayLike]]
+            None, dict[str, npt.ArrayLike], Collection[dict[str, npt.ArrayLike]]
         ] = None,
         exploration: Optional[ExplorationStrategy] = None,
         experience: Optional[ExperienceReplay[ExpType]] = None,
@@ -157,7 +156,7 @@ class LearningAgent(
         episodes: int,
         seed: Union[None, int, Sequence[int]] = None,
         raises: bool = True,
-        env_reset_options: Optional[Dict[str, Any]] = None,
+        env_reset_options: Optional[dict[str, Any]] = None,
     ) -> npt.NDArray[np.floating]:
         """Train the agent on an environment.
 
@@ -290,7 +289,7 @@ class LearningAgent(
 
     def _get_parameters(
         self,
-    ) -> Union[None, Dict[str, npt.ArrayLike], Collection[Dict[str, npt.ArrayLike]]]:
+    ) -> Union[None, dict[str, npt.ArrayLike], Collection[dict[str, npt.ArrayLike]]]:
         """Internal utility to retrieve parameters of the MPC in order to solve it.
         `LearningAgent` returns both fixed and learnable parameters."""
         learnable_pars = self._learnable_pars.value_as_dict

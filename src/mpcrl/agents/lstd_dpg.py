@@ -3,14 +3,11 @@ from typing import (
     Any,
     Callable,
     Collection,
-    Dict,
     Generic,
     Iterator,
-    List,
     Literal,
     Optional,
     SupportsFloat,
-    Tuple,
     Union,
 )
 
@@ -33,7 +30,7 @@ from mpcrl.core.schedulers import Scheduler
 from mpcrl.core.update import UpdateStrategy
 from mpcrl.util.math import cholesky_added_multiple_identities, monomials_basis_function
 
-ExpType: TypeAlias = Tuple[
+ExpType: TypeAlias = tuple[
     npt.NDArray[np.floating],  # rollout's costs
     npt.NDArray[np.floating],  # rollout's state feature vectors Phi(s)
     npt.NDArray[np.floating],  # rollout's Psi(s,a)
@@ -85,7 +82,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         learning_rate: Union[LrType, Scheduler[LrType], LearningRate[LrType]],
         learnable_parameters: LearnableParametersDict[SymType],
         fixed_parameters: Union[
-            None, Dict[str, npt.ArrayLike], Collection[Dict[str, npt.ArrayLike]]
+            None, dict[str, npt.ArrayLike], Collection[dict[str, npt.ArrayLike]]
         ] = None,
         exploration: Optional[ExplorationStrategy] = None,
         experience: Optional[ExperienceReplay[ExpType]] = None,
@@ -99,7 +96,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         linsolver: Literal["csparse", "qr", "mldivide"] = "mldivide",
         hessian_type: Literal["none", "natural"] = "none",
         cho_maxiter: int = 1000,
-        cho_solve_kwargs: Optional[Dict[str, Any]] = None,
+        cho_solve_kwargs: Optional[dict[str, Any]] = None,
         name: Optional[str] = None,
     ) -> None:
         """Instantiates the LSTD DPG agent.
@@ -234,8 +231,8 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         # initialize others
         self.lstsq_cond = lstsq_cond
         self.rollout_length = rollout_length or float("+inf")
-        self._rollout: List[
-            Tuple[
+        self._rollout: list[
+            tuple[
                 ObsType,
                 ActType,
                 SupportsFloat,
@@ -243,10 +240,10 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
                 npt.NDArray[np.floating],
             ]
         ] = nb.typed.List()
-        self.policy_performances: Optional[List[float]] = (
+        self.policy_performances: Optional[list[float]] = (
             [] if record_policy_performance else None
         )
-        self.policy_gradients: Optional[List[npt.NDArray[np.floating]]] = (
+        self.policy_gradients: Optional[list[npt.NDArray[np.floating]]] = (
             [] if record_policy_gradient else None
         )
 
@@ -400,10 +397,10 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
 
 @nb.njit(cache=True, nogil=True, parallel=True)
 def _consolidate_rollout(
-    rollout: List[Tuple[ObsType, ActType, float, ObsType, np.ndarray]],
+    rollout: list[tuple[ObsType, ActType, float, ObsType, np.ndarray]],
     ns: int,
     na: int,
-) -> Tuple[int, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+) -> tuple[int, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Internal utility to convert a rollout list to arrays."""
     N = len(rollout)
     S = np.empty((N, ns))
@@ -421,7 +418,7 @@ def _consolidate_rollout(
 
 def _congregate_rollouts_sample(
     sample: Iterator[ExpType],
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, List[bool]]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, list[bool]]:
     """Internal utility to congregate a sample of rollouts into single arrays."""
     # jit does not seem to provide any speedup here
     L_, Phi_, Psi_, dpidtheta_, mask_phi = [], [], [], [], [False]

@@ -1,6 +1,6 @@
 import logging
 from itertools import chain
-from typing import Dict, Iterable, Iterator, Optional, Set, TypeVar
+from typing import Iterable, Iterator, Optional, Set, TypeVar
 
 import numpy as np
 import numpy.typing as npt
@@ -37,7 +37,7 @@ class Log(Wrapper[SymType]):
         to_file: bool = False,
         mode: str = "a",
         precision: int = 3,
-        log_frequencies: Optional[Dict[str, int]] = None,
+        log_frequencies: Optional[dict[str, int]] = None,
         exclude_mandatory: Optional[Iterable[str]] = None,
     ) -> None:
         """Creates a logger wrapper.
@@ -58,7 +58,7 @@ class Log(Wrapper[SymType]):
         precision : int, optional
             Precision for printing floats, by default 3.
         log_frequencies : int, optional
-            Dict containing for each logging call its corresponding frequency. The calls
+            dict containing for each logging call its corresponding frequency. The calls
             for which a frequency can be set are:
              - `on_episode_start`
              - `on_episode_end`
@@ -99,7 +99,7 @@ class Log(Wrapper[SymType]):
         self.exclude_mandatory: Set[str] = (
             set() if exclude_mandatory is None else set(exclude_mandatory)
         )
-        self.log_frequencies: Dict[str, Iterator[bool]] = {}
+        self.log_frequencies: dict[str, Iterator[bool]] = {}
         if log_frequencies is not None:
             for name, freq in log_frequencies.items():
                 if name not in _MANDATORY_CALLBACKS:

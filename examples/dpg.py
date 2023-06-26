@@ -7,7 +7,7 @@ References
 """
 
 import logging
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Optional
 
 import casadi as cs
 import gymnasium as gym
@@ -49,8 +49,8 @@ class LtiSystem(gym.Env[npt.NDArray[np.floating], float]):
         self,
         *,
         seed: Optional[int] = None,
-        options: Optional[Dict[str, Any]] = None,
-    ) -> Tuple[npt.NDArray[np.floating], Dict[str, Any]]:
+        options: Optional[dict[str, Any]] = None,
+    ) -> tuple[npt.NDArray[np.floating], dict[str, Any]]:
         """Resets the state of the LTI system."""
         super().reset(seed=seed, options=options)
         self.x = np.asarray([0, 0.15]).reshape(self.nx, 1)
@@ -68,7 +68,7 @@ class LtiSystem(gym.Env[npt.NDArray[np.floating], float]):
 
     def step(
         self, action: cs.DM
-    ) -> Tuple[npt.NDArray[np.floating], float, bool, bool, Dict[str, Any]]:
+    ) -> tuple[npt.NDArray[np.floating], float, bool, bool, dict[str, Any]]:
         """Steps the LTI system."""
         action = float(action)
         x_new = self.A @ self.x + self.B * action

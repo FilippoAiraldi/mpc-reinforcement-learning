@@ -2,7 +2,7 @@ import logging
 import pickle
 import unittest
 from sys import platform
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Optional
 
 import casadi as cs
 import gymnasium as gym
@@ -42,8 +42,8 @@ class LtiSystem(gym.Env[npt.NDArray[np.floating], float]):
         self,
         *,
         seed: Optional[int] = None,
-        options: Optional[Dict[str, Any]] = None,
-    ) -> Tuple[npt.NDArray[np.floating], Dict[str, Any]]:
+        options: Optional[dict[str, Any]] = None,
+    ) -> tuple[npt.NDArray[np.floating], dict[str, Any]]:
         super().reset(seed=seed, options=options)
         self.x = np.asarray([0, 0.15]).reshape(self.nx, 1)
         return self.x, {}
@@ -59,7 +59,7 @@ class LtiSystem(gym.Env[npt.NDArray[np.floating], float]):
 
     def step(
         self, action: cs.DM
-    ) -> Tuple[npt.NDArray[np.floating], float, bool, bool, Dict[str, Any]]:
+    ) -> tuple[npt.NDArray[np.floating], float, bool, bool, dict[str, Any]]:
         action = float(action)
         x_new = self.A @ self.x + self.B * action
         x_new[0] += self.np_random.uniform(*self.e_bnd)

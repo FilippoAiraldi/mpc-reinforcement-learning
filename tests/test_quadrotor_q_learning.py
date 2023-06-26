@@ -6,14 +6,11 @@ from itertools import chain
 from typing import (
     Any,
     Deque,
-    Dict,
     Generic,
     Iterable,
     Iterator,
-    List,
     Optional,
     Sequence,
-    Tuple,
     Type,
     TypeVar,
     Union,
@@ -56,7 +53,7 @@ class QuadRotorEnvConfig:
     roll_d: float = 10
     roll_dd: float = 8
     roll_gain: float = 10
-    winds: Dict[float, float] = field(default_factory=lambda: {1: 1.0, 2: 0.7, 3: 0.85})
+    winds: dict[float, float] = field(default_factory=lambda: {1: 1.0, 2: 0.7, 3: 0.85})
     x0: np.ndarray = field(
         default_factory=lambda: np.array([0, 0, 3.5, 0, 0, 0, 0, 0, 0, 0])
     )
@@ -88,7 +85,7 @@ class QuadRotorEnvConfig:
 
 
 class QuadRotorEnv:
-    spec: Dict = None
+    spec: dict = None
     nx: int = 10
     nu: int = 3
 
@@ -164,8 +161,8 @@ class QuadRotorEnv:
         seed: int = None,
         x0: np.ndarray = None,
         xf: np.ndarray = None,
-        options: Optional[Dict[str, Any]] = None,
-    ) -> Tuple[np.ndarray, Dict[str, Any]]:
+        options: Optional[dict[str, Any]] = None,
+    ) -> tuple[np.ndarray, dict[str, Any]]:
         self.np_random = np.random.default_rng(seed)
         if x0 is None:
             x0 = self.config.x0
@@ -177,7 +174,7 @@ class QuadRotorEnv:
         self._n_within_termination = 0
         return self.x, {}
 
-    def step(self, u: np.ndarray) -> Tuple[np.ndarray, float, bool, bool, dict]:
+    def step(self, u: np.ndarray) -> tuple[np.ndarray, float, bool, bool, dict]:
         u = np.asarray(u).squeeze()  # in case a row or col was passed
         wind = (
             self._C
@@ -212,10 +209,10 @@ class QuadRotorEnv:
         roll_d: Union[float, cs.SX],
         roll_dd: Union[float, cs.SX],
         roll_gain: Union[float, cs.SX],
-        winds: Dict[float, float] = None,
+        winds: dict[float, float] = None,
     ) -> Union[
-        Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray],
-        Tuple[cs.SX, cs.SX, cs.SX],
+        tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray],
+        tuple[cs.SX, cs.SX, cs.SX],
     ]:
         T = self.config.T
         is_casadi = any(
@@ -277,9 +274,9 @@ class QuadRotorEnv:
 @dataclass(frozen=True)
 class QuadRotorSolution:
     f: float
-    vars: Dict[str, cs.SX]
-    vals: Dict[str, np.ndarray]
-    stats: Dict[str, Any]
+    vars: dict[str, cs.SX]
+    vals: dict[str, np.ndarray]
+    stats: dict[str, Any]
     get_value: partial
 
     @property
@@ -298,9 +295,9 @@ class GenericMPC:
     def __init__(self, name: str = None) -> None:
         self.name = f"MPC{np.random.random()}" if name is None else name
         self.f: cs.SX = None  # objective
-        self.vars: Dict[str, cs.SX] = {}
-        self.pars: Dict[str, cs.SX] = {}
-        self.cons: Dict[str, cs.SX] = {}
+        self.vars: dict[str, cs.SX] = {}
+        self.pars: dict[str, cs.SX] = {}
+        self.cons: dict[str, cs.SX] = {}
         self.p = cs.SX()
         self.x, self.lbx, self.ubx = cs.SX(), np.array([]), np.array([])
         self.lam_lbx, self.lam_ubx = cs.SX(), cs.SX()
@@ -309,7 +306,7 @@ class GenericMPC:
         self.h, self.lbh, self.ubh = cs.SX(), np.array([]), np.array([])
         self.lam_h = cs.SX()
         self.solver: cs.Function = None
-        self.opts: Dict = None
+        self.opts: dict = None
 
     @property
     def ng(self) -> int:
@@ -328,7 +325,7 @@ class GenericMPC:
         *dims: int,
         lb: np.ndarray = -np.inf,
         ub: np.ndarray = np.inf,
-    ) -> Tuple[cs.SX, cs.SX, cs.SX]:
+    ) -> tuple[cs.SX, cs.SX, cs.SX]:
         assert name not in self.vars, f"Variable {name} already exists."
         lb, ub = np.broadcast_to(lb, dims), np.broadcast_to(ub, dims)
         assert np.all(lb < ub), "Improper variable bounds."
@@ -348,7 +345,7 @@ class GenericMPC:
 
     def add_con(
         self, name: str, expr1: cs.SX, op: str, expr2: cs.SX
-    ) -> Tuple[cs.SX, cs.SX]:
+    ) -> tuple[cs.SX, cs.SX]:
         assert name not in self.cons, f"Constraint {name} already exists."
         expr = expr1 - expr2
         dims = expr.shape
@@ -380,14 +377,14 @@ class GenericMPC:
     def minimize(self, objective: cs.SX) -> None:
         self.f = objective
 
-    def init_solver(self, opts: Dict) -> None:
+    def init_solver(self, opts: dict) -> None:
         g = cs.vertcat(self.g, self.h)
         nlp = {"x": self.x, "p": self.p, "g": g, "f": self.f}
         self.solver = cs.nlpsol(f"nlpsol_{self.name}", "ipopt", nlp, opts)
         self.opts = opts
 
     def solve(
-        self, pars: Dict[str, np.ndarray], vals0: Dict[str, np.ndarray] = None
+        self, pars: dict[str, np.ndarray], vals0: dict[str, np.ndarray] = None
     ) -> QuadRotorSolution:
         assert self.solver is not None, "Solver uninitialized."
         assert len(self.pars.keys() - pars.keys()) == 0, (
@@ -407,7 +404,7 @@ class GenericMPC:
             kwargs["x0"] = np.clip(
                 subsevalf(self.x, self.vars, vals0), self.lbx, self.ubx
             )
-        sol: Dict[str, cs.DM] = self.solver(**kwargs)
+        sol: dict[str, cs.DM] = self.solver(**kwargs)
         lam_lbx = -np.minimum(sol["lam_x"], 0)
         lam_ubx = np.maximum(sol["lam_x"], 0)
         lam_g = sol["lam_g"][: self.ng, :]
@@ -444,8 +441,8 @@ class GenericMPC:
 
 def subsevalf(
     expr: cs.SX,
-    old: Union[cs.SX, Dict[str, cs.SX], List[cs.SX], Tuple[cs.SX]],
-    new: Union[cs.SX, Dict[str, cs.SX], List[cs.SX], Tuple[cs.SX]],
+    old: Union[cs.SX, dict[str, cs.SX], list[cs.SX], tuple[cs.SX]],
+    new: Union[cs.SX, dict[str, cs.SX], list[cs.SX], tuple[cs.SX]],
     eval: bool = True,
 ) -> Union[cs.SX, np.ndarray]:
     if isinstance(old, dict):
@@ -466,7 +463,7 @@ ConfigType = TypeVar("ConfigType")
 
 
 def init_config(
-    config: Optional[Union[ConfigType, Dict]], cls: Type[ConfigType]
+    config: Optional[Union[ConfigType, dict]], cls: Type[ConfigType]
 ) -> ConfigType:
     if config is None:
         return cls()
@@ -486,7 +483,7 @@ def init_config(
 @dataclass
 class QuadRotorMPCConfig:
     N: int = 10
-    solver_opts: Dict = field(
+    solver_opts: dict = field(
         default_factory=lambda: {
             "expand": True,
             "print_time": False,
@@ -632,7 +629,7 @@ class DifferentiableMPC(Generic[MPCType]):
         return self._mpc
 
     @property
-    def _non_redundant_x_bound_indices(self) -> Tuple[np.ndarray, np.ndarray]:
+    def _non_redundant_x_bound_indices(self) -> tuple[np.ndarray, np.ndarray]:
         return (
             np.where(self._mpc.lbx != -np.inf)[0],
             np.where(self._mpc.ubx != np.inf)[0],
@@ -721,8 +718,8 @@ class RLParameterCollection(Sequence[RLParameter]):
 
     def __init__(self, *parameters: RLParameter) -> None:
         """Instantiate the collection from another iterable, if provided."""
-        self._list: List[RLParameter] = []
-        self._dict: Dict[str, RLParameter] = {}
+        self._list: list[RLParameter] = []
+        self._dict: dict[str, RLParameter] = {}
         for parameter in parameters:
             self._list.append(parameter)
             self._dict[parameter.name] = parameter
@@ -732,31 +729,31 @@ class RLParameterCollection(Sequence[RLParameter]):
         return sum(self.sizes())
 
     @property
-    def as_dict(self) -> Dict[str, RLParameter]:
+    def as_dict(self) -> dict[str, RLParameter]:
         return self._dict
 
-    def values(self, as_dict: bool = False) -> Union[np.ndarray, Dict[str, np.ndarray]]:
+    def values(self, as_dict: bool = False) -> Union[np.ndarray, dict[str, np.ndarray]]:
         if as_dict:
             return {name: p.value for name, p in self.items()}
         return np.concatenate([p.value for p in self._list])
 
-    def bounds(self, as_dict: bool = False) -> Union[np.ndarray, Dict[str, np.ndarray]]:
+    def bounds(self, as_dict: bool = False) -> Union[np.ndarray, dict[str, np.ndarray]]:
         if as_dict:
             return {name: p.bounds for name, p in self.items()}
         return np.row_stack([p.bounds for p in self._list])
 
-    def symQ(self, as_dict: bool = False) -> Union[cs.SX, Dict[str, cs.SX]]:
+    def symQ(self, as_dict: bool = False) -> Union[cs.SX, dict[str, cs.SX]]:
         if as_dict:
             return {name: p.symQ for name, p in self.items()}
         return cs.vertcat(*(p.symQ for p in self._list))
 
-    def sizes(self, as_dict: bool = False) -> Union[List[int], Dict[str, int]]:
+    def sizes(self, as_dict: bool = False) -> Union[list[int], dict[str, int]]:
         if as_dict:
             return {p.name: p.size for p in self._list}
         return [p.size for p in self._list]
 
     def update_values(
-        self, new_vals: Union[np.ndarray, List[np.ndarray], Dict[str, np.ndarray]]
+        self, new_vals: Union[np.ndarray, list[np.ndarray], dict[str, np.ndarray]]
     ) -> None:
         if isinstance(new_vals, np.ndarray):
             new_vals = np.split(new_vals, np.cumsum(self.sizes())[:-1])
@@ -769,12 +766,12 @@ class RLParameterCollection(Sequence[RLParameter]):
             for n in self._dict.keys():
                 self._dict[n].update_value(new_vals[n])
 
-    def items(self) -> Iterable[Tuple[str, RLParameter]]:
+    def items(self) -> Iterable[tuple[str, RLParameter]]:
         return self._dict.items()
 
     def __getitem__(
         self, index: Union[str, Iterable[str], int, slice, Iterable[int]]
-    ) -> Union[RLParameter, List[RLParameter]]:
+    ) -> Union[RLParameter, list[RLParameter]]:
         if isinstance(index, str):
             return self._dict[index]
         if isinstance(index, (int, slice)):
@@ -797,9 +794,9 @@ class QuadRotorBaseAgent(ABC):
         self,
         env: QuadRotorEnv,
         agentname: str = None,
-        agent_config: Union[Dict[str, Any], Any] = None,
-        fixed_pars: Dict[str, np.ndarray] = None,
-        mpc_config: Union[Dict, QuadRotorMPCConfig] = None,
+        agent_config: Union[dict[str, Any], Any] = None,
+        fixed_pars: dict[str, np.ndarray] = None,
+        mpc_config: Union[dict, QuadRotorMPCConfig] = None,
         seed: int = None,
     ) -> None:
         super().__init__()
@@ -832,7 +829,7 @@ class QuadRotorBaseAgent(ABC):
         self,
         type: str,
         state: np.ndarray = None,
-        sol0: Dict[str, np.ndarray] = None,
+        sol0: dict[str, np.ndarray] = None,
     ) -> Solution:
         mpc: QuadRotorMPC = getattr(self, type)
         if state is None:
@@ -859,7 +856,7 @@ class QuadRotorBaseAgent(ABC):
         deterministic: bool = False,
         perturb_gradient: bool = True,
         **solve_mpc_kwargs,
-    ) -> Tuple[np.ndarray, np.ndarray, Solution]:
+    ) -> tuple[np.ndarray, np.ndarray, Solution]:
         perturbation_in_dict = "perturbation" in self.fixed_pars
         if perturbation_in_dict:
             self.fixed_pars["perturbation"] = 0
@@ -884,11 +881,11 @@ class QuadRotorBaseAgent(ABC):
         x_next = sol.vals["x"][:, 0]
         return u_opt, x_next, sol
 
-    def _merge_mpc_pars_callback(self) -> Dict[str, np.ndarray]:
+    def _merge_mpc_pars_callback(self) -> dict[str, np.ndarray]:
         return {}
 
     @staticmethod
-    def _make_seed_list(seed: Optional[Union[int, List[int]]], n: int) -> List[int]:
+    def _make_seed_list(seed: Optional[Union[int, list[int]]], n: int) -> list[int]:
         if seed is None:
             return [None] * n
         if isinstance(seed, int):
@@ -901,7 +898,7 @@ class QuadRotorBaseLearningAgent(QuadRotorBaseAgent, ABC):
     def __init__(
         self,
         *args,
-        init_learnable_pars: Dict[str, Tuple[np.ndarray, np.ndarray]],
+        init_learnable_pars: dict[str, tuple[np.ndarray, np.ndarray]],
         **kwargs,
     ) -> None:
         super().__init__(*args, **kwargs)
@@ -920,9 +917,9 @@ class QuadRotorBaseLearningAgent(QuadRotorBaseAgent, ABC):
         self,
         n_episodes: int,
         perturbation_decay: float = 0.75,
-        seed: Union[int, List[int]] = None,
+        seed: Union[int, list[int]] = None,
         return_info: bool = True,
-    ) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray, Dict[str, np.ndarray]]]:
+    ) -> Union[np.ndarray, tuple[np.ndarray, np.ndarray, dict[str, np.ndarray]]]:
         pass
 
     def learn(
@@ -930,12 +927,12 @@ class QuadRotorBaseLearningAgent(QuadRotorBaseAgent, ABC):
         n_epochs: int,
         n_episodes: int,
         perturbation_decay: float = 0.75,
-        seed: Union[int, List[int]] = None,
+        seed: Union[int, list[int]] = None,
         throw_on_exception: bool = False,
         return_info: bool = True,
     ) -> Union[
-        Tuple[bool, np.ndarray],
-        Tuple[bool, np.ndarray, List[np.ndarray], List[Dict[str, np.ndarray]]],
+        tuple[bool, np.ndarray],
+        tuple[bool, np.ndarray, list[np.ndarray], list[dict[str, np.ndarray]]],
     ]:
         ok = True
         results = []
@@ -964,7 +961,7 @@ class QuadRotorBaseLearningAgent(QuadRotorBaseAgent, ABC):
         return ok, np.stack(returns, axis=0), grads, weightss
 
     def _init_learnable_pars(
-        self, init_pars: Dict[str, Tuple[np.ndarray, np.ndarray]]
+        self, init_pars: dict[str, tuple[np.ndarray, np.ndarray]]
     ) -> None:
         """Initializes the learnable parameters of the MPC."""
         required_pars = sorted(
@@ -997,7 +994,7 @@ class QuadRotorBaseLearningAgent(QuadRotorBaseAgent, ABC):
         ), "Learning rate must have the same size as the learnable parameter vector."
         cfg.lr = lr
 
-    def _merge_mpc_pars_callback(self) -> Dict[str, np.ndarray]:
+    def _merge_mpc_pars_callback(self) -> dict[str, np.ndarray]:
         return self.weights.values(as_dict=True)
 
     @staticmethod
@@ -1005,7 +1002,7 @@ class QuadRotorBaseLearningAgent(QuadRotorBaseAgent, ABC):
         theta: np.ndarray,
         theta_bounds: np.ndarray,
         max_perc_update: float,
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray, np.ndarray]:
         max_delta = np.maximum(np.abs(max_perc_update * theta), 0.1)
         lb = np.maximum(theta_bounds[:, 0], theta - max_delta)
         ub = np.minimum(theta_bounds[:, 1], theta + max_delta)
@@ -1014,14 +1011,14 @@ class QuadRotorBaseLearningAgent(QuadRotorBaseAgent, ABC):
 
 @dataclass
 class QuadRotorLSTDQAgentConfig:
-    init_pars: Dict[str, Tuple[float, Tuple[float, float]]] = field(
+    init_pars: dict[str, tuple[float, tuple[float, float]]] = field(
         default_factory=lambda: {
             "g": (9.81, (1, 40)),
             "thrust_coeff": (0.3, (0.1, 4)),
             "backoff": (0.1, (1e-3, 0.5)),
         }
     )
-    fixed_pars: Dict[str, float] = field(
+    fixed_pars: dict[str, float] = field(
         default_factory=lambda: {
             "pitch_d": 12,
             "pitch_dd": 5,
@@ -1068,10 +1065,10 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
         )
         self.perturbation_chance = 0.0
         self.perturbation_strength = 0.0
-        self.replay_memory = ReplayMemory[List[Tuple[np.ndarray, ...]]](
+        self.replay_memory = ReplayMemory[list[tuple[np.ndarray, ...]]](
             maxlen=self.config.replay_maxlen, seed=seed
         )
-        self._episode_buffer: List[Tuple[np.ndarray, ...]] = []
+        self._episode_buffer: list[tuple[np.ndarray, ...]] = []
         self._init_derivative_symbols()
         self._init_qp_solver()
 
@@ -1114,9 +1111,9 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
         self,
         n_episodes: int,
         perturbation_decay: float = 0.75,
-        seed: Union[int, List[int]] = None,
+        seed: Union[int, list[int]] = None,
         return_info: bool = False,
-    ) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray, Dict[str, np.ndarray]]]:
+    ) -> Union[np.ndarray, tuple[np.ndarray, np.ndarray, dict[str, np.ndarray]]]:
         env, name, epoch_n = self.env, self.name, self._epoch_n
         returns = np.zeros(n_episodes)
         seeds = self._make_seed_list(seed, n_episodes)
@@ -1182,29 +1179,29 @@ class RecordLearningData(Generic[AgentType]):
         self.agent = agent
 
         # initialize storages
-        self.weights_history: Dict[str, List[np.ndarray]] = {
+        self.weights_history: dict[str, list[np.ndarray]] = {
             n: [p.value] for n, p in agent.weights.as_dict.items()
         }
-        self.update_gradient: List[np.ndarray] = []
+        self.update_gradient: list[np.ndarray] = []
 
     @property
     def unwrapped(self) -> AgentType:
         return self.agent
 
-    def learn_one_epoch(self, *args, **kwargs) -> Tuple[np.ndarray, np.ndarray]:
+    def learn_one_epoch(self, *args, **kwargs) -> tuple[np.ndarray, np.ndarray]:
         returns, grad, weights = self.agent.learn_one_epoch(*args, **kwargs)
         self._save(grad, weights)
         return returns, grad
 
     def learn(
         self, *args, **kwargs
-    ) -> Tuple[bool, np.ndarray, List[np.ndarray], List[Dict[str, np.ndarray]]]:
+    ) -> tuple[bool, np.ndarray, list[np.ndarray], list[dict[str, np.ndarray]]]:
         ok, returns, grads, weightss = self.agent.learn(*args, **kwargs)
         for grad, weights in zip(grads, weightss):
             self._save(grad, weights)
         return ok, returns, grads, weightss
 
-    def _save(self, grad: np.ndarray, weights: Dict[str, np.ndarray]) -> None:
+    def _save(self, grad: np.ndarray, weights: dict[str, np.ndarray]) -> None:
         self.update_gradient.append(grad)
         for n, w in self.weights_history.items():
             w.append(weights[n])

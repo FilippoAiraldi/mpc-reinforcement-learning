@@ -1,7 +1,7 @@
 import pickle
 import unittest
 from itertools import product
-from typing import Iterator, Tuple, Union
+from typing import Iterator, Union
 from unittest.mock import Mock
 
 import casadi as cs
@@ -68,13 +68,13 @@ class TestExperienceReplay(unittest.TestCase):
         self.assertIsInstance(mem.np_random, np.random.Generator)
 
     def test_sample__raises__with_no_maxlen_and_percentage_size(self):
-        mem = ExperienceReplay[Tuple[np.ndarray, float]](maxlen=None, sample_size=0.0)
+        mem = ExperienceReplay[tuple[np.ndarray, float]](maxlen=None, sample_size=0.0)
         with self.assertRaises(AssertionError):
             list(mem.sample())
 
     @parameterized.expand([(0,), (float(0),)])
     def test_sample__with_zero_samples__returns_no_samples(self, n: Union[int, float]):
-        mem = ExperienceReplay[Tuple[np.ndarray, float]](maxlen=100, sample_size=n)
+        mem = ExperienceReplay[tuple[np.ndarray, float]](maxlen=100, sample_size=n)
         self.assertListEqual(list(mem.sample()), [])
 
     @parameterized.expand([(10,), (0.1,)])

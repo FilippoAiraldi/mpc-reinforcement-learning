@@ -1,7 +1,7 @@
 from functools import cached_property
 from itertools import chain
 from numbers import Integral
-from typing import Any, Dict, Generic, Iterable, Optional, Tuple, TypeVar, Union
+from typing import Any, Generic, Iterable, Optional, TypeVar, Union
 
 import numpy as np
 import numpy.typing as npt
@@ -22,7 +22,7 @@ class LearnableParameter(SupportsDeepcopyAndPickle, Generic[SymType]):
     def __init__(
         self,
         name: str,
-        shape: Union[int, Tuple[int, ...]],
+        shape: Union[int, tuple[int, ...]],
         value: npt.ArrayLike,
         lb: npt.ArrayLike = -np.inf,
         ub: npt.ArrayLike = +np.inf,
@@ -54,7 +54,7 @@ class LearnableParameter(SupportsDeepcopyAndPickle, Generic[SymType]):
         """
         super().__init__()
         self.name = name
-        self.shape: Tuple[int, ...] = (
+        self.shape: tuple[int, ...] = (
             (shape,) if isinstance(shape, Integral) else shape  # type: ignore
         )
         self.sym = sym
@@ -113,9 +113,9 @@ class LearnableParameter(SupportsDeepcopyAndPickle, Generic[SymType]):
 
 
 class LearnableParametersDict(
-    Dict[str, LearnableParameter[SymType]], SupportsDeepcopyAndPickle
+    dict[str, LearnableParameter[SymType]], SupportsDeepcopyAndPickle
 ):
-    """Dict-based collection of `LearnableParameter` instances that simplifies the
+    """dict-based collection of `LearnableParameter` instances that simplifies the
     process of managing and updating these. The dict contains pairs of parameter's name
     vs parameter's instance.
 
@@ -170,12 +170,12 @@ class LearnableParametersDict(
         )
 
     @cached_property
-    def value_as_dict(self) -> Dict[str, npt.NDArray[np.floating]]:
+    def value_as_dict(self) -> dict[str, npt.NDArray[np.floating]]:
         """Gets the values of all the learnable parameters, in a dict."""
         return {p.name: p.value for p in self.values()}
 
     @cached_property
-    def sym(self) -> Dict[str, Optional[SymType]]:
+    def sym(self) -> dict[str, Optional[SymType]]:
         """Gets symbols of all the learnable parameters, in a dict. If one parameter
         does not possess the symbol, `None` is put."""
         return {
@@ -186,7 +186,7 @@ class LearnableParametersDict(
     @invalidate_cache(value, value_as_dict)
     def update_values(
         self,
-        new_values: Union[npt.ArrayLike, Dict[str, npt.ArrayLike]],
+        new_values: Union[npt.ArrayLike, dict[str, npt.ArrayLike]],
         **is_close_kwargs: Any,
     ) -> None:
         """Updates the value of each parameter

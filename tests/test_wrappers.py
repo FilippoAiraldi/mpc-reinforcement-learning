@@ -1,7 +1,7 @@
 import unittest
 from functools import lru_cache
 from itertools import count
-from typing import Any, Dict, Tuple
+from typing import Any
 from unittest.mock import Mock, call
 
 import casadi as cs
@@ -97,7 +97,7 @@ class SimpleEnv(gym.Env[object, object]):
         self.INTERNAL_ACTIONS = []
         self.INTERNAL_REWARDS = []
 
-    def reset(self, *args: Any, **kwargs: Any) -> Tuple[object, Dict[str, Any]]:
+    def reset(self, *args: Any, **kwargs: Any) -> tuple[object, dict[str, Any]]:
         super().reset(*args, **kwargs)
         self.t = 0
         obs = object()
@@ -111,7 +111,7 @@ class SimpleEnv(gym.Env[object, object]):
         self.INTERNAL_REWARDS.append([])
         return obs, info
 
-    def step(self, action: object) -> Tuple[object, float, bool, bool, Dict[str, Any]]:
+    def step(self, action: object) -> tuple[object, float, bool, bool, dict[str, Any]]:
         self.t += 1
         obs = object()
         reward = np.random.rand()
