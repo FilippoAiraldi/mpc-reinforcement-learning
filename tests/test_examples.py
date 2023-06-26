@@ -222,18 +222,16 @@ class TestExamples(unittest.TestCase):
         R = env.rewards[0]
         TD = np.squeeze(agent.td_errors)
         parnames = ["V0", "x_lb", "x_ub", "b", "f", "A", "B"]
-        pars = {n: np.squeeze(agent.updates_history[n]) for n in parnames}
+        PARS = np.concatenate(
+            [np.reshape(agent.updates_history[n], -1) for n in parnames]
+        )
 
         np.testing.assert_allclose(J, DATA["ql_J"], rtol=1e-9, atol=1e-2)
         np.testing.assert_allclose(X, DATA["ql_X"], rtol=1e-9, atol=1e-3)
         np.testing.assert_allclose(U, DATA["ql_U"], rtol=1e-9, atol=1e-2)
         np.testing.assert_allclose(R, DATA["ql_R"], rtol=1e-9, atol=1e-1)
         np.testing.assert_allclose(TD, DATA["ql_TD"], rtol=1e-9, atol=1e-1)
-        pars_expected = DATA["ql_pars"].item()
-        for i, par in enumerate(pars.values()):
-            if i == 5:  # this is for A
-                par = par.reshape(-1, 4, order="F")  # from (n_up, 2, 2) to (n_up, 4)
-            np.testing.assert_allclose(par, pars_expected[i], rtol=1e-9, atol=1e-4)
+        np.testing.assert_allclose(PARS, DATA["ql_pars"], rtol=1e-9, atol=1e-4)
 
     @parameterized.expand([(False,), (True,)])
     def test_dpg__with_copy_and_pickle(self, use_copy: bool):
@@ -282,7 +280,9 @@ class TestExamples(unittest.TestCase):
         Jest = np.asarray(agent.policy_performances)
         Gest = np.asarray(agent.policy_gradients)
         parnames = ["V0", "x_lb", "x_ub", "b", "f", "A", "B"]
-        pars = {n: np.squeeze(agent.updates_history[n]) for n in parnames}
+        PARS = np.concatenate(
+            [np.reshape(agent.updates_history[n], -1) for n in parnames]
+        )
 
         np.testing.assert_allclose(J, DATA["dpg_J"], rtol=1e-3, atol=1e-3)
         np.testing.assert_allclose(X, DATA["dpg_X"], rtol=1e-6, atol=1e-3)
@@ -290,9 +290,7 @@ class TestExamples(unittest.TestCase):
         np.testing.assert_allclose(R, DATA["dpg_R"], rtol=1e-1, atol=1e-1)
         np.testing.assert_allclose(Jest, DATA["dpg_Jest"], rtol=1e0, atol=1e0)
         np.testing.assert_allclose(Gest, DATA["dpg_Gest"], rtol=1e2, atol=1e2)
-        pars_expected = DATA["dpg_pars"].item()
-        for i, par in enumerate(pars.values()):
-            np.testing.assert_allclose(par, pars_expected[i], rtol=1e-3, atol=1e-3)
+        np.testing.assert_allclose(PARS, DATA["dpg_pars"], rtol=1e-9, atol=1e-4)
 
 
 if __name__ == "__main__":
