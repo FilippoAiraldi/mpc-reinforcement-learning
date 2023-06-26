@@ -119,9 +119,10 @@ class Log(Wrapper[SymType]):
         repr_self = repr(self)
         optional_cbs = self.log_frequencies.keys()
         mandatory_cbs = _MANDATORY_CALLBACKS.difference(self.exclude_mandatory)
+        generate_method_caller = lambda m: lambda *args, **kwargs: m(*args, **kwargs)
         for name in chain(optional_cbs, mandatory_cbs):
             method = getattr(self, f"_{name}")
-            self.hook_callback(repr_self, name, method, slice(None), "all")
+            self.hook_callback(repr_self, name, generate_method_caller(method))
 
     # callbacks for Agent
 

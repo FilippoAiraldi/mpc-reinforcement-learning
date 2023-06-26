@@ -1,17 +1,7 @@
 from functools import wraps
 from inspect import getmembers, isfunction
 from operator import itemgetter
-from typing import (
-    Any,
-    Callable,
-    Collection,
-    Dict,
-    Literal,
-    Optional,
-    Tuple,
-    TypeVar,
-    Union,
-)
+from typing import Any, Callable, Dict, Literal, Optional, Tuple, TypeVar, Union
 
 import numpy as np
 import numpy.typing as npt
@@ -218,12 +208,7 @@ class RemovesCallbackHooksInState:
     """
 
     def hook_callback(
-        self,
-        attachername: str,
-        callbackname: str,
-        func: Callable,
-        args_idx: Union[None, slice] = None,
-        kwargs_keys: Union[None, Collection[str], Literal["all"]] = None,
+        self, attachername: str, callbackname: str, func: Callable
     ) -> None:
         """Hooks a function to be called each time an agent's callback is invoked.
 
@@ -234,33 +219,16 @@ class RemovesCallbackHooksInState:
         callbackname : str
             Name of the callback to hook to.
         func : Callable
-            function to be called when the callback is invoked.
-        args_idx : slice, optional
-            Indices of the `args` of the callback to be passed to `func`, if not `None`.
-        kwargs_keys : collection of strings or "all", optional
-            Keys of the `kwargs` of the callback to be passed to `func`, if not `None`.
-            If `'all'`, then all the kwargs are passed.
+            function to be called when the callback is invoked. Must accept the same
+            input arguments as the callback it is hooked to. Moreover, the return value
+            is discarded.
         """
-        if args_idx is None:
-            args_idx = slice(0, 0)
-        all_kwargs_keys = False
-        if kwargs_keys is None:
-            kwargs_keys = ()
-        elif kwargs_keys == "all":
-            all_kwargs_keys = True
 
         def decorate(method: Callable) -> Callable:
             @wraps(method)
             def wrapper(*args, **kwargs):
                 out = method(*args, **kwargs)
-                func(
-                    *args[args_idx],
-                    **(
-                        kwargs
-                        if all_kwargs_keys
-                        else {k: kwargs[k] for k in kwargs_keys if k in kwargs}
-                    ),
-                )
+                func(*args, **kwargs)
                 return out
 
             wrapper.attacher = attachername  # type: ignore[attr-defined]

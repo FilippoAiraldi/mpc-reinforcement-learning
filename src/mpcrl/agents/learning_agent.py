@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import (
     Any,
+    Callable,
     Collection,
     Dict,
     Generic,
@@ -258,29 +259,25 @@ class LearningAgent(
             self.hook_callback(
                 repr(self._exploration),
                 exploration_hook,
-                self._exploration.step,
+                lambda *_, **__: self._exploration.step(),
             )
         # hook updates (always necessary)
         assert self._update_strategy.hook in {
             "on_episode_end",
             "on_timestep_end",
-        }, "Updates can be hooked only to episode_end or on_timestep_end."
-        args_idx, kwargs_keys = (
-            (slice(1, 2), ("episode",))
+        }, "Updates can be hooked only to `episode_end` or `on_timestep_end`."
+        func: Callable = (
+            (lambda _, e: self._check_and_perform_update(e, None))
             if self._update_strategy.hook == "on_episode_end"
-            else (slice(1, 3), ("episode", "timestep"))
+            else (lambda _, e, t: self._check_and_perform_update(e, t))  # type: ignore
         )
         self.hook_callback(
             repr(self._update_strategy),
             self._update_strategy.hook,
-            self._check_and_perform_update,
-            args_idx,  # type: ignore[arg-type]
-            kwargs_keys,
+            func,
         )
 
-    def _check_and_perform_update(
-        self, episode: int, timestep: Optional[int] = None
-    ) -> None:
+    def _check_and_perform_update(self, episode: int, timestep: Optional[int]) -> None:
         """Internal utility to check if an update is due and perform it."""
         if not self._updates_enabled or not self._update_strategy.can_update():
             return
