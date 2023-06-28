@@ -5,6 +5,7 @@ import numpy as np
 import numpy.typing as npt
 
 from mpcrl.core.schedulers import NoScheduling, Scheduler
+from mpcrl.util.iters import bool_cycle
 
 
 class ExplorationStrategy(ABC):
@@ -232,3 +233,64 @@ class EpsilonGreedyExploration(GreedyExploration):
             f"{self.__class__.__name__}(eps={self.epsilon_scheduler.value},"
             f"stn={self.strength_scheduler.value},hook={hookstr})"
         )
+
+
+class StepWiseExploration(ExplorationStrategy):
+    """Wrapper exploration class that enables a base exploration strategy to change only
+    every N steps, thus yielding a step-wise strategy with steps of the given length.
+    This is useful when, e.g., the exploration strategy must be kept constant across
+    time for a number of steps.
+
+    Note that this exploration modifies only the exploration chance and magnitude of
+    the wrapped base strategy, whereas the step behaviour is unmodified, i.e., the decay
+    of the exploration schedulers (if any) is the same as the base strategy's.
+    """
+
+    __slots__ = (
+        "base_exploration",
+        "step_size",
+        "_cached_can_explore",
+        "_cached_perturbation",
+        "_unfreeze_cycle",
+    )
+
+    def __init__(self, base_exploration: ExplorationStrategy, step_size: int) -> None:
+        """Creates a step-wise exploration strategy wrapepr.
+
+        Parameters
+        ----------
+        base_exploration : ExplorationStrategy
+            The base exploration strategy to be made step-wise.
+        step_size : int
+            Size of each step.
+        """
+        super().__init__()
+        self.base_exploration = base_exploration
+        self.step_size = step_size
+        self._unfreeze_cycle = bool_cycle(step_size, starts_with=True)
+
+    def can_explore(self) -> bool:
+        # since this method is called at every timestep (when deterministic=False), we
+        # decide here if the base exploration is frozen or not, i.e., if we are at the
+        # new step or not
+        if next(self._unfreeze_cycle):
+            self._cached_can_explore = self._cached_perturbation = None
+
+        if self._cached_can_explore is not None:
+            return self._cached_can_explore
+        self._cached_can_explore = self.base_exploration.can_explore()
+        return self._cached_can_explore
+
+    def step(self) -> None:
+        return self.base_exploration.step()  # this is left untouched
+
+    def perturbation(self, *args: Any, **kwargs: Any) -> npt.NDArray[np.floating]:
+        if self._cached_perturbation is not None:
+            return self._cached_perturbation
+        self._cached_perturbation = self.base_exploration.perturbation(*args, **kwargs)
+        return self._cached_perturbation
+
+    def __repr__(self) -> str:
+        clsn = self.__class__.__name__
+        bclsn = self.base_exploration.__class__.__name__
+        return f"{clsn}(base={bclsn},step_size={self.step_size})"

@@ -245,6 +245,26 @@ class TestExploration(unittest.TestCase):
         epsilon_scheduler.step.assert_called_once()
         strength_scheduler.step.assert_called_once()
 
+    def test_stepwise_exploration__turns_base_exploration_into_steps(self):
+        base_exploration = E.EpsilonGreedyExploration(0.5, 0.5, seed=0)
+        base_exploration.step = Mock()
+        step_size = 5
+        cycles = 10
+        exploration = E.StepWiseExploration(base_exploration, step_size)
+        can_explores, perturbations = [], []
+        for _ in range(cycles):
+            can_explores.append([])
+            perturbations.append([])
+            for _ in range(step_size):
+                can_explores[-1].append(exploration.can_explore())
+                perturbations[-1].append(exploration.perturbation("uniform"))
+                exploration.step()
+
+        for can_explores_cycle, perturbations_cycle in zip(can_explores, perturbations):
+            self.assertTrue(np.unique(can_explores_cycle).size == 1)
+            self.assertTrue(np.unique(perturbations_cycle).size == 1)
+        self.assertTrue(len(base_exploration.step.mock_calls) == cycles * step_size)
+
 
 class TestParameters(unittest.TestCase):
     @parameterized.expand(map(lambda i: (i,), range(3)))
