@@ -2,7 +2,7 @@ import unittest
 
 import casadi as cs
 import numpy as np
-from parameterized import parameterized
+from parameterized import parameterized, parameterized_class
 
 from mpcrl.util import control, iters, math, named
 
@@ -114,12 +114,15 @@ class TestControl(unittest.TestCase):
         np.testing.assert_allclose(Y, Y_exact)
 
 
+@parameterized_class("starts_with", [(False,), (True,)])
 class TestIters(unittest.TestCase):
     @parameterized.expand([(5,), (1,), (22,)])
-    def test_bool_cycle__raises__with_negative_freq(self, frequency: int):
+    def test_bool_cycle(self, frequency: int):
         T = frequency * 10
-        cycle = iters.bool_cycle(frequency)
-        self.assertEqual(T // frequency, sum((next(cycle) for _ in range(T))))
+        cycle = iters.bool_cycle(frequency, self.starts_with)
+        cycle = [next(cycle) for _ in range(T)]
+        self.assertEqual(cycle[0], self.starts_with or frequency == 1)
+        self.assertEqual(T // frequency, sum(cycle))
 
 
 if __name__ == "__main__":
