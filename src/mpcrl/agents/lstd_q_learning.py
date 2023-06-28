@@ -54,7 +54,13 @@ class LstdQLearningAgent(
         132-137. IEEE.
     """
 
-    __slots__ = ("_sensitivity", "td_errors", "cho_maxiter", "cho_solve_kwargs")
+    __slots__ = (
+        "_sensitivity",
+        "td_errors",
+        "cho_maxiter",
+        "cho_solve_kwargs",
+        "hessian_type",
+    )
 
     def __init__(
         self,
@@ -70,7 +76,7 @@ class LstdQLearningAgent(
         experience: Optional[ExperienceReplay[ExpType]] = None,
         max_percentage_update: float = float("+inf"),
         warmstart: Literal["last", "last-successful"] = "last-successful",
-        hessian_type: Literal["approx", "full"] = "approx",
+        hessian_type: Literal["none", "approx", "full"] = "approx",
         record_td_errors: bool = False,
         cho_maxiter: int = 1000,
         cho_solve_kwargs: Optional[dict[str, Any]] = None,
@@ -129,10 +135,11 @@ class LstdQLearningAgent(
             The warmstart strategy for the MPC's NLP. If 'last-successful', the last
             successful solution is used to warm start the solver for the next iteration.
             If 'last', the last solution is used, regardless of success or failure.
-        hessian_type : 'approx' or 'full', optional
-            The type of hessian to use in this second-order algorithm. If `approx`, an
-            easier approximation of it is used; otherwise, the full hessian is computed
-            but this is much more expensive.
+        hessian_type : 'none', 'approx' or 'full', optional
+            The type of hessian to use in this second-order algorithm. If 'none', no
+            second order information is used. If `approx`, an easier approximation of it
+            is used; otherwise, the full hessian is computed but this is much more
+            expensive.
         record_td_errors: bool, optional
             If `True`, the TD errors are recorded in the field `td_errors`, which
             otherwise is `None`. By default, does not record them.
@@ -160,6 +167,7 @@ class LstdQLearningAgent(
             warmstart,
             name,
         )
+        self.hessian_type = hessian_type
         self._sensitivity = self._init_sensitivity(hessian_type)
         self.cho_maxiter = cho_maxiter
         if cho_solve_kwargs is None:
@@ -170,8 +178,11 @@ class LstdQLearningAgent(
     def update(self) -> Optional[str]:
         sample = self.experience.sample()
         gradient, Hessian = (np.mean(tuple(o), 0) for o in zip(*sample))
-        R = cholesky_added_multiple_identities(Hessian, maxiter=self.cho_maxiter)
-        step = cho_solve((R, True), gradient, **self.cho_solve_kwargs).reshape(-1)
+        if self.hessian_type != "none":
+            R = cholesky_added_multiple_identities(Hessian, maxiter=self.cho_maxiter)
+            step = cho_solve((R, True), gradient, **self.cho_solve_kwargs).reshape(-1)
+        else:
+            step = gradient
         return self._do_gradient_update(step)
 
     def train_one_episode(
@@ -215,7 +226,7 @@ class LstdQLearningAgent(
         return rewards
 
     def _init_sensitivity(
-        self, hessian_type: Literal["approx", "full"]
+        self, hessian_type: Literal["none", "approx", "full"]
     ) -> Callable[[cs.DM], tuple[np.ndarray, np.ndarray]]:
         """Internal utility to compute the derivative of Q(s,a) w.r.t. the learnable
         parameters, a.k.a., theta."""
@@ -224,7 +235,9 @@ class LstdQLearningAgent(
         nlp_ = NlpSensitivity(nlp, theta)
         Lt = nlp_.jacobians["L-p"]  # a.k.a., dQdtheta
         Ltt = nlp_.hessians["L-pp"]  # a.k.a., approximated d2Qdtheta2
-        if hessian_type == "approx":
+        if hessian_type == "none":
+            d2Qdtheta2 = cs.DM.nan()
+        elif hessian_type == "approx":
             d2Qdtheta2 = Ltt
         elif hessian_type == "full":
             dydtheta, _ = nlp_.parametric_sensitivity(second_order=False)
@@ -261,7 +274,7 @@ class LstdQLearningAgent(
             dQ, ddQ = self._sensitivity(sol_values)
             td_error = cost + self.discount_factor * solV.f - solQ.f
             g = -td_error * dQ
-            H = dQ @ dQ.T - td_error * ddQ
+            H = (dQ @ dQ.T - td_error * ddQ) if self.hessian_type != "none" else np.nan
             self.store_experience((g, H))
             success = True
         else:
