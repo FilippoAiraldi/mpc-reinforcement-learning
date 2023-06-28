@@ -22,9 +22,9 @@ class UpdateStrategy:
             Frequency at which, each time the hook is called, an update should be
             carried out.
         skip_first : int, optional
-            Skips the first `n` updates, where `n=skip_first`. By default, 0 so no
-            update is skipped. This is useful when, e.g., the agent has to wait for the
-            experience buffer to be filled before starting to update.
+            Skips the first `skip_first` updates. By default 0, so no update is skipped.
+            This is useful when, e.g., the agent has to wait for the experience buffer
+            to be filled before starting to update.
         hook : {'on_episode_end', 'on_timestep_end'}, optional
             Specifies to which callback to hook, i.e., when to check if an update is due
             according to the given frequency. The options are:
@@ -35,8 +35,9 @@ class UpdateStrategy:
         """
         self.frequency = frequency
         self.hook = hook
-        self._update_cycle = bool_cycle(frequency)
-        self._skip = chain(repeat(True, skip_first), repeat(False))
+        self._update_cycle = chain(
+            repeat(False, skip_first * frequency), bool_cycle(frequency)
+        )
 
     def can_update(self) -> bool:
         """Returns whether an update must be carried out at the current instant
@@ -53,8 +54,7 @@ class UpdateStrategy:
             `True` if the agent should update according to this strategy; otherwise,
             `False`.
         """
-        can_update = next(self._update_cycle)
-        return not next(self._skip) if can_update else False
+        return next(self._update_cycle)
 
     def __iter__(self) -> Iterator[bool]:
         """With `__next__`, makes this class act like an iterator."""
