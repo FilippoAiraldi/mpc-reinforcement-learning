@@ -180,10 +180,10 @@ class LstdQLearningAgent(
         gradient, Hessian = (np.mean(tuple(o), 0) for o in zip(*sample))
         if self.hessian_type != "none":
             R = cholesky_added_multiple_identities(Hessian, maxiter=self.cho_maxiter)
-            step = cho_solve((R, True), gradient, **self.cho_solve_kwargs).reshape(-1)
+            step = cho_solve((R, True), gradient, **self.cho_solve_kwargs)
         else:
             step = gradient
-        return self._do_gradient_update(step)
+        return self._do_gradient_update(step.reshape(-1))
 
     def train_one_episode(
         self,
