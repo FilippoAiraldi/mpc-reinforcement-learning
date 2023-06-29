@@ -185,7 +185,13 @@ class TestAgent(unittest.TestCase):
         pert = cs.DM([65, 79])
         vals0 = object()
         sol = Solution(
-            f=5, vars=None, vals=vals0, stats={"success": True}, _get_value=None
+            f=5,
+            vars=None,
+            vals=vals0,
+            dual_vars=None,
+            dual_vals=None,
+            stats={"success": True},
+            _get_value=None,
         )
         agent._last_solution = sol
         if self.multistart_nlp:
@@ -239,7 +245,15 @@ class TestAgent(unittest.TestCase):
 
         state = {"y": 0, "v": 0, "m": 5e5}
         vals0 = {"y": 0, "v": 0, "m": 5e5, "u1": 1e8, "u2": 0}
-        agent._last_solution = Solution(f=0, vars=0, vals=vals0, stats=0, _get_value=0)
+        agent._last_solution = Solution(
+            f=0,
+            vars=0,
+            vals=vals0,
+            dual_vars=None,
+            dual_vals=None,
+            stats=0,
+            _get_value=0,
+        )
         if vector:
             state = cs.DM(state.values())
 
@@ -274,7 +288,9 @@ class TestAgent(unittest.TestCase):
         state = {"y": 0, "v": 0, "m": 5e5}
         action = {"u1": a_opt if a_optimal else a_subopt, "u2": 0}
         vals0 = {**state, **action}
-        agent._last_solution = Solution(f=0, vars=0, vals=vals0, stats=0, _get_value=0)
+        agent._last_solution = Solution(
+            f=0, vars=0, vals=vals0, dual_vars=0, dual_vals=0, stats=0, _get_value=0
+        )
         if vector:
             state = cs.DM(state.values())
             action = cs.DM(action.values())
@@ -321,6 +337,8 @@ class TestAgent(unittest.TestCase):
                 0,
                 {},
                 {"u1": u1, "u2": u2},
+                {},
+                {},
                 {"success": success, "return_status": "bad"},
                 None,
             ),
