@@ -241,9 +241,13 @@ class StepWiseExploration(ExplorationStrategy):
     This is useful when, e.g., the exploration strategy must be kept constant across
     time for a number of steps.
 
-    Note that this exploration modifies only the exploration chance and magnitude of
-    the wrapped base strategy, whereas the step behaviour is unmodified, i.e., the decay
-    of the exploration schedulers (if any) is the same as the base strategy's.
+    Note
+    ----
+    This exploration wrapper modifies the exploration chance and magnitude of the
+    wrapped base strategy as well as the step behaviour, i.e., the decay of the base
+    exploration's schedulers (if any) is enlarged by the step size factor. This is
+    because the number of calls to the base exploration's `step` method is reduced by
+    a factor of the step size.
     """
 
     __slots__ = (
@@ -251,7 +255,8 @@ class StepWiseExploration(ExplorationStrategy):
         "step_size",
         "_cached_can_explore",
         "_cached_perturbation",
-        "_unfreeze_cycle",
+        "_explore_counter",
+        "_step_counter",
     )
 
     def __init__(self, base_exploration: ExplorationStrategy, step_size: int) -> None:
@@ -267,14 +272,17 @@ class StepWiseExploration(ExplorationStrategy):
         super().__init__()
         self.base_exploration = base_exploration
         self.step_size = step_size
-        self._unfreeze_cycle = bool_cycle(step_size, starts_with=True)
+        self._explore_counter = 0
+        self._step_counter = 0
 
     def can_explore(self) -> bool:
         # since this method is called at every timestep (when deterministic=False), we
         # decide here if the base exploration is frozen or not, i.e., if we are at the
         # new step or not
-        if next(self._unfreeze_cycle):
+        self._explore_counter %= self.step_size
+        if self._explore_counter == 0:
             self._cached_can_explore = self._cached_perturbation = None
+        self._explore_counter += 1
 
         if self._cached_can_explore is not None:
             return self._cached_can_explore
@@ -282,7 +290,10 @@ class StepWiseExploration(ExplorationStrategy):
         return self._cached_can_explore
 
     def step(self) -> None:
-        return self.base_exploration.step()  # this is left untouched
+        self._step_counter %= self.step_size
+        if self._step_counter == 0:
+            self.base_exploration.step()
+        self._step_counter += 1
 
     def perturbation(self, *args: Any, **kwargs: Any) -> npt.NDArray[np.floating]:
         if self._cached_perturbation is not None:
