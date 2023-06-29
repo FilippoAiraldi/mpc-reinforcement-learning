@@ -263,7 +263,7 @@ class TestExploration(unittest.TestCase):
         for can_explores_cycle, perturbations_cycle in zip(can_explores, perturbations):
             self.assertTrue(np.unique(can_explores_cycle).size == 1)
             self.assertTrue(np.unique(perturbations_cycle).size == 1)
-        self.assertTrue(len(base_exploration.step.mock_calls) == cycles * step_size)
+        self.assertTrue(len(base_exploration.step.mock_calls) == cycles)
 
 
 class TestParameters(unittest.TestCase):
