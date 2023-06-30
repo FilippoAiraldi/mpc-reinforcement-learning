@@ -24,13 +24,6 @@ class RlLearningAgent(
     """Base class for learning agents that employe gradient-based RL strategies to
     learn/improve the MPC policy."""
 
-    __slots__ = (
-        "_learning_rate",
-        "discount_factor",
-        "_update_solver",
-        "max_percentage_update",
-    )
-
     def __init__(
         self,
         mpc: Mpc[SymType],

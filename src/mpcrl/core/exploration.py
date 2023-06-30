@@ -5,7 +5,6 @@ import numpy as np
 import numpy.typing as npt
 
 from mpcrl.core.schedulers import NoScheduling, Scheduler
-from mpcrl.util.iters import bool_cycle
 
 
 class ExplorationStrategy(ABC):
@@ -62,8 +61,6 @@ class NoExploration(ExplorationStrategy):
 class GreedyExploration(ExplorationStrategy):
     """Fully greedy strategy for perturbing the policy, thus inducing exploration. This
     strategy always perturbs randomly the policy."""
-
-    __slots__ = ("_hook", "strength_scheduler", "np_random")
 
     def __init__(
         self,
@@ -163,8 +160,6 @@ class EpsilonGreedyExploration(GreedyExploration):
     """Epsilon-greedy strategy for perturbing the policy, thus inducing exploration.
     This strategy only occasionally perturbs randomly the policy."""
 
-    __slots__ = ("epsilon_scheduler",)
-
     def __init__(
         self,
         epsilon: Union[Scheduler[float], float],
@@ -249,15 +244,6 @@ class StepWiseExploration(ExplorationStrategy):
     because the number of calls to the base exploration's `step` method is reduced by
     a factor of the step size.
     """
-
-    __slots__ = (
-        "base_exploration",
-        "step_size",
-        "_cached_can_explore",
-        "_cached_perturbation",
-        "_explore_counter",
-        "_step_counter",
-    )
 
     def __init__(self, base_exploration: ExplorationStrategy, step_size: int) -> None:
         """Creates a step-wise exploration strategy wrapepr.

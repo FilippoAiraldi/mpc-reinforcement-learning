@@ -1,9 +1,9 @@
 import pickle
 import unittest
+from copy import deepcopy
 from itertools import product
 from typing import Iterator, Union
 from unittest.mock import Mock
-from copy import deepcopy
 
 import casadi as cs
 import numpy as np
@@ -28,9 +28,24 @@ from mpcrl.core.errors import (
 )
 
 
-def do_test_str_and_repr(testcase: unittest.TestCase, obj: S.Scheduler):
+def do_test_str_and_repr(testcase: unittest.TestCase, obj: S.Scheduler) -> None:
     testcase.assertIn(obj.__class__.__name__, obj.__str__())
     testcase.assertIn(obj.__class__.__name__, obj.__repr__())
+
+
+def do_test_similar_schedulers(
+    testcase: unittest.TestCase, obj1: S.Scheduler, obj2: S.Scheduler
+) -> None:
+    dict1 = obj1.__dict__
+    dict2 = obj2.__dict__
+    for name, val1 in dict1.items():
+        val2 = dict2[name]
+        if hasattr(val1, "__iter__"):
+            testcase.assertListEqual(
+                [next(val1) for _ in range(10)], [next(val2) for _ in range(10)]
+            )
+        else:
+            testcase.assertEqual(val1, val2)
 
 
 class TestErrors(unittest.TestCase):
@@ -115,6 +130,7 @@ class TestExperienceReplay(unittest.TestCase):
         self.assertEqual(mem.maxlen, mem_copy.maxlen)
         self.assertEqual(mem.sample_size, mem_copy.sample_size)
         self.assertEqual(mem.include_latest, mem_copy.include_latest)
+        self.assertIsInstance(mem_copy.np_random, np.random.Generator)
 
 
 class TestSchedulers(unittest.TestCase):
@@ -171,6 +187,15 @@ class TestSchedulers(unittest.TestCase):
             scheduler.step()
         np.testing.assert_allclose(x_expected, x_actual)
         do_test_str_and_repr(self, scheduler)
+
+    def test_deepcopy(self):
+        K = np.random.randint(10, 20)
+        base = np.random.rand() + 1 * 10
+        x0 = np.random.randn() + 3
+        xf = np.random.randn()
+        scheduler = S.LogLinearScheduler(base**x0, base**xf, K)
+        scheduler_copy = deepcopy(scheduler)
+        do_test_similar_schedulers(self, scheduler, scheduler_copy)
 
 
 class TestExploration(unittest.TestCase):
@@ -277,6 +302,23 @@ class TestExploration(unittest.TestCase):
             self.assertTrue(np.unique(perturbations_cycle).size == 1)
         self.assertTrue(len(base_exploration.step.mock_calls) == cycles)
 
+    def test_deepcopy(self):
+        epsilon, epsilon_decay_rate = 0.0, 0.75
+        strength, strength_decay_rate = 0.5, 0.75
+        epsilon_scheduler = S.ExponentialScheduler(epsilon, epsilon_decay_rate)
+        strength_scheduler = S.ExponentialScheduler(strength, strength_decay_rate)
+        exploration = E.EpsilonGreedyExploration(
+            epsilon=epsilon_scheduler, strength=strength_scheduler, seed=42
+        )
+        exploration_copy = deepcopy(exploration)
+        self.assertEqual(exploration._hook, exploration_copy._hook)
+        do_test_similar_schedulers(
+            self, exploration.epsilon_scheduler, exploration_copy.epsilon_scheduler
+        )
+        do_test_similar_schedulers(
+            self, exploration.strength_scheduler, exploration_copy.strength_scheduler
+        )
+
 
 class TestParameters(unittest.TestCase):
     @parameterized.expand(map(lambda i: (i,), range(3)))
@@ -292,36 +334,6 @@ class TestParameters(unittest.TestCase):
         par = LearnableParameter("theta", 10, 5, 0, 10)
         with self.assertRaises(ValueError):
             par._update_value(-5)
-
-    @parameterized.expand(product([cs.SX, cs.MX], [False, True]))
-    def test_learnable_parameters_dict__is_deepcopyable_and_pickleable(
-        self, cstype: Union[cs.SX, cs.MX], copy: bool
-    ):
-        shape = (5, 2)
-        theta_sym = cstype.sym("theta", shape)
-        f = theta_sym[0]
-        df = cs.evalf(cs.jacobian(f, theta_sym)[0])
-        p1 = LearnableParameter[float]("theta", shape, 1, -1, 2, sym={"v": theta_sym})
-        pars = LearnableParametersDict((p1,))
-        if copy:
-            new_pars = pars.copy(deep=True)
-        else:
-            new_pars: LearnableParametersDict = pickle.loads(pickle.dumps(pars))
-        p2: LearnableParameter = new_pars["theta"]
-        self.assertIsNot(p1, p2)
-        self.assertEqual(p1.name, p2.name)
-        self.assertEqual(p1.shape, p2.shape)
-        self.assertEqual(p1.size, p2.size)
-        np.testing.assert_array_equal(p1.value, p2.value)
-        np.testing.assert_array_equal(p1.lb, p2.lb)
-        np.testing.assert_array_equal(p1.ub, p2.ub)
-        np.testing.assert_equal(df, cs.evalf(cs.jacobian(f, p1.sym["v"])[0]))
-        if copy:
-            self.assertIsNot(p1.sym, p2.sym)
-            self.assertIsNot(p1.sym["v"], p2.sym["v"])
-            np.testing.assert_equal(df, cs.evalf(cs.jacobian(f, p2.sym["v"])[0]))
-        else:
-            self.assertFalse(hasattr(p2, "sym"))
 
     @parameterized.expand([(False,), (True,)])
     def test_parameters_dict__init__initializes_properly(self, empty_init: bool):
@@ -417,6 +429,34 @@ class TestParameters(unittest.TestCase):
         for p in [p1, p2, p3, p4]:
             self.assertIn(p.name, S)
 
+    @parameterized.expand(product([cs.SX, cs.MX], [False, True]))
+    def test_deepcopy(self, cstype: Union[cs.SX, cs.MX], copy: bool):
+        shape = (5, 2)
+        theta_sym = cstype.sym("theta", shape)
+        f = theta_sym[0]
+        df = cs.evalf(cs.jacobian(f, theta_sym)[0])
+        p1 = LearnableParameter[float]("theta", shape, 1, -1, 2, sym={"v": theta_sym})
+        pars = LearnableParametersDict((p1,))
+        if copy:
+            new_pars = pars.copy(deep=True)
+        else:
+            new_pars: LearnableParametersDict = pickle.loads(pickle.dumps(pars))
+        p2: LearnableParameter = new_pars["theta"]
+        self.assertIsNot(p1, p2)
+        self.assertEqual(p1.name, p2.name)
+        self.assertEqual(p1.shape, p2.shape)
+        self.assertEqual(p1.size, p2.size)
+        np.testing.assert_array_equal(p1.value, p2.value)
+        np.testing.assert_array_equal(p1.lb, p2.lb)
+        np.testing.assert_array_equal(p1.ub, p2.ub)
+        np.testing.assert_equal(df, cs.evalf(cs.jacobian(f, p1.sym["v"])[0]))
+        if copy:
+            self.assertIsNot(p1.sym, p2.sym)
+            self.assertIsNot(p1.sym["v"], p2.sym["v"])
+            np.testing.assert_equal(df, cs.evalf(cs.jacobian(f, p2.sym["v"])[0]))
+        else:
+            self.assertFalse(hasattr(p2, "sym"))
+
 
 class TestLearningRate(unittest.TestCase):
     def test_init_and_properties(self):
@@ -431,6 +471,14 @@ class TestLearningRate(unittest.TestCase):
     def test_str_and_repr(self):
         lr = LearningRate(5.0)
         do_test_str_and_repr(self, lr)
+
+    def test_deepcopy(self):
+        s = S.ExponentialScheduler(0.5, 0.99)
+        lr = LearningRate(s)
+        lr_copy = deepcopy(lr)
+        self.assertEqual(lr._hook, lr_copy._hook)
+        self.assertEqual(lr.value, lr_copy.value)
+        do_test_similar_schedulers(self, lr.scheduler, lr_copy.scheduler)
 
 
 class TestUpdateStrategy(unittest.TestCase):
@@ -460,6 +508,16 @@ class TestUpdateStrategy(unittest.TestCase):
         self.assertTrue((~flags[mask][:skip]).all())
         self.assertTrue(flags[mask][skip:].all())
         self.assertTrue((~flags[~mask]).all())
+
+    def test_deepcopy(self):
+        strategy = UpdateStrategy(5, "on_episode_end", 3)
+        strategy_copy = deepcopy(strategy)
+        self.assertEqual(strategy.frequency, strategy_copy.frequency)
+        self.assertEqual(strategy.hook, strategy_copy.hook)
+        self.assertListEqual(
+            [next(strategy._update_cycle) for _ in range(50)],
+            [next(strategy_copy._update_cycle) for _ in range(50)],
+        )
 
 
 if __name__ == "__main__":

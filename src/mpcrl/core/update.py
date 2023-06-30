@@ -6,8 +6,6 @@ from mpcrl.util.iters import bool_cycle, chain, repeat
 class UpdateStrategy:
     """A class for the update strategy."""
 
-    __slots__ = ("frequency", "hook", "_update_cycle", "_skip")
-
     def __init__(
         self,
         frequency: int,

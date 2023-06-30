@@ -8,8 +8,6 @@ from mpcrl.wrappers.agents.wrapper import LearningWrapper, SymType
 class RecordUpdates(LearningWrapper[SymType, ExpType]):
     """Wrapper for recording the history of updates by the learning agent."""
 
-    __slots__ = ("updates_history",)
-
     def __init__(self, agent: LearningAgent[SymType, ExpType]) -> None:
         """Instantiates the recorder.
 

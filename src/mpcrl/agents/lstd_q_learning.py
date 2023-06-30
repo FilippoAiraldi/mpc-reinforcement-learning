@@ -54,14 +54,6 @@ class LstdQLearningAgent(
         132-137. IEEE.
     """
 
-    __slots__ = (
-        "_sensitivity",
-        "td_errors",
-        "cho_maxiter",
-        "cho_solve_kwargs",
-        "hessian_type",
-    )
-
     def __init__(
         self,
         mpc: Mpc[SymType],
