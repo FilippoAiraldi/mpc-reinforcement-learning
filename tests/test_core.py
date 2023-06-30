@@ -3,6 +3,7 @@ import unittest
 from itertools import product
 from typing import Iterator, Union
 from unittest.mock import Mock
+from copy import deepcopy
 
 import casadi as cs
 import numpy as np
@@ -103,6 +104,17 @@ class TestExperienceReplay(unittest.TestCase):
             self.assertIn(item, mem)
         for item in range(N - Nlast, N):
             self.assertIn(item, sample)
+
+    def test_deepcopy(self):
+        maxlen = np.random.randint(10, 100)
+        sample_size, include_latest = np.random.uniform(size=2)
+        mem = ExperienceReplay[int](
+            maxlen=maxlen, sample_size=sample_size, include_latest=include_latest
+        )
+        mem_copy = deepcopy(mem)
+        self.assertEqual(mem.maxlen, mem_copy.maxlen)
+        self.assertEqual(mem.sample_size, mem_copy.sample_size)
+        self.assertEqual(mem.include_latest, mem_copy.include_latest)
 
 
 class TestSchedulers(unittest.TestCase):
