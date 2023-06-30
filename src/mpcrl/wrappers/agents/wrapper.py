@@ -13,8 +13,6 @@ class Wrapper(SupportsDeepcopyAndPickle, RemovesCallbackHooksInState, Generic[Sy
     to change the behavior of the original environment without touching the original
     code."""
 
-    __slots__ = ("agent",)
-
     def __init__(self, agent: Agent[SymType]) -> None:
         """Wraps an agent's instance.
 

@@ -27,8 +27,6 @@ _MANDATORY_CALLBACKS = {
 class Log(Wrapper[SymType]):
     """A wrapper class for logging information about an agent."""
 
-    __slots__ = ("logger", "precision", "log_frequencies", "exclude_mandatory")
-
     def __init__(
         self,
         agent: Agent[SymType],

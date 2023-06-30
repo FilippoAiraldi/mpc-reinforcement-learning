@@ -13,8 +13,6 @@ class Scheduler(ABC, Generic[ScType]):
     """Schedulers are helpful classes to update or decay different quantities, such as
     learning rates and/or exploration probability."""
 
-    __slots__ = ("value",)
-
     def __init__(self, init_value: ScType) -> None:
         """Builds the scheduler.
 
@@ -56,8 +54,6 @@ class ExponentialScheduler(Scheduler[ScType]):
     """Exponentiallly decays the value of the scheduler by `factor` every step, i.e.,
     after k steps the value `value_k = init_value * factor**k`."""
 
-    __slots__ = ("factor",)
-
     def __init__(self, init_value: ScType, factor: ScType) -> None:
         """Builds the exponential scheduler.
 
@@ -83,8 +79,6 @@ class LinearScheduler(Scheduler[ScType]):
     reached in N total steps, i.e., after k steps, the value is
     `value_k = init_value + (final_value - init_value) * k / total_steps`.
     """
-
-    __slots__ = ("generator", "init_value", "final_value", "total_steps")
 
     def __init__(
         self, init_value: ScType, final_value: ScType, total_steps: int
@@ -125,8 +119,6 @@ class LogLinearScheduler(ExponentialScheduler[ScType]):
     after k steps, the value is
     `value_k = init_value * exp(ln(final_value / init_value) / total_steps)**k`.
     """
-
-    __slots__ = ("generator", "init_value", "final_value", "total_steps")
 
     def __init__(
         self, init_value: ScType, final_value: ScType, total_steps: int

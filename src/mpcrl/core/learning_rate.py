@@ -11,8 +11,6 @@ LrType = TypeVar("LrType", npt.NDArray[np.floating], float)
 class LearningRate(Generic[LrType]):
     """Learning rate class for scheduling and decaying its value during training."""
 
-    __slots__ = ("scheduler", "_hook")
-
     def __init__(
         self,
         value: Union[LrType, Scheduler[LrType]],

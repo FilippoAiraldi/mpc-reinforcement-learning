@@ -17,8 +17,6 @@ class LearnableParameter(SupportsDeepcopyAndPickle, Generic[SymType]):
     """A parameter that is learnable, that is, it can be adjusted via RL. This class
     is useful for managing symbols, bounds and value of learnable parameters."""
 
-    __slots__ = ("name", "shape", "value", "lb", "ub", "sym")
-
     def __init__(
         self,
         name: str,

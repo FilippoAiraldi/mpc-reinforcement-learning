@@ -50,14 +50,6 @@ class Agent(
     state and action of the environment, respectively. However, this class does not use
     any RL method to improve its MPC policy."""
 
-    __slots__ = (
-        "_V",
-        "_Q",
-        "_fixed_pars",
-        "_exploration",
-        "_last_solution",
-        "_store_last_successful",
-    )
     cost_perturbation_method = "normal"
     cost_perturbation_parameter = "cost_perturbation"
     init_action_parameter = init_action_constraint = "a_init"

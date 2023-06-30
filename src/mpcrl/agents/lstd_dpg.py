@@ -61,19 +61,6 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         Control (CDC) (pp. 2990-2995). IEEE.
     """
 
-    __slots__ = (
-        "_sensitivity",
-        "_Phi",
-        "rollout_length",
-        "_rollout",
-        "policy_performances",
-        "policy_gradients",
-        "lstsq_cond",
-        "hessian_type",
-        "cho_maxiter",
-        "cho_solve_kwargs",
-    )
-
     def __init__(
         self,
         mpc: Mpc[SymType],

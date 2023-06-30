@@ -11,8 +11,6 @@ class ExperienceReplay(Deque[ExpType]):
     class inherits from `collections.deque`, adding a couple of simple functionalities
     to it for sampling transitions at random from past observed data."""
 
-    __slots__ = ("np_random", "sample_size", "include_latest")
-
     def __init__(
         self,
         iterable: Iterable[ExpType] = (),
