@@ -27,13 +27,13 @@ def compact_dicts(
         A unique dictionary made from all the passed dicts.
     """
     out: dict[str, list[Any]] = {}
-    for i, dict in enumerate(dicts):
-        for k, v in dict.items():
+    for i, dict_ in enumerate(dicts):
+        for k, v in dict_.items():
             if k in out:
                 out[k].append(v)
             else:
                 out[k] = [fill_value] * i + [v]
-        for k in out.keys() - dict.keys():
+        for k in out.keys() - dict_.keys():
             out[k].append(fill_value)
     return out
 
@@ -62,7 +62,7 @@ class MonitorInfos(
         # long-term storages
         self.reset_infos: Deque[dict[str, Any]] = deque(maxlen=deque_size)
         self.step_infos: Deque[list[dict[str, Any]]] = deque(maxlen=deque_size)
-        # current-episode-storages
+        # current-episode storages
         self.ep_step_infos: list[dict[str, Any]] = []
 
     def reset(
