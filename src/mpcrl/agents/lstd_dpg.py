@@ -370,8 +370,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         s_next_last = self._rollout[-1][3].T  # type: ignore[union-attr]
         Phi = self._Phi(np.concatenate((S, s_next_last)).T).full().T
 
-        # compute dpidtheta and Psi (casadi does not support tensors with more than 2
-        # dims, so dpidtheta gets squished in the third dim and needs to be reshaped)
+        # compute dpidtheta and Psi
         dpidtheta = self._sensitivity(vals, N)
         Psi = (dpidtheta @ E).reshape(N, dpidtheta.shape[1])
 
