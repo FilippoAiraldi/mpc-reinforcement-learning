@@ -345,7 +345,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         # compute sensitivity and convert to function (faster runtime)
         dpidtheta = -Kt @ linsolver(Ky, dydu0)
         sensitivity = cs.Function(
-            "pi_sensitivity", (x_lam_p,), (dpidtheta,), ("x_lam_p",), ("dpidtheta",)
+            "dpi", (x_lam_p,), (dpidtheta,), ("x_lam_p",), ("dpidtheta",), {"cse": True}
         )
         ntheta, na = dpidtheta.shape
 
