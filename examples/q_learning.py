@@ -67,8 +67,8 @@ class LtiSystem(gym.Env[npt.NDArray[np.floating], float]):
         action = float(action)
         x_new = self.A @ self.x + self.B * action
         x_new[0] += self.np_random.uniform(*self.e_bnd)
-        self.x = x_new
         r = self.get_stage_cost(self.x, action)
+        self.x = x_new
         return x_new, r, False, False, {}
 
 
