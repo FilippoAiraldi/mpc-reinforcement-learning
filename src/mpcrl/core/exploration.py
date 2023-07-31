@@ -261,6 +261,11 @@ class StepWiseExploration(ExplorationStrategy):
         self._explore_counter = 0
         self._step_counter = 0
 
+    @property
+    def hook(self) -> Optional[str]:
+        """Returns the hook of the base exploration strategy, if any."""
+        return getattr(self.base_exploration, "hook", None)
+
     def can_explore(self) -> bool:
         # since this method is called at every timestep (when deterministic=False), we
         # decide here if the base exploration is frozen or not, i.e., if we are at the
