@@ -245,7 +245,12 @@ class StepWiseExploration(ExplorationStrategy):
     a factor of the step size.
     """
 
-    def __init__(self, base_exploration: ExplorationStrategy, step_size: int) -> None:
+    def __init__(
+        self,
+        base_exploration: ExplorationStrategy,
+        step_size: int,
+        stepwise_decay: bool = True,
+    ) -> None:
         """Creates a step-wise exploration strategy wrapepr.
 
         Parameters
@@ -254,12 +259,16 @@ class StepWiseExploration(ExplorationStrategy):
             The base exploration strategy to be made step-wise.
         step_size : int
             Size of each step.
+        stepwise_decay : bool, optional
+            Enables the decay `step` to also be step-wise, i.e., applied only every N
+            steps.
         """
         super().__init__()
         self.base_exploration = base_exploration
         self.step_size = step_size
         self._explore_counter = 0
         self._step_counter = 0
+        self._stepwise_decay = stepwise_decay
 
     @property
     def hook(self) -> Optional[str]:
@@ -281,6 +290,8 @@ class StepWiseExploration(ExplorationStrategy):
         return self._cached_can_explore
 
     def step(self) -> None:
+        if not self._stepwise_decay:
+            return self.base_exploration.step()
         self._step_counter %= self.step_size
         if self._step_counter == 0:
             self.base_exploration.step()
