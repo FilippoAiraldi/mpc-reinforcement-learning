@@ -282,12 +282,22 @@ class TestExploration(unittest.TestCase):
         epsilon_scheduler.step.assert_called_once()
         strength_scheduler.step.assert_called_once()
 
-    def test_stepwise_exploration__turns_base_exploration_into_steps(self):
+    def test_stepwise_exploration__has_same_hook_as_base_exploration(self):
+        hook = Mock()
+        base_exploration = Mock()
+        base_exploration.hook = hook
+        exploration = E.StepWiseExploration(base_exploration, 5, 10)
+        self.assertIs(exploration.hook, hook)
+
+    @parameterized.expand([(True,), (False,)])
+    def test_stepwise_exploration__turns_base_exploration_into_steps(
+        self, stepwise_step: bool
+    ):
         base_exploration = E.EpsilonGreedyExploration(0.5, 0.5, seed=0)
         base_exploration.step = Mock()
         step_size = 5
         cycles = 10
-        exploration = E.StepWiseExploration(base_exploration, step_size)
+        exploration = E.StepWiseExploration(base_exploration, step_size, stepwise_step)
         can_explores, perturbations = [], []
         for _ in range(cycles):
             can_explores.append([])
@@ -300,7 +310,10 @@ class TestExploration(unittest.TestCase):
         for can_explores_cycle, perturbations_cycle in zip(can_explores, perturbations):
             self.assertTrue(np.unique(can_explores_cycle).size == 1)
             self.assertTrue(np.unique(perturbations_cycle).size == 1)
-        self.assertTrue(len(base_exploration.step.mock_calls) == cycles)
+        if stepwise_step:
+            self.assertTrue(len(base_exploration.step.mock_calls) == cycles)
+        else:
+            self.assertTrue(len(base_exploration.step.mock_calls) == cycles * step_size)
 
     def test_deepcopy(self):
         epsilon, epsilon_decay_rate = 0.0, 0.75
