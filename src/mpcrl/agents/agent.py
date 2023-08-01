@@ -1,3 +1,5 @@
+import warnings
+from itertools import chain
 from typing import (
     Any,
     Collection,
@@ -15,6 +17,7 @@ import casadi as cs
 import numpy as np
 import numpy.typing as npt
 from csnlp import Solution, wrappers
+from csnlp.core.cache import invalidate_caches_of
 from csnlp.util.io import SupportsDeepcopyAndPickle
 from csnlp.wrappers import Mpc
 from gymnasium import Env
@@ -386,6 +389,7 @@ class Agent(
         if na <= 0:
             raise ValueError(f"Expected Mpc with na>0; got na={na} instead.")
 
+        # create V and Q function approximations
         V, Q = mpc, mpc.copy()
         V.unwrapped.name += "_V"
         Q.unwrapped.name += "_Q"
@@ -399,7 +403,78 @@ class Agent(
 
         V.nlp.minimize(f + cs.dot(perturbation, u0))
         Q.nlp.constraint(self.init_action_constraint, u0, "==", a0)
+
+        # remove upper/lower bound on initial action in Q, since it is constrained as a0
+        for n, a in mpc.first_actions.items():
+            Q.nlp.remove_variable_bounds(n, "both", ((r, 0) for r in range(a.size1())))
+
+        # invalidate caches for V and Q since some modifications have been done
+        for nlp in (V, Q):
+            nlp_ = nlp
+            while nlp_ is not nlp_.unwrapped:
+                invalidate_caches_of(nlp_)
+                nlp_ = nlp_.nlp
+            invalidate_caches_of(nlp_.unwrapped)
+
+        # perform some checks on the constraints in V and Q
+        self._check_constraints(mpc, V, Q)
         return V, Q
+
+    def _check_constraints(
+        self, mpc: Mpc[SymType], V: Mpc[SymType], Q: Mpc[SymType]
+    ) -> None:
+        """Internal utility to check the constraints in V and Q for a0 and x0."""
+        # warn user of any constraints that linearly includes x0 and u0 (aside from
+        # x(0)==s0 and u(0)==a0), which may thus lead to LICQ-failure
+        # - u0 in Q should only appear in the 1st dynamics constraint and a0 con
+        # - u0 in V should only appear in the 1st dynamics constraint and lbx/ubx
+        # - x0 in V, Q should only appear in the 1st dynamics constraint and s0 con
+        x0 = cs.vvcat(mpc.first_states.values())
+        for nlp in (V, Q):
+            name = nlp.unwrapped.name[-1]
+            con = cs.vertcat(nlp.g, nlp.h, nlp.h_lbx, nlp.h_ubx)
+
+            if nlp.sym_type.__name__ == "SX":
+                nnz_con_u0 = len(set(cs.jacobian_sparsity(con, u0).get_triplet()[0]))
+                nnz_con_x0 = len(set(cs.jacobian_sparsity(con, x0).get_triplet()[0]))
+            else:
+                nnz_con_u0 = len(  # computes the same as above, but for MX
+                    set(
+                        chain.from_iterable(
+                            cs.jacobian(con, a)[:, : a.size1()]
+                            .sparsity()
+                            .get_triplet()[0]
+                            for a in nlp.actions.values()
+                        )
+                    )
+                )
+                nnz_con_x0 = len(
+                    set(
+                        chain.from_iterable(
+                            cs.jacobian(con, s)[:, : s.size1()]
+                            .sparsity()
+                            .get_triplet()[0]
+                            for s in nlp.states.values()
+                        )
+                    )
+                )
+
+            nnz_exp_u0 = mpc.ns + (mpc.na * 2 if name == "V" else mpc.na)
+            if nnz_con_u0 > nnz_exp_u0:
+                warnings.warn(
+                    f"detected {nnz_exp_u0} (expected {nnz_exp_u0}) constraints on "
+                    f"initial actions in {name}; make sure that the initial action is "
+                    "not overconstrained (LICQ may be compromised).",
+                    RuntimeWarning,
+                )
+            nnz_exp_x0 = mpc.ns * 2
+            if nnz_con_x0 > nnz_exp_x0:
+                warnings.warn(
+                    f"detected {nnz_exp_x0} (expected {nnz_exp_x0}) constraints on "
+                    f"initial states in {name}; make sure that the initial state is "
+                    "not overconstrained (LICQ may be compromised).",
+                    RuntimeWarning,
+                )
 
     def _get_parameters(
         self,
