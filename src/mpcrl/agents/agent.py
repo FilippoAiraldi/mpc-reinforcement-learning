@@ -417,11 +417,11 @@ class Agent(
             invalidate_caches_of(nlp_.unwrapped)
 
         # perform some checks on the constraints in V and Q
-        self._check_constraints(mpc, V, Q)
+        self._check_constraints(u0, mpc, V, Q)
         return V, Q
 
     def _check_constraints(
-        self, mpc: Mpc[SymType], V: Mpc[SymType], Q: Mpc[SymType]
+        self, u0: SymType, mpc: Mpc[SymType], V: Mpc[SymType], Q: Mpc[SymType]
     ) -> None:
         """Internal utility to check the constraints in V and Q for a0 and x0."""
         # warn user of any constraints that linearly includes x0 and u0 (aside from
