@@ -106,6 +106,7 @@ class Agent(
         self._fixed_pars = fixed_parameters
         self._exploration: ExplorationStrategy = NoExploration()
         self._store_last_successful = warmstart == "last-successful"
+        self._post_setup_V_and_Q()
 
     @property
     def unwrapped(self) -> "Agent":
@@ -415,26 +416,23 @@ class Agent(
                 invalidate_caches_of(nlp_)
                 nlp_ = nlp_.nlp
             invalidate_caches_of(nlp_.unwrapped)
-
-        # perform some checks on the constraints in V and Q
-        self._check_constraints(u0, mpc, V, Q)
         return V, Q
 
-    def _check_constraints(
-        self, u0: SymType, mpc: Mpc[SymType], V: Mpc[SymType], Q: Mpc[SymType]
-    ) -> None:
-        """Internal utility to check the constraints in V and Q for a0 and x0."""
+    def _post_setup_V_and_Q(self) -> None:
+        """Internal utility that is run after the creation of V and Q, allowing for
+        further customization in inheriting classes."""
         # warn user of any constraints that linearly includes x0 and u0 (aside from
         # x(0)==s0 and u(0)==a0), which may thus lead to LICQ-failure
         # - u0 in Q should only appear in the 1st dynamics constraint and a0 con
         # - u0 in V should only appear in the 1st dynamics constraint and lbx/ubx
         # - x0 in V, Q should only appear in the 1st dynamics constraint and s0 con
-        x0 = cs.vvcat(mpc.first_states.values())
-        for nlp in (V, Q):
-            name = nlp.unwrapped.name[-1]
-            con = cs.vertcat(nlp.g, nlp.h, nlp.h_lbx, nlp.h_ubx)
+        for mpc in (self._V, self._Q):
+            name = mpc.unwrapped.name[-1]
+            u0 = cs.vcat(self._V.first_actions.values())
+            x0 = cs.vvcat(self._V.first_states.values())
+            con = cs.vertcat(mpc.g, mpc.h, mpc.h_lbx, mpc.h_ubx)
 
-            if nlp.sym_type.__name__ == "SX":
+            if mpc.unwrapped.sym_type.__name__ == "SX":
                 nnz_con_u0 = len(set(cs.jacobian_sparsity(con, u0).get_triplet()[0]))
                 nnz_con_x0 = len(set(cs.jacobian_sparsity(con, x0).get_triplet()[0]))
             else:
@@ -444,7 +442,7 @@ class Agent(
                             cs.jacobian(con, a)[:, : a.size1()]
                             .sparsity()
                             .get_triplet()[0]
-                            for a in nlp.actions.values()
+                            for a in mpc.actions.values()
                         )
                     )
                 )
@@ -454,7 +452,7 @@ class Agent(
                             cs.jacobian(con, s)[:, : s.size1()]
                             .sparsity()
                             .get_triplet()[0]
-                            for s in nlp.states.values()
+                            for s in mpc.states.values()
                         )
                     )
                 )
@@ -462,7 +460,7 @@ class Agent(
             nnz_exp_u0 = mpc.ns + (mpc.na * 2 if name == "V" else mpc.na)
             if nnz_con_u0 > nnz_exp_u0:
                 warnings.warn(
-                    f"detected {nnz_exp_u0} (expected {nnz_exp_u0}) constraints on "
+                    f"detected {nnz_con_u0} (expected {nnz_exp_u0}) constraints on "
                     f"initial actions in {name}; make sure that the initial action is "
                     "not overconstrained (LICQ may be compromised).",
                     RuntimeWarning,
@@ -470,7 +468,7 @@ class Agent(
             nnz_exp_x0 = mpc.ns * 2
             if nnz_con_x0 > nnz_exp_x0:
                 warnings.warn(
-                    f"detected {nnz_exp_x0} (expected {nnz_exp_x0}) constraints on "
+                    f"detected {nnz_con_x0} (expected {nnz_exp_x0}) constraints on "
                     f"initial states in {name}; make sure that the initial state is "
                     "not overconstrained (LICQ may be compromised).",
                     RuntimeWarning,
