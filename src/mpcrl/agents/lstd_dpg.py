@@ -80,7 +80,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         record_policy_gradient: bool = False,
         state_features: Optional[cs.Function] = None,
         lstsq_cond: Optional[float] = 1e-7,
-        linsolver: Literal["csparse", "qr", "mldivide"] = "mldivide",
+        linsolver: Literal["csparse", "qr", "mldivide"] = "csparse",
         hessian_type: Literal["none", "natural"] = "none",
         cho_maxiter: int = 1000,
         cho_solve_kwargs: Optional[dict[str, Any]] = None,
@@ -170,7 +170,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         linsolver : "csparse" or "qr" or "mldivide", optional
             The type of linear solver to be used for solving the linear system derived
             from the KKT conditions and used to estimate the gradient of the policy. By
-            default, `"mldivide"` is chosen.
+            default, `"csparse"` is chosen as the KKT matrix is most often sparse.
         hessian_type : 'none' or 'natural', optional
             The type of hessian to use in this second-order algorithm. If `"none"`, no
             hessian is used (first-order). If `"natural"`, the hessian is approximated
@@ -292,7 +292,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
                 # According to Gros and Zanon [2], it is hinted that the perturbed
                 # solution should be used instead (sol).
                 exploration = (action - action_opt).full()
-                sol_vals = sol.all_vals.full()
+                sol_vals = sol.all_vals.full()  # NOTE: is correct?
                 self._rollout.append((state, exploration, cost, state_new, sol_vals))
             else:
                 status = f"{sol.status}/{sol_opt.status}"
@@ -314,9 +314,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
             self._consolidate_rollout_into_memory()
         return rewards
 
-    def _init_sensitivity(
-        self, linsolver_type: str
-    ) -> Callable[[cs.DM, int], np.ndarray]:
+    def _init_sensitivity(self, linsolver: str) -> Callable[[cs.DM, int], np.ndarray]:
         """Internal utility to compute the derivatives w.r.t. the learnable parameters
         and other functions in order to estimate the policy gradient."""
         nlp = self._V.nlp
@@ -328,30 +326,29 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         # compute first bunch of derivatives
         nlp_ = NlpSensitivity(nlp, theta)
         Kt = nlp_.jacobians["K-p"].T
-        Ky = nlp_.jacobians["K-y"].T
+        Ky = nlp_.jacobians["K-y"].T  # NOTE: is correct?
         dydu0 = cs.evalf(cs.jacobian(u0, y)).T
 
-        # instantiate linear solver (must be MX)
+        # instantiate linear solver (must be MX, so SX has to be converted)
         if nlp.sym_type is cs.SX:
-            # convert SX to MX (so that we can use the linsolver)
             x_lam_p, x_lam_p_sx = cs.MX.sym("in", *x_lam_p.shape), x_lam_p
             Kt, Ky = cs.Function("sx2mx", (x_lam_p_sx,), (Kt, Ky))(x_lam_p)
-        linsolver = (
+        solver = (
             cs.solve  # cs.mldivide
-            if linsolver_type == "mldivide"
-            else cs.Linsol("linsolver", linsolver_type, Ky.sparsity()).solve
+            if linsolver == "mldivide"
+            else cs.Linsol("linsolver", linsolver, Ky.sparsity()).solve
         )
 
         # compute sensitivity and convert to function (faster runtime)
-        dpidtheta = -Kt @ linsolver(Ky, dydu0)
+        dpidtheta = -Kt @ solver(Ky, dydu0)
         sensitivity = cs.Function(
             "dpi", (x_lam_p,), (dpidtheta,), ("x_lam_p",), ("dpidtheta",), {"cse": True}
         )
         ntheta, na = dpidtheta.shape
 
+        # wrap to conveniently return arrays. Casadi does not support tensors with
+        # >2 dims, so dpidtheta gets squished in the 3rd dim and needs reshaping
         def func(sol_values: cs.DM, N: int) -> np.ndarray:
-            # wrap to conveniently return arrays. Casadi does not support tensors with
-            # >2 dims, so dpidtheta gets squished in the 3rd dim and needs reshaping
             return (
                 sensitivity(sol_values.T)
                 .full()
@@ -367,7 +364,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         N, S, E, L, vals = _consolidate_rollout(self._rollout, self._V.ns, self._V.na)
 
         # compute Phi (to avoid repeating computations, compute only the last Phi(s+))
-        s_next_last = self._rollout[-1][3].T  # type: ignore[union-attr]
+        s_next_last = self._rollout[-1][3].T
         Phi = self._Phi(np.concatenate((S, s_next_last)).T).full().T
 
         # compute dpidtheta and Psi
