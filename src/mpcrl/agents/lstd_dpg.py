@@ -17,7 +17,7 @@ import numpy as np
 import numpy.typing as npt
 from csnlp.wrappers import Mpc, NlpSensitivity
 from gymnasium import Env
-from scipy.linalg import cho_solve, lstsq
+from scipy.linalg import cho_solve
 from typing_extensions import TypeAlias
 
 from mpcrl.agents.agent import ActType, ObsType, SymType
@@ -79,8 +79,8 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         record_policy_performance: bool = False,
         record_policy_gradient: bool = False,
         state_features: Optional[cs.Function] = None,
-        lstsq_cond: Optional[float] = 1e-7,
         linsolver: Literal["csparse", "qr", "mldivide"] = "csparse",
+        ridge_regression_regularization: float = 1e-6,
         hessian_type: Literal["none", "natural"] = "none",
         cho_maxiter: int = 1000,
         cho_solve_kwargs: Optional[dict[str, Any]] = None,
@@ -165,12 +165,13 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
             feature vector. This function is assumed to have one input and one output.
             By default, if not provided, it is designed as all monomials of the state
             with degrees <= 2 (see `mpcrl.util.math.monomials_basis_function`).
-        lstsq_cond : float, optional
-            Conditional number to be passed to `scipy.linalg.lstsq`. By default, `None`.
         linsolver : "csparse" or "qr" or "mldivide", optional
             The type of linear solver to be used for solving the linear system derived
             from the KKT conditions and used to estimate the gradient of the policy. By
             default, `"csparse"` is chosen as the KKT matrix is most often sparse.
+        ridge_regression_regularization : float, optional
+            Ridge regression regularization used during the computations of the LSTD
+            weights via least-squares. By default, `1e-6`.
         hessian_type : 'none' or 'natural', optional
             The type of hessian to use in this second-order algorithm. If `"none"`, no
             hessian is used (first-order). If `"natural"`, the hessian is approximated
@@ -203,7 +204,6 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
             warmstart,
             name,
         )
-        # initialize derivatives, state feature vector and hessian approximation
         self._sensitivity = self._init_sensitivity(linsolver)
         self._Phi = (
             monomials_basis_function(mpc.ns, 0, 2)
@@ -215,8 +215,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         if cho_solve_kwargs is None:
             cho_solve_kwargs = {"check_finite": False}
         self.cho_solve_kwargs = cho_solve_kwargs
-        # initialize others
-        self.lstsq_cond = lstsq_cond
+        self.ridge_regression_regularization = ridge_regression_regularization
         self.rollout_length = rollout_length or float("+inf")
         self._rollout: list[
             tuple[
@@ -235,31 +234,25 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         )
 
     def update(self) -> Optional[str]:
-        # sample and congregate sampled rollouts into a unique least-squares problem
         sample = self.experience.sample()
         L, Phi, Psi, dpidtheta, mask_phi = _congregate_rollouts_sample(sample)
+        _, w = _compute_cafa_weights(
+            Phi[mask_phi[1:]],
+            Phi[mask_phi[:-1]],
+            Psi,
+            L,
+            self.discount_factor,
+            self.ridge_regression_regularization,
+        )
 
-        # compute CAFA weights v
-        Phi_diff = self.discount_factor * Phi[mask_phi[:-1]] - Phi[mask_phi[1:]]
-        Av = Phi[mask_phi[1:]].T @ -Phi_diff
-        bv = Phi[mask_phi[1:]].T @ L
-        v = lstsq(Av, bv, self.lstsq_cond, lapack_driver="gelsy", check_finite=False)[0]
-
-        # compute CAFA weights w
-        Aw = Psi.T @ Psi
-        bw = Psi.T @ (L + Phi_diff @ v)
-        w = lstsq(Aw, bw, self.lstsq_cond, lapack_driver="gelsy", check_finite=False)[0]
-
-        # compute policy gradient
-        dJdtheta = (dpidtheta @ dpidtheta.transpose((0, 2, 1))).sum(0) @ w
+        Hessian = (dpidtheta @ dpidtheta.transpose((0, 2, 1))).sum(0)
+        dJdtheta = Hessian @ w
         if self.hessian_type == "natural":
-            Hessian = (dpidtheta @ dpidtheta.transpose((0, 2, 1))).sum(0)
             R = cholesky_added_multiple_identities(Hessian, maxiter=self.cho_maxiter)
             step = cho_solve((R, True), dJdtheta, **self.cho_solve_kwargs)
         else:
             step = dJdtheta
 
-        # perform update
         if self.policy_gradients is not None:
             self.policy_gradients.append(step)
         return self._do_gradient_update(step)
@@ -417,3 +410,25 @@ def _congregate_rollouts_sample(
     Psi = np.concatenate(Psi_)
     dpidtheta = np.concatenate(dpidtheta_)
     return L, Phi, Psi, dpidtheta, mask_phi
+
+
+@nb.njit(cache=True, nogil=True)
+def _compute_cafa_weights(
+    Phi: np.ndarray,
+    Phi_next: np.ndarray,
+    Psi: np.ndarray,
+    L: np.ndarray,
+    discount_factor: float,
+    regularization: float,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Compute the CAFA weights via ridge regression."""
+    Phi_diff = discount_factor * Phi_next - Phi
+    M = Phi_diff.T @ Phi @ Phi.T
+    R = regularization * np.eye(M.shape[0])
+    v = np.linalg.solve(M @ Phi_diff + R, -M @ L)
+
+    Aw = Psi.T @ Psi
+    bw = Psi.T @ (L + Phi_diff @ v)
+    R = regularization * np.eye(Aw.shape[0])
+    w = np.linalg.solve(Aw.T @ Aw + R, Aw.T @ bw)
+    return v, w
