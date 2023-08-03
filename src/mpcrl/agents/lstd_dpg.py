@@ -1,6 +1,5 @@
 from itertools import repeat
 from typing import (
-    Any,
     Callable,
     Collection,
     Generic,
@@ -17,7 +16,6 @@ import numpy as np
 import numpy.typing as npt
 from csnlp.wrappers import Mpc, NlpSensitivity
 from gymnasium import Env
-from scipy.linalg import cho_solve
 from typing_extensions import TypeAlias
 
 from mpcrl.agents.agent import ActType, ObsType, SymType
@@ -28,7 +26,7 @@ from mpcrl.core.learning_rate import LearningRate
 from mpcrl.core.parameters import LearnableParametersDict
 from mpcrl.core.schedulers import Scheduler
 from mpcrl.core.update import UpdateStrategy
-from mpcrl.util.math import cholesky_added_multiple_identities, monomials_basis_function
+from mpcrl.util.math import monomials_basis_function
 
 ExpType: TypeAlias = tuple[
     npt.NDArray[np.floating],  # rollout's costs
@@ -81,9 +79,6 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         state_features: Optional[cs.Function] = None,
         linsolver: Literal["csparse", "qr", "mldivide"] = "csparse",
         ridge_regression_regularization: float = 1e-6,
-        hessian_type: Literal["none", "natural"] = "none",
-        cho_maxiter: int = 1000,
-        cho_solve_kwargs: Optional[dict[str, Any]] = None,
         name: Optional[str] = None,
     ) -> None:
         """Instantiates the LSTD DPG agent.
@@ -172,18 +167,6 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         ridge_regression_regularization : float, optional
             Ridge regression regularization used during the computations of the LSTD
             weights via least-squares. By default, `1e-6`.
-        hessian_type : 'none' or 'natural', optional
-            The type of hessian to use in this second-order algorithm. If `"none"`, no
-            hessian is used (first-order). If `"natural"`, the hessian is approximated
-            according to natural policy gradients.
-        cho_maxiter : int, optional
-            Maximum number of iterations in the Cholesky's factorization with additive
-            multiples of the identity to ensure positive definiteness of the hessian. By
-            default, `1000`. Only used if `hessian_type!='none'`.
-        cho_solve_kwargs : kwargs for scipy.linalg.cho_solve, optional
-            The optional kwargs to be passed to `scipy.linalg.cho_solve`. If `None`, it
-            is equivalent to `cho_solve_kwargs = {"check_finite": False }`. Only used if
-            `hessian_type!="none"`.
         name : str, optional
             Name of the agent. If `None`, one is automatically created from a counter of
             the class' instancies.
@@ -210,11 +193,6 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
             if state_features is None
             else state_features
         )
-        self.hessian_type = hessian_type
-        self.cho_maxiter = cho_maxiter
-        if cho_solve_kwargs is None:
-            cho_solve_kwargs = {"check_finite": False}
-        self.cho_solve_kwargs = cho_solve_kwargs
         self.ridge_regression_regularization = ridge_regression_regularization
         self.rollout_length = rollout_length or float("+inf")
         self._rollout: list[
@@ -244,18 +222,10 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
             self.discount_factor,
             self.ridge_regression_regularization,
         )
-
-        Hessian = (dpidtheta @ dpidtheta.transpose((0, 2, 1))).sum(0)
-        dJdtheta = Hessian @ w
-        if self.hessian_type == "natural":
-            R = cholesky_added_multiple_identities(Hessian, maxiter=self.cho_maxiter)
-            step = cho_solve((R, True), dJdtheta, **self.cho_solve_kwargs)
-        else:
-            step = dJdtheta
-
+        dJdtheta = (dpidtheta @ dpidtheta.transpose((0, 2, 1))).sum(0) @ w
         if self.policy_gradients is not None:
-            self.policy_gradients.append(step)
-        return self._do_gradient_update(step)
+            self.policy_gradients.append(dJdtheta)
+        return self._do_gradient_update(dJdtheta)
 
     def train_one_episode(
         self,
