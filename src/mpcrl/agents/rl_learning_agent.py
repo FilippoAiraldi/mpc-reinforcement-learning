@@ -1,20 +1,15 @@
 from abc import ABC
-from typing import Any, Collection, Generic, Literal, Optional, TypeVar, Union
+from typing import Any, Generic, Optional, TypeVar, Union
 
 import casadi as cs
 import numpy as np
 import numpy.typing as npt
-from csnlp.wrappers import Mpc
 from scipy.linalg import cho_solve
 
 from mpcrl.agents.agent import SymType
 from mpcrl.agents.learning_agent import LearningAgent
-from mpcrl.core.experience import ExperienceReplay
-from mpcrl.core.exploration import ExplorationStrategy
 from mpcrl.core.learning_rate import LearningRate, LrType
-from mpcrl.core.parameters import LearnableParametersDict
 from mpcrl.core.schedulers import Scheduler
-from mpcrl.core.update import UpdateStrategy
 from mpcrl.util.math import cholesky_added_multiple_identities
 
 ExpType = TypeVar("ExpType")
@@ -28,40 +23,17 @@ class RlLearningAgent(
 
     def __init__(
         self,
-        mpc: Mpc[SymType],
-        update_strategy: Union[int, UpdateStrategy],
         discount_factor: float,
         learning_rate: Union[LrType, Scheduler[LrType], LearningRate[LrType]],
-        learnable_parameters: LearnableParametersDict[SymType],
-        fixed_parameters: Union[
-            None, dict[str, npt.ArrayLike], Collection[dict[str, npt.ArrayLike]]
-        ] = None,
-        exploration: Optional[ExplorationStrategy] = None,
-        experience: Optional[ExperienceReplay[ExpType]] = None,
         max_percentage_update: float = float("+inf"),
-        warmstart: Literal["last", "last-successful"] = "last-successful",
         cho_maxiter: int = 1000,
         cho_solve_kwargs: Optional[dict[str, Any]] = None,
-        remove_bounds_on_initial_action: bool = False,
-        name: Optional[str] = None,
+        **kwargs: Any,
     ) -> None:
         """Instantiates the RL learning agent.
 
         Parameters
         ----------
-        mpc : Mpc[casadi.SX or MX]
-            The MPC controller used as policy provider by this agent. The instance is
-            modified in place to create the approximations of the state function `V(s)`
-            and action value function `Q(s,a)`, so it is recommended not to modify it
-            further after initialization of the agent. Moreover, some parameter and
-            constraint names will need to be created, so an error is thrown if these
-            names are already in use in the mpc. These names are under the attributes
-            `perturbation_parameter`, `action_parameter` and `action_constraint`.
-        update_strategy : UpdateStrategy or int
-            The strategy used to decide which frequency to update the mpc parameters
-            with. If an `int` is passed, then the default strategy that updates every
-            `n` env's steps is used (where `n` is the argument passed); otherwise, an
-            instance of `UpdateStrategy` can be passed to specify these in more details.
         discount_factor : float
             In RL, the factor that discounts future rewards in favor of immediate
             rewards. Usually denoted as `\\gamma`. Should be a number in (0, 1).
@@ -71,31 +43,11 @@ class RlLearningAgent(
             will be stepped `on_update` by default. Otherwise, a LearningRate can be
             passed, allowing to specify both the scheduling and stepping strategies of
             the learning rate.
-        learnable_parameters : LearnableParametersDict
-            A special dict containing the learnable parameters of the MPC, together with
-            their bounds and values. This dict is complementary with `fixed_parameters`,
-            which contains the MPC parameters that are not learnt by the agent.
-        fixed_parameters : dict[str, array_like] or collection of, optional
-            A dict (or collection of dict, in case of `csnlp.MultistartNlp`) whose keys
-            are the names of the MPC parameters and the values are their corresponding
-            values. Use this to specify fixed parameters, that is, non-learnable. If
-            `None`, then no fixed parameter is assumed.
-        exploration : ExplorationStrategy, optional
-            Exploration strategy for inducing exploration in the MPC policy. By default
-            `None`, in which case `NoExploration` is used in the fixed-MPC agent.
-        experience : ExperienceReplay, optional
-            The container for experience replay memory. If `None` is passed, then a
-            memory with length 1 is created, i.e., it keeps only the latest memory
-            transition.
         max_percentage_update : float, optional
             A positive float that specifies the maximum percentage the parameters can be
             changed during each update. For example, `max_percentage_update=0.5` means
             that the parameters can be updated by up to 50% of their current value. By
             default, it is set to `+inf`.
-        warmstart: 'last' or 'last-successful', optional
-            The warmstart strategy for the MPC's NLP. If 'last-successful', the last
-            successful solution is used to warm start the solver for the next iteration.
-            If 'last', the last solution is used, regardless of success or failure.
         cho_maxiter : int, optional
             Maximum number of iterations in the Cholesky's factorization with additive
             multiples of the identity to ensure positive definiteness of the hessian. By
@@ -105,18 +57,9 @@ class RlLearningAgent(
             the inversion of the hessian. If `None`, it is equivalent to
             `cho_solve_kwargs = {'check_finite': False }`. Only used if the algorithm
             exploits the hessian.
-        remove_bounds_on_initial_action : bool, optional
-            When `True`, the upper and lower bounds on the initial action are removed in
-            the action-value function approximator Q(s,a) since the first action is
-            constrained to be equal to the initial action. This is useful to avoid
-            issues in the LICQ of the NLP. However, it can lead to numerical problems.
-            By default, `False`.
-        name : str, optional
-            Name of the agent. If `None`, one is automatically created from a counter of
-            the class' instancies.
+        kwargs
+            Additional arguments to be passed to `LearningAgent`.
         """
-        if max_percentage_update <= 0.0:
-            raise ValueError("Max percentage update must be in range (0, +inf).")
         if not isinstance(learning_rate, LearningRate):
             learning_rate = LearningRate(learning_rate, "on_update")
         self._learning_rate: LearningRate[LrType] = learning_rate
@@ -126,17 +69,7 @@ class RlLearningAgent(
             cho_solve_kwargs = {"check_finite": False}
         self.cho_solve_kwargs = cho_solve_kwargs
         self.max_percentage_update = max_percentage_update
-        super().__init__(
-            mpc,
-            update_strategy,
-            learnable_parameters,
-            fixed_parameters,
-            exploration,
-            experience,
-            warmstart,
-            remove_bounds_on_initial_action,
-            name,
-        )
+        super().__init__(**kwargs)
         self._update_solver = self._init_update_solver()
 
     @property

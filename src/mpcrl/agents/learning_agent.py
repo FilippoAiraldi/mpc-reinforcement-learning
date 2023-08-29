@@ -4,7 +4,6 @@ from typing import (
     Callable,
     Collection,
     Generic,
-    Literal,
     Optional,
     Sequence,
     TypeVar,
@@ -13,7 +12,6 @@ from typing import (
 
 import numpy as np
 import numpy.typing as npt
-from csnlp.wrappers import Mpc
 from gymnasium import Env
 
 from mpcrl.agents.agent import ActType, Agent, ObsType, SymType, _update_dicts
@@ -39,30 +37,16 @@ class LearningAgent(
 
     def __init__(
         self,
-        mpc: Mpc[SymType],
         update_strategy: Union[int, UpdateStrategy],
         learnable_parameters: LearnableParametersDict[SymType],
-        fixed_parameters: Union[
-            None, dict[str, npt.ArrayLike], Collection[dict[str, npt.ArrayLike]]
-        ] = None,
         exploration: Optional[ExplorationStrategy] = None,
         experience: Optional[ExperienceReplay[ExpType]] = None,
-        warmstart: Literal["last", "last-successful"] = "last-successful",
-        remove_bounds_on_initial_action: bool = False,
-        name: Optional[str] = None,
+        **kwargs: Any,
     ) -> None:
         """Instantiates the learning agent.
 
         Parameters
         ----------
-        mpc : Mpc[casadi.SX or MX]
-            The MPC controller used as policy provider by this agent. The instance is
-            modified in place to create the approximations of the state function `V(s)`
-            and action value function `Q(s,a)`, so it is recommended not to modify it
-            further after initialization of the agent. Moreover, some parameter and
-            constraint names will need to be created, so an error is thrown if these
-            names are already in use in the mpc. These names are under the attributes
-            `perturbation_parameter`, `action_parameter` and `action_constraint`.
         update_strategy : UpdateStrategy or int
             The strategy used to decide which frequency to update the mpc parameters
             with. If an `int` is passed, then the default strategy that updates every
@@ -72,11 +56,6 @@ class LearningAgent(
             A special dict containing the learnable parameters of the MPC, together with
             their bounds and values. This dict is complementary with `fixed_parameters`,
             which contains the MPC parameters that are not learnt by the agent.
-        fixed_parameters : dict[str, array_like] or collection of, optional
-            A dict (or collection of dict, in case of `csnlp.MultistartNlp`) whose keys
-            are the names of the MPC parameters and the values are their corresponding
-            values. Use this to specify fixed parameters, that is, non-learnable. If
-            `None`, then no fixed parameter is assumed.
         exploration : ExplorationStrategy, optional
             Exploration strategy for inducing exploration in the MPC policy. By default
             `None`, in which case `NoExploration` is used in the fixed-MPC agent.
@@ -84,28 +63,10 @@ class LearningAgent(
             The container for experience replay memory. If `None` is passed, then a
             memory with length 1 is created, i.e., it keeps only the latest memory
             transition.
-        warmstart: 'last' or 'last-successful', optional
-            The warmstart strategy for the MPC's NLP. If 'last-successful', the last
-            successful solution is used to warm start the solver for the next iteration.
-            If 'last', the last solution is used, regardless of success or failure.
-        remove_bounds_on_initial_action : bool, optional
-            When `True`, the upper and lower bounds on the initial action are removed in
-            the action-value function approximator Q(s,a) since the first action is
-            constrained to be equal to the initial action. This is useful to avoid
-            issues in the LICQ of the NLP. However, it can lead to numerical problems.
-            By default, `False`.
-        name : str, optional
-            Name of the agent. If `None`, one is automatically created from a counter of
-            the class' instancies.
+        kwargs
+            Additional arguments to be passed to `Agent`.
         """
-        Agent.__init__(
-            self,
-            mpc,
-            fixed_parameters,
-            warmstart,
-            remove_bounds_on_initial_action,
-            name,
-        )
+        Agent.__init__(self, **kwargs)
         LearningAgentCallbacks.__init__(self)
         self._raises: bool = True
         self._learnable_pars = learnable_parameters
