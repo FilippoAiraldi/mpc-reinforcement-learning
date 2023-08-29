@@ -225,7 +225,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         dJdtheta = (dpidtheta @ dpidtheta.transpose((0, 2, 1))).sum(0) @ w
         if self.policy_gradients is not None:
             self.policy_gradients.append(dJdtheta)
-        return self._do_gradient_update(dJdtheta)
+        return self._do_gradient_update(dJdtheta, None)
 
     def train_one_episode(
         self,
