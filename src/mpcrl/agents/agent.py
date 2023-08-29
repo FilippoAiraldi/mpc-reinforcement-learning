@@ -483,7 +483,7 @@ class Agent(
         #     if nnz_con_u0 > nnz_exp_u0:
         #         warnings.warn(
         #             f"detected {nnz_con_u0} (expected {nnz_exp_u0}) constraints on "
-        #             f"initial actions in {name}; make sure that the initial action is "
+        #             f"initial actions in {name}; make sure that the initial action is"
         #             "not overconstrained (LICQ may be compromised).",
         #             RuntimeWarning,
         #         )
