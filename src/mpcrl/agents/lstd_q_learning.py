@@ -70,6 +70,7 @@ class LstdQLearningAgent(
         record_td_errors: bool = False,
         cho_maxiter: int = 1000,
         cho_solve_kwargs: Optional[dict[str, Any]] = None,
+        remove_bounds_on_initial_action: bool = False,
         name: Optional[str] = None,
     ) -> None:
         """Instantiates the LSTD Q-learning agent.
@@ -140,6 +141,12 @@ class LstdQLearningAgent(
         cho_solve_kwargs : kwargs for scipy.linalg.cho_solve, optional
             The optional kwargs to be passed to `scipy.linalg.cho_solve`. If `None`, it
             is equivalent to `cho_solve_kwargs = {'check_finite': False }`.
+        remove_bounds_on_initial_action : bool, optional
+            When `True`, the upper and lower bounds on the initial action are removed in
+            the action-value function approximator Q(s,a) since the first action is
+            constrained to be equal to the initial action. This is useful to avoid
+            issues in the LICQ of the NLP. However, it can lead to numerical problems.
+            By default, `False`.
         name : str, optional
             Name of the agent. If `None`, one is automatically created from a counter of
             the class' instancies.
@@ -157,6 +164,7 @@ class LstdQLearningAgent(
             warmstart,
             cho_maxiter,
             cho_solve_kwargs,
+            remove_bounds_on_initial_action,
             name,
         )
         self.hessian_type = hessian_type

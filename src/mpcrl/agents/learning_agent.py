@@ -48,6 +48,7 @@ class LearningAgent(
         exploration: Optional[ExplorationStrategy] = None,
         experience: Optional[ExperienceReplay[ExpType]] = None,
         warmstart: Literal["last", "last-successful"] = "last-successful",
+        remove_bounds_on_initial_action: bool = False,
         name: Optional[str] = None,
     ) -> None:
         """Instantiates the learning agent.
@@ -87,11 +88,24 @@ class LearningAgent(
             The warmstart strategy for the MPC's NLP. If 'last-successful', the last
             successful solution is used to warm start the solver for the next iteration.
             If 'last', the last solution is used, regardless of success or failure.
+        remove_bounds_on_initial_action : bool, optional
+            When `True`, the upper and lower bounds on the initial action are removed in
+            the action-value function approximator Q(s,a) since the first action is
+            constrained to be equal to the initial action. This is useful to avoid
+            issues in the LICQ of the NLP. However, it can lead to numerical problems.
+            By default, `False`.
         name : str, optional
             Name of the agent. If `None`, one is automatically created from a counter of
             the class' instancies.
         """
-        Agent.__init__(self, mpc, fixed_parameters, warmstart, name)
+        Agent.__init__(
+            self,
+            mpc,
+            fixed_parameters,
+            warmstart,
+            remove_bounds_on_initial_action,
+            name,
+        )
         LearningAgentCallbacks.__init__(self)
         self._raises: bool = True
         self._learnable_pars = learnable_parameters

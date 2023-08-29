@@ -1,5 +1,3 @@
-import warnings
-from itertools import chain
 from typing import (
     Any,
     Collection,
@@ -64,6 +62,7 @@ class Agent(
             None, dict[str, npt.ArrayLike], Collection[dict[str, npt.ArrayLike]]
         ] = None,
         warmstart: Literal["last", "last-successful"] = "last-successful",
+        remove_bounds_on_initial_action: bool = False,
         name: Optional[str] = None,
     ) -> None:
         """Instantiates an agent with an MPC controller.
@@ -87,6 +86,12 @@ class Agent(
             The warmstart strategy for the MPC's NLP. If 'last-successful', the last
             successful solution is used to warm start the solver for the next iteration.
             If 'last', the last solution is used, regardless of success or failure.
+        remove_bounds_on_initial_action : bool, optional
+            When `True`, the upper and lower bounds on the initial action are removed in
+            the action-value function approximator Q(s,a) since the first action is
+            constrained to be equal to the initial action. This is useful to avoid
+            issues in the LICQ of the NLP. However, it can lead to numerical problems.
+            By default, `False`.
         name : str, optional
             Name of the agent. If `None`, one is automatically created from a counter of
             the class' instancies.
@@ -102,7 +107,7 @@ class Agent(
         SupportsDeepcopyAndPickle.__init__(self)
         AgentCallbacks.__init__(self)
         RemovesCallbackHooksInState.__init__(self)
-        self._V, self._Q = self._setup_V_and_Q(mpc)
+        self._V, self._Q = self._setup_V_and_Q(mpc, remove_bounds_on_initial_action)
         self._fixed_pars = fixed_parameters
         self._exploration: ExplorationStrategy = NoExploration()
         self._store_last_successful = warmstart == "last-successful"
@@ -383,7 +388,9 @@ class Agent(
         self.on_validation_end(env, returns)
         return returns
 
-    def _setup_V_and_Q(self, mpc: Mpc[SymType]) -> tuple[Mpc[SymType], Mpc[SymType]]:
+    def _setup_V_and_Q(
+        self, mpc: Mpc[SymType], remove_bounds_on_initial_action: bool
+    ) -> tuple[Mpc[SymType], Mpc[SymType]]:
         """Internal utility to setup the function approximators for the value function
         V(s) and the quality function Q(s,a)."""
         na = mpc.na
@@ -406,8 +413,10 @@ class Agent(
         Q.nlp.constraint(self.init_action_constraint, u0, "==", a0)
 
         # remove upper/lower bound on initial action in Q, since it is constrained as a0
-        for n, a in mpc.first_actions.items():
-            Q.nlp.remove_variable_bounds(n, "both", ((r, 0) for r in range(a.size1())))
+        if remove_bounds_on_initial_action:
+            for name, a in mpc.first_actions.items():
+                na_ = a.size1()
+                Q.nlp.remove_variable_bounds(name, "both", ((r, 0) for r in range(na_)))
 
         # invalidate caches for V and Q since some modifications have been done
         for nlp in (V, Q):
@@ -426,53 +435,53 @@ class Agent(
         # - u0 in Q should only appear in the 1st dynamics constraint and a0 con
         # - u0 in V should only appear in the 1st dynamics constraint and lbx/ubx
         # - x0 in V, Q should only appear in the 1st dynamics constraint and s0 con
-        for mpc in (self._V, self._Q):
-            name = mpc.unwrapped.name[-1]
-            u0 = cs.vcat(self._V.first_actions.values())
-            x0 = cs.vvcat(self._V.first_states.values())
-            con = cs.vertcat(mpc.g, mpc.h, mpc.h_lbx, mpc.h_ubx)
+        # for mpc in (self._V, self._Q):
+        #     name = mpc.unwrapped.name[-1]
+        #     u0 = cs.vcat(self._V.first_actions.values())
+        #     x0 = cs.vvcat(self._V.first_states.values())
+        #     con = cs.vertcat(mpc.g, mpc.h, mpc.h_lbx, mpc.h_ubx)
 
-            if mpc.unwrapped.sym_type.__name__ == "SX":
-                nnz_con_u0 = len(set(cs.jacobian_sparsity(con, u0).get_triplet()[0]))
-                nnz_con_x0 = len(set(cs.jacobian_sparsity(con, x0).get_triplet()[0]))
-            else:
-                nnz_con_u0 = len(  # computes the same as above, but for MX
-                    set(
-                        chain.from_iterable(
-                            cs.jacobian(con, a)[:, : a.size1()]
-                            .sparsity()
-                            .get_triplet()[0]
-                            for a in mpc.actions.values()
-                        )
-                    )
-                )
-                nnz_con_x0 = len(
-                    set(
-                        chain.from_iterable(
-                            cs.jacobian(con, s)[:, : s.size1()]
-                            .sparsity()
-                            .get_triplet()[0]
-                            for s in mpc.states.values()
-                        )
-                    )
-                )
+        #     if mpc.unwrapped.sym_type.__name__ == "SX":
+        #         nnz_con_u0 = len(set(cs.jacobian_sparsity(con, u0).get_triplet()[0]))
+        #         nnz_con_x0 = len(set(cs.jacobian_sparsity(con, x0).get_triplet()[0]))
+        #     else:
+        #         nnz_con_u0 = len(  # computes the same as above, but for MX
+        #             set(
+        #                 chain.from_iterable(
+        #                     cs.jacobian(con, a)[:, : a.size1()]
+        #                     .sparsity()
+        #                     .get_triplet()[0]
+        #                     for a in mpc.actions.values()
+        #                 )
+        #             )
+        #         )
+        #         nnz_con_x0 = len(
+        #             set(
+        #                 chain.from_iterable(
+        #                     cs.jacobian(con, s)[:, : s.size1()]
+        #                     .sparsity()
+        #                     .get_triplet()[0]
+        #                     for s in mpc.states.values()
+        #                 )
+        #             )
+        #         )
 
-            nnz_exp_u0 = mpc.ns + (mpc.na * 2 if name == "V" else mpc.na)
-            if nnz_con_u0 > nnz_exp_u0:
-                warnings.warn(
-                    f"detected {nnz_con_u0} (expected {nnz_exp_u0}) constraints on "
-                    f"initial actions in {name}; make sure that the initial action is "
-                    "not overconstrained (LICQ may be compromised).",
-                    RuntimeWarning,
-                )
-            nnz_exp_x0 = mpc.ns * 2
-            if nnz_con_x0 > nnz_exp_x0:
-                warnings.warn(
-                    f"detected {nnz_con_x0} (expected {nnz_exp_x0}) constraints on "
-                    f"initial states in {name}; make sure that the initial state is "
-                    "not overconstrained (LICQ may be compromised).",
-                    RuntimeWarning,
-                )
+        #     nnz_exp_u0 = mpc.ns + (mpc.na * 2 if name == "V" else mpc.na)
+        #     if nnz_con_u0 > nnz_exp_u0:
+        #         warnings.warn(
+        #             f"detected {nnz_con_u0} (expected {nnz_exp_u0}) constraints on "
+        #             f"initial actions in {name}; make sure that the initial action is "
+        #             "not overconstrained (LICQ may be compromised).",
+        #             RuntimeWarning,
+        #         )
+        #     nnz_exp_x0 = mpc.ns * 2
+        #     if nnz_con_x0 > nnz_exp_x0:
+        #         warnings.warn(
+        #             f"detected {nnz_con_x0} (expected {nnz_exp_x0}) constraints on "
+        #             f"initial states in {name}; make sure that the initial state is "
+        #             "not overconstrained (LICQ may be compromised).",
+        #             RuntimeWarning,
+        #         )
 
     def _get_parameters(
         self,
