@@ -92,7 +92,7 @@ class LstdQLearningAgent(
             instance of `UpdateStrategy` can be passed to specify these in more details.
         discount_factor : float
             In RL, the factor that discounts future rewards in favor of immediate
-            rewards. Usually denoted as `\\gamma`. Should be a number in (0, 1).
+            rewards. Usually denoted as `\\gamma`. Should be a number in (0, 1].
         learning_rate : float/array, scheduler or LearningRate
             The learning rate of the algorithm. A float/array can be passed in case the
             learning rate must stay constant; otherwise, a scheduler can be passed which
