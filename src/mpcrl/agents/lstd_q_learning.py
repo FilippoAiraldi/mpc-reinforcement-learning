@@ -70,6 +70,7 @@ class LstdQLearningAgent(
         record_td_errors: bool = False,
         cho_maxiter: int = 1000,
         cho_solve_kwargs: Optional[dict[str, Any]] = None,
+        return_last_successful_action_if_fail: bool = False,
         remove_bounds_on_initial_action: bool = False,
         name: Optional[str] = None,
     ) -> None:
@@ -141,6 +142,10 @@ class LstdQLearningAgent(
         cho_solve_kwargs : kwargs for scipy.linalg.cho_solve, optional
             The optional kwargs to be passed to `scipy.linalg.cho_solve`. If `None`, it
             is equivalent to `cho_solve_kwargs = {'check_finite': False }`.
+        return_last_successful_action_if_fail : bool, optional
+            When `True`, if the MPC solver fails in solving the state value function
+            `V(s)`, the last successful action is returned. When `False`, the action
+            from the last MPC iteration is returned instead. By default, `False`.
         remove_bounds_on_initial_action : bool, optional
             When `True`, the upper and lower bounds on the initial action are removed in
             the action-value function approximator Q(s,a) since the first action is
@@ -152,20 +157,21 @@ class LstdQLearningAgent(
             the class' instancies.
         """
         super().__init__(
-            mpc,
-            update_strategy,
-            discount_factor,
-            learning_rate,  # type: ignore[arg-type]
-            learnable_parameters,
-            fixed_parameters,
-            exploration,
-            experience,
-            max_percentage_update,
-            warmstart,
-            cho_maxiter,
-            cho_solve_kwargs,
-            remove_bounds_on_initial_action,
-            name,
+            mpc=mpc,
+            update_strategy=update_strategy,
+            discount_factor=discount_factor,
+            learning_rate=learning_rate,
+            learnable_parameters=learnable_parameters,
+            fixed_parameters=fixed_parameters,
+            exploration=exploration,
+            experience=experience,
+            max_percentage_update=max_percentage_update,
+            warmstart=warmstart,
+            cho_maxiter=cho_maxiter,
+            cho_solve_kwargs=cho_solve_kwargs,
+            return_last_successful_action_if_fail=return_last_successful_action_if_fail,
+            remove_bounds_on_initial_action=remove_bounds_on_initial_action,
+            name=name,
         )
         self.hessian_type = hessian_type
         self._sensitivity = self._init_sensitivity(hessian_type)

@@ -62,6 +62,7 @@ class Agent(
             None, dict[str, npt.ArrayLike], Collection[dict[str, npt.ArrayLike]]
         ] = None,
         warmstart: Literal["last", "last-successful"] = "last-successful",
+        return_last_successful_action_if_fail: bool = False,
         remove_bounds_on_initial_action: bool = False,
         name: Optional[str] = None,
     ) -> None:
@@ -86,6 +87,10 @@ class Agent(
             The warmstart strategy for the MPC's NLP. If 'last-successful', the last
             successful solution is used to warm start the solver for the next iteration.
             If 'last', the last solution is used, regardless of success or failure.
+        return_last_successful_action_if_fail : bool, optional
+            When `True`, if the MPC solver fails in solving the state value function
+            `V(s)`, the last successful action is returned. When `False`, the action
+            from the last MPC iteration is returned instead. By default, `False`.
         remove_bounds_on_initial_action : bool, optional
             When `True`, the upper and lower bounds on the initial action are removed in
             the action-value function approximator Q(s,a) since the first action is
@@ -111,6 +116,8 @@ class Agent(
         self._fixed_pars = fixed_parameters
         self._exploration: ExplorationStrategy = NoExploration()
         self._store_last_successful = warmstart == "last-successful"
+        self._last_action_if_fail = return_last_successful_action_if_fail
+        self._post_setup_V_and_Q()
 
     @property
     def unwrapped(self) -> "Agent":
@@ -150,6 +157,7 @@ class Agent(
     ) -> None:
         """Resets the agent's internal variables and exploration's RNG."""
         self._last_solution: Optional[Solution[SymType]] = None
+        self._last_action: Optional[cs.DM] = None
         if hasattr(self.exploration, "reset"):
             self.exploration.reset(seed)
 
@@ -282,6 +290,12 @@ class Agent(
             )
         sol = self.solve_mpc(self._V, state, perturbation=pert, vals0=vals0, **kwargs)
         first_action = cs.vertcat(*(sol.vals[u][:, 0] for u in self._V.actions.keys()))
+
+        if sol.success:
+            self._last_action = first_action
+        elif self._last_action_if_fail and self._last_action is not None:
+            first_action = self._last_action
+
         return first_action, sol
 
     def action_value(

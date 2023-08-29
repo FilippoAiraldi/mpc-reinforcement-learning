@@ -79,6 +79,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         state_features: Optional[cs.Function] = None,
         linsolver: Literal["csparse", "qr", "mldivide"] = "csparse",
         ridge_regression_regularization: float = 1e-6,
+        return_last_successful_action_if_fail: bool = False,
         remove_bounds_on_initial_action: bool = False,
         name: Optional[str] = None,
     ) -> None:
@@ -168,6 +169,10 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         ridge_regression_regularization : float, optional
             Ridge regression regularization used during the computations of the LSTD
             weights via least-squares. By default, `1e-6`.
+        return_last_successful_action_if_fail : bool, optional
+            When `True`, if the MPC solver fails in solving the state value function
+            `V(s)`, the last successful action is returned. When `False`, the action
+            from the last MPC iteration is returned instead. By default, `False`.
         remove_bounds_on_initial_action : bool, optional
             When `True`, the upper and lower bounds on the initial action are removed in
             the action-value function approximator Q(s,a) since the first action is
@@ -182,16 +187,17 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         if not isinstance(update_strategy, UpdateStrategy):
             update_strategy = UpdateStrategy(update_strategy, "on_episode_end")
         super().__init__(
-            mpc,
-            update_strategy,
-            discount_factor,
-            learning_rate,  # type: ignore[arg-type]
-            learnable_parameters,
-            fixed_parameters,
-            exploration,
-            experience,
-            max_percentage_update,
-            warmstart,
+            mpc=mpc,
+            update_strategy=update_strategy,
+            discount_factor=discount_factor,
+            learning_rate=learning_rate,
+            learnable_parameters=learnable_parameters,
+            fixed_parameters=fixed_parameters,
+            exploration=exploration,
+            experience=experience,
+            max_percentage_update=max_percentage_update,
+            warmstart=warmstart,
+            return_last_successful_action_if_fail=return_last_successful_action_if_fail,
             remove_bounds_on_initial_action=remove_bounds_on_initial_action,
             name=name,
         )
