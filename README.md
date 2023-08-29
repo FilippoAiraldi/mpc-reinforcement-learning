@@ -6,8 +6,8 @@
 [![Source Code License](https://img.shields.io/badge/license-MIT-blueviolet)](https://github.com/FilippoAiraldi/casadi-nlp/blob/release/LICENSE)
 ![Python 3.9](https://img.shields.io/badge/python->=3.9-green.svg)
 
-[![Tests](https://github.com/FilippoAiraldi/mpc-reinforcement-learning/actions/workflows/test-main.yml/badge.svg)](https://github.com/FilippoAiraldi/mpc-reinforcement-learning/actions/workflows/test-experimental.yml)
-[![Downloads](https://pepy.tech/badge/mpcrl)](https://pepy.tech/project/mpcrl)
+[![Tests](https://github.com/FilippoAiraldi/mpc-reinforcement-learning/actions/workflows/test-experimental.yml/badge.svg)](https://github.com/FilippoAiraldi/mpc-reinforcement-learning/actions/workflows/test-experimental.yml)
+[![Downloads](https://static.pepy.tech/badge/mpcrl)](https://www.pepy.tech/projects/mpcrl)
 [![Maintainability](https://api.codeclimate.com/v1/badges/9a46f52603d29c684c48/maintainability)](https://codeclimate.com/github/FilippoAiraldi/mpc-reinforcement-learning/maintainability)
 [![Test Coverage](https://api.codeclimate.com/v1/badges/9a46f52603d29c684c48/test_coverage)](https://codeclimate.com/github/FilippoAiraldi/mpc-reinforcement-learning/test_coverage)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
