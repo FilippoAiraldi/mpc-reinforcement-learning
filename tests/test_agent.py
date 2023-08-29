@@ -117,6 +117,21 @@ class TestAgent(unittest.TestCase):
         self.assertNotIn(agent.init_action_parameter, agent.V.parameters.keys())
         self.assertNotIn(agent.init_action_constraint, agent.V.constraints.keys())
 
+    def test_init__removes_bounds_on_initial_action_in_Q_correctly(self):
+        mpc = get_mpc(3, self.multistart_nlp)
+        mpc.unwrapped.remove_variable_bounds = Mock()
+        agent = Agent(mpc=mpc, remove_bounds_on_initial_action=True)
+        self.assertFalse(agent.V.remove_variable_bounds.called)
+        calls = agent.Q.remove_variable_bounds.call_args_list
+        self.assertEqual(len(calls), mpc.na)
+        for i, mcall in enumerate(calls):
+            expected_name = f"u{i + 1}"
+            na_ = mpc.actions[expected_name].size1()
+            name, direction, idx = mcall.args
+            self.assertEqual(name, expected_name)
+            self.assertEqual(direction, "both")
+            self.assertEqual(list(idx), [(r, 0) for r in range(na_)])
+
     def test_unwrapped(self):
         agent = Agent(mpc=get_mpc(3, self.multistart_nlp))
         agent2 = agent.unwrapped

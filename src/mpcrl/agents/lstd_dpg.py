@@ -79,6 +79,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         state_features: Optional[cs.Function] = None,
         linsolver: Literal["csparse", "qr", "mldivide"] = "csparse",
         ridge_regression_regularization: float = 1e-6,
+        remove_bounds_on_initial_action: bool = False,
         name: Optional[str] = None,
     ) -> None:
         """Instantiates the LSTD DPG agent.
@@ -167,6 +168,12 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         ridge_regression_regularization : float, optional
             Ridge regression regularization used during the computations of the LSTD
             weights via least-squares. By default, `1e-6`.
+        remove_bounds_on_initial_action : bool, optional
+            When `True`, the upper and lower bounds on the initial action are removed in
+            the action-value function approximator Q(s,a) since the first action is
+            constrained to be equal to the initial action. This is useful to avoid
+            issues in the LICQ of the NLP. However, it can lead to numerical problems.
+            By default, `False`.
         name : str, optional
             Name of the agent. If `None`, one is automatically created from a counter of
             the class' instancies.
@@ -185,7 +192,8 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
             experience,
             max_percentage_update,
             warmstart,
-            name,
+            remove_bounds_on_initial_action=remove_bounds_on_initial_action,
+            name=name,
         )
         self._sensitivity = self._init_sensitivity(linsolver)
         self._Phi = (
