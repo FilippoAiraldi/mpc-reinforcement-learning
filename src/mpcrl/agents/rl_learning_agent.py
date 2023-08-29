@@ -1,10 +1,11 @@
 from abc import ABC
-from typing import Collection, Generic, Literal, Optional, TypeVar, Union
+from typing import Any, Collection, Generic, Literal, Optional, TypeVar, Union
 
 import casadi as cs
 import numpy as np
 import numpy.typing as npt
 from csnlp.wrappers import Mpc
+from scipy.linalg import cho_solve
 
 from mpcrl.agents.agent import SymType
 from mpcrl.agents.learning_agent import LearningAgent
@@ -14,6 +15,7 @@ from mpcrl.core.learning_rate import LearningRate, LrType
 from mpcrl.core.parameters import LearnableParametersDict
 from mpcrl.core.schedulers import Scheduler
 from mpcrl.core.update import UpdateStrategy
+from mpcrl.util.math import cholesky_added_multiple_identities
 
 ExpType = TypeVar("ExpType")
 
@@ -38,6 +40,8 @@ class RlLearningAgent(
         experience: Optional[ExperienceReplay[ExpType]] = None,
         max_percentage_update: float = float("+inf"),
         warmstart: Literal["last", "last-successful"] = "last-successful",
+        cho_maxiter: int = 1000,
+        cho_solve_kwargs: Optional[dict[str, Any]] = None,
         name: Optional[str] = None,
     ) -> None:
         """Instantiates the RL learning agent.
@@ -91,14 +95,30 @@ class RlLearningAgent(
             The warmstart strategy for the MPC's NLP. If 'last-successful', the last
             successful solution is used to warm start the solver for the next iteration.
             If 'last', the last solution is used, regardless of success or failure.
+        cho_maxiter : int, optional
+            Maximum number of iterations in the Cholesky's factorization with additive
+            multiples of the identity to ensure positive definiteness of the hessian. By
+            default, `1000`. Only used if the algorithm exploits the hessian.
+        cho_solve_kwargs : kwargs for scipy.linalg.cho_solve, optional
+            The optional kwargs to be passed to `scipy.linalg.cho_solve` to solve for
+            the inversion of the hessian. If `None`, it is equivalent to
+            `cho_solve_kwargs = {'check_finite': False }`. Only used if the algorithm
+            exploits the hessian.
         name : str, optional
             Name of the agent. If `None`, one is automatically created from a counter of
             the class' instancies.
         """
+        if max_percentage_update <= 0.0:
+            raise ValueError("Max percentage update must be in range (0, +inf).")
         if not isinstance(learning_rate, LearningRate):
             learning_rate = LearningRate(learning_rate, "on_update")
         self._learning_rate: LearningRate[LrType] = learning_rate
         self.discount_factor = discount_factor
+        self.cho_maxiter = cho_maxiter
+        if cho_solve_kwargs is None:
+            cho_solve_kwargs = {"check_finite": False}
+        self.cho_solve_kwargs = cho_solve_kwargs
+        self.max_percentage_update = max_percentage_update
         super().__init__(
             mpc,
             update_strategy,
@@ -109,9 +129,6 @@ class RlLearningAgent(
             warmstart,
             name,
         )
-        if max_percentage_update <= 0.0:
-            raise ValueError("Max percentage update must be in range (0, +inf).")
-        self.max_percentage_update = max_percentage_update
         self._update_solver = self._init_update_solver()
 
     @property
@@ -145,11 +162,12 @@ class RlLearningAgent(
         theta = sym_type.sym("theta", n_p, 1)
         theta_new = sym_type.sym("theta+", n_p, 1)
         dtheta = theta_new - theta
-        p = sym_type.sym("p", n_p, 1)
+        g = sym_type.sym("g", n_p, 1)  # includes learning rate
+        H = sym_type.sym("H", n_p, n_p)
         qp = {
             "x": theta_new,
-            "f": 0.5 * cs.dot(dtheta, dtheta) + cs.dot(p, dtheta),
-            "p": cs.vertcat(theta, p),
+            "f": 0.5 * dtheta.T @ H @ dtheta + g.T @ dtheta,
+            "p": cs.veccat(theta, g, H),
         }
         opts = {"expand": True, "print_iter": False, "print_header": False}
         return cs.qpsol(f"qpsol_{self.name}", "qrqp", qp, opts)
@@ -172,18 +190,29 @@ class RlLearningAgent(
         ub = np.minimum(ub, theta + max_update_delta)
         return lb, ub
 
-    def _do_gradient_update(self, step: npt.NDArray[np.floating]) -> Optional[str]:
+    def _do_gradient_update(
+        self, g: npt.NDArray[np.floating], H: Optional[npt.NDArray[np.floating]]
+    ) -> Optional[str]:
         """Internal utility to do the actual gradient update by either calling the QP
         solver or by updating the parameters maually."""
-        p = self.learning_rate * step
-        theta = self._learnable_pars.value  # current values of parameters
         solver = self._update_solver
+        theta = self._learnable_pars.value  # current values of parameters
+        lr = self.learning_rate
+        lr_g = lr * g
+        if H is None:
+            p = lr_g
+        else:
+            L = cholesky_added_multiple_identities(H, maxiter=self.cho_maxiter)
+            p = lr * cho_solve((L, True), g, **self.cho_solve_kwargs)
+
         if solver is None:
             self._learnable_pars.update_values(theta - p)
             return None
 
+        H = np.eye(theta.shape[0]) if H is None else L @ L.T
         lb, ub = self._get_update_bounds(theta)
-        sol = solver(p=np.concatenate((theta, p)), lbx=lb, ubx=ub, x0=theta - p)
-        self._learnable_pars.update_values(sol["x"].full().reshape(-1))
+        params = np.concatenate((theta, lr_g, H), None)
+        theta_new = solver(p=params, lbx=lb, ubx=ub, x0=theta - p)["x"].full()[:, 0]
+        self._learnable_pars.update_values(np.clip(theta_new, lb, ub))
         stats = solver.stats()
         return None if stats["success"] else stats["return_status"]

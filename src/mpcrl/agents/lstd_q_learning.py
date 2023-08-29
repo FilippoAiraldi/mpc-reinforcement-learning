@@ -15,7 +15,6 @@ import numpy.typing as npt
 from csnlp import Solution
 from csnlp.wrappers import Mpc, NlpSensitivity
 from gymnasium import Env
-from scipy.linalg import cho_solve
 from typing_extensions import TypeAlias
 
 from mpcrl.agents.agent import ActType, ObsType, SymType
@@ -26,7 +25,6 @@ from mpcrl.core.learning_rate import LearningRate
 from mpcrl.core.parameters import LearnableParametersDict
 from mpcrl.core.schedulers import Scheduler
 from mpcrl.core.update import UpdateStrategy
-from mpcrl.util.math import cholesky_added_multiple_identities
 
 ExpType: TypeAlias = tuple[
     npt.NDArray[np.floating],  # gradient of Q(s,a)
@@ -157,25 +155,24 @@ class LstdQLearningAgent(
             experience,
             max_percentage_update,
             warmstart,
+            cho_maxiter,
+            cho_solve_kwargs,
             name,
         )
         self.hessian_type = hessian_type
         self._sensitivity = self._init_sensitivity(hessian_type)
-        self.cho_maxiter = cho_maxiter
-        if cho_solve_kwargs is None:
-            cho_solve_kwargs = {"check_finite": False}
-        self.cho_solve_kwargs = cho_solve_kwargs
         self.td_errors: Optional[list[float]] = [] if record_td_errors else None
 
     def update(self) -> Optional[str]:
         sample = self.experience.sample()
-        gradient, Hessian = (np.mean(tuple(o), 0) for o in zip(*sample))
-        if self.hessian_type != "none":
-            R = cholesky_added_multiple_identities(Hessian, maxiter=self.cho_maxiter)
-            step = cho_solve((R, True), gradient, **self.cho_solve_kwargs)
-        else:
-            step = gradient
-        return self._do_gradient_update(step.reshape(-1))
+        gradients = []
+        Hessians = []
+        for g, H in sample:
+            gradients.append(g)
+            Hessians.append(H)
+        gradient = np.mean(gradients, 0)
+        Hessian = np.mean(Hessians, 0) if self.hessian_type != "none" else None
+        return self._do_gradient_update(gradient.reshape(-1), Hessian)
 
     def train_one_episode(
         self,
