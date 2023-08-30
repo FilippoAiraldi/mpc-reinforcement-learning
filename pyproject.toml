@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mpcrl"
-version = "1.1.7.rc1"
+version = "1.1.7rc2"
 authors = [
   { name="Filippo Airaldi", email="filippoairaldi@gmail.com" },
 ]
