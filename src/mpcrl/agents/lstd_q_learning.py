@@ -70,7 +70,7 @@ class LstdQLearningAgent(
         record_td_errors: bool = False,
         cho_maxiter: int = 1000,
         cho_solve_kwargs: Optional[dict[str, Any]] = None,
-        return_last_successful_action_if_fail: bool = False,
+        use_last_action_on_fail: bool = False,
         remove_bounds_on_initial_action: bool = False,
         name: Optional[str] = None,
     ) -> None:
@@ -142,7 +142,7 @@ class LstdQLearningAgent(
         cho_solve_kwargs : kwargs for scipy.linalg.cho_solve, optional
             The optional kwargs to be passed to `scipy.linalg.cho_solve`. If `None`, it
             is equivalent to `cho_solve_kwargs = {'check_finite': False }`.
-        return_last_successful_action_if_fail : bool, optional
+        use_last_action_on_fail : bool, optional
             When `True`, if the MPC solver fails in solving the state value function
             `V(s)`, the last successful action is returned. When `False`, the action
             from the last MPC iteration is returned instead. By default, `False`.
@@ -169,7 +169,7 @@ class LstdQLearningAgent(
             warmstart=warmstart,
             cho_maxiter=cho_maxiter,
             cho_solve_kwargs=cho_solve_kwargs,
-            return_last_successful_action_if_fail=return_last_successful_action_if_fail,
+            use_last_action_on_fail=use_last_action_on_fail,
             remove_bounds_on_initial_action=remove_bounds_on_initial_action,
             name=name,
         )

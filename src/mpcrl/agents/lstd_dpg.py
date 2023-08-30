@@ -79,7 +79,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         state_features: Optional[cs.Function] = None,
         linsolver: Literal["csparse", "qr", "mldivide"] = "csparse",
         ridge_regression_regularization: float = 1e-6,
-        return_last_successful_action_if_fail: bool = False,
+        use_last_action_on_fail: bool = False,
         remove_bounds_on_initial_action: bool = False,
         name: Optional[str] = None,
     ) -> None:
@@ -169,7 +169,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         ridge_regression_regularization : float, optional
             Ridge regression regularization used during the computations of the LSTD
             weights via least-squares. By default, `1e-6`.
-        return_last_successful_action_if_fail : bool, optional
+        use_last_action_on_fail : bool, optional
             When `True`, if the MPC solver fails in solving the state value function
             `V(s)`, the last successful action is returned. When `False`, the action
             from the last MPC iteration is returned instead. By default, `False`.
@@ -197,7 +197,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
             experience=experience,
             max_percentage_update=max_percentage_update,
             warmstart=warmstart,
-            return_last_successful_action_if_fail=return_last_successful_action_if_fail,
+            use_last_action_on_fail=use_last_action_on_fail,
             remove_bounds_on_initial_action=remove_bounds_on_initial_action,
             name=name,
         )
