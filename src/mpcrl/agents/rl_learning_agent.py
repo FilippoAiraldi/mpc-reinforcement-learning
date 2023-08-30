@@ -100,15 +100,13 @@ class RlLearningAgent(
 
         sym_type = cs.MX
         n_p = self._learnable_pars.size
-        theta = sym_type.sym("theta", n_p, 1)
-        theta_new = sym_type.sym("theta+", n_p, 1)
-        dtheta = theta_new - theta
+        dtheta = sym_type.sym("dtheta", n_p, 1)
         g = sym_type.sym("g", n_p, 1)  # includes learning rate
         H = sym_type.sym("H", n_p, n_p)
         qp = {
-            "x": theta_new,
+            "x": dtheta,
             "f": 0.5 * dtheta.T @ H @ dtheta + g.T @ dtheta,
-            "p": cs.veccat(theta, g, H),
+            "p": cs.veccat(g, H),
         }
         opts = {"expand": True, "print_iter": False, "print_header": False}
         return cs.qpsol(f"qpsol_{self.name}", "qrqp", qp, opts)
@@ -127,9 +125,9 @@ class RlLearningAgent(
         if perc == float("+inf"):
             return lb, ub
         max_update_delta = np.maximum(np.abs(perc * theta), eps)
-        lb = np.maximum(lb, theta - max_update_delta)
-        ub = np.minimum(ub, theta + max_update_delta)
-        return lb, ub
+        lbx = np.maximum(lb - theta, -max_update_delta)
+        ubx = np.minimum(ub - theta, +max_update_delta)
+        return lbx, ubx
 
     def _do_gradient_update(
         self, g: npt.NDArray[np.floating], H: Optional[npt.NDArray[np.floating]]
@@ -141,19 +139,19 @@ class RlLearningAgent(
         lr = self.learning_rate
         lr_g = lr * g
         if H is None:
-            p = lr_g
+            dtheta = -lr_g
         else:
             L = cholesky_added_multiple_identities(H, maxiter=self.cho_maxiter)
-            p = lr * cho_solve((L, True), g, **self.cho_solve_kwargs)
+            dtheta = -lr * cho_solve((L, True), g, **self.cho_solve_kwargs)
 
         if solver is None:
-            self._learnable_pars.update_values(theta - p)
+            self._learnable_pars.update_values(theta + dtheta)
             return None
 
         H = np.eye(theta.shape[0]) if H is None else L @ L.T
-        lb, ub = self._get_update_bounds(theta)
-        params = np.concatenate((theta, lr_g, H), None)
-        theta_new = solver(p=params, lbx=lb, ubx=ub, x0=theta - p)["x"].full()[:, 0]
-        self._learnable_pars.update_values(np.clip(theta_new, lb, ub))
+        lbx, ubx = self._get_update_bounds(theta)
+        sol = solver(p=np.concatenate((lr_g, H), None), lbx=lbx, ubx=ubx, x0=dtheta)
+        dtheta = np.clip(sol["x"].full()[:, 0], lbx, ubx)
+        self._learnable_pars.update_values(theta + dtheta)
         stats = solver.stats()
         return None if stats["success"] else stats["return_status"]
