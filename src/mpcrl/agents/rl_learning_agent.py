@@ -4,6 +4,7 @@ from typing import Any, Generic, Optional, TypeVar, Union
 import casadi as cs
 import numpy as np
 import numpy.typing as npt
+from csnlp.util.math import quad_form
 from scipy.linalg import cho_solve
 
 from mpcrl.agents.agent import SymType
@@ -105,10 +106,17 @@ class RlLearningAgent(
         H = sym_type.sym("H", n_p, n_p)
         qp = {
             "x": dtheta,
-            "f": 0.5 * dtheta.T @ H @ dtheta + g.T @ dtheta,
+            "f": 0.5 * quad_form(H, dtheta) + cs.dot(g, dtheta),
             "p": cs.veccat(g, H),
         }
-        opts = {"expand": True, "print_iter": False, "print_header": False}
+        opts = {
+            "expand": True,
+            "print_info": False,
+            "print_iter": False,
+            "print_header": False,
+            "error_on_fail": True,
+            "max_iter": 2000,
+        }
         return cs.qpsol(f"qpsol_{self.name}", "qrqp", qp, opts)
 
     def _get_update_bounds(
@@ -137,20 +145,23 @@ class RlLearningAgent(
         solver = self._update_solver
         theta = self._learnable_pars.value  # current values of parameters
         lr = self.learning_rate
-        lr_g = lr * g
-        if H is None:
-            dtheta = -lr_g
-        else:
-            L = cholesky_added_multiple_identities(H, maxiter=self.cho_maxiter)
-            dtheta = -lr * cho_solve((L, True), g, **self.cho_solve_kwargs)
 
         if solver is None:
-            self._learnable_pars.update_values(theta + dtheta)
+            if H is None:
+                p = g
+            else:
+                L = cholesky_added_multiple_identities(H, maxiter=self.cho_maxiter)
+                p = cho_solve((L, True), g, **self.cho_solve_kwargs)
+            self._learnable_pars.update_values(theta - lr * p)
             return None
 
-        H = np.eye(theta.shape[0]) if H is None else L @ L.T
+        if H is None:
+            H = np.eye(theta.shape[0])
+        else:
+            L = cholesky_added_multiple_identities(H, maxiter=self.cho_maxiter)
+            H = L @ L.T
         lbx, ubx = self._get_update_bounds(theta)
-        sol = solver(p=np.concatenate((lr_g, H), None), lbx=lbx, ubx=ubx, x0=dtheta)
+        sol = solver(p=np.concatenate((lr * g, H), None), lbx=lbx, ubx=ubx)
         dtheta = np.clip(sol["x"].full()[:, 0], lbx, ubx)
         self._learnable_pars.update_values(theta + dtheta)
         stats = solver.stats()
