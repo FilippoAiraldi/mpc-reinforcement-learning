@@ -1097,14 +1097,13 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
         R = cholesky_added_multiple_identities(H)
         p = cho_solve((R, True), g).flatten()
         theta = self.weights.values()
-        pars = np.block([theta, p, cfg.lr])
         lb, ub = self._get_percentage_bounds(
             theta, self.weights.bounds(), cfg.max_perc_update
         )
-        sol = self._solver(p=pars, lbx=lb, ubx=ub, x0=theta - cfg.lr * p)
+        sol = self._solver(p=np.concatenate((p, cfg.lr)), lbx=lb, ubx=ub)
         if not self._solver.stats()["success"]:
             raise UpdateError(f"RL update failed in epoch {self._epoch_n}.")
-        self.weights.update_values(sol["x"].full().flatten())
+        self.weights.update_values(theta + sol["x"].full().flatten())
         return p
 
     def learn_one_epoch(
@@ -1157,15 +1156,13 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
 
     def _init_qp_solver(self) -> None:
         n_theta = self.weights.n_theta
-        theta: cs.SX = cs.SX.sym("theta", n_theta, 1)
-        theta_new: cs.SX = cs.SX.sym("theta+", n_theta, 1)
-        dtheta = theta_new - theta
+        dtheta: cs.SX = cs.SX.sym("dtheta", n_theta, 1)
         p: cs.SX = cs.SX.sym("p", n_theta, 1)
         lr: cs.SX = cs.SX.sym("lr", n_theta, 1)
         qp = {
-            "x": theta_new,
+            "x": dtheta,
             "f": 0.5 * dtheta.T @ dtheta + (lr * p).T @ dtheta,
-            "p": cs.vertcat(theta, p, lr),
+            "p": cs.vertcat(p, lr),
         }
         opts = {"print_iter": False, "print_header": False}
         self._solver = cs.qpsol(f"qpsol_{self.name}", "qrqp", qp, opts)
@@ -1364,6 +1361,7 @@ class TestQuadRotorQlearning(unittest.TestCase):
                 ),
                 experience=ExperienceReplay(maxlen=Tlimit, sample_size=1.0),
                 update_strategy=Tlimit,
+                cho_before_update=True,
             )
         )
         results_actual = LstdQLearningAgent.train(
