@@ -114,7 +114,7 @@ class RlLearningAgent(
             "print_info": False,
             "print_iter": False,
             "print_header": False,
-            "error_on_fail": True,
+            "error_on_fail": False,
             "max_iter": 2000,
         }
         return cs.qpsol(f"qpsol_{self.name}", "qrqp", qp, opts)
