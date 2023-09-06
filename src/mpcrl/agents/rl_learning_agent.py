@@ -27,6 +27,7 @@ class RlLearningAgent(
         discount_factor: float,
         learning_rate: Union[LrType, Scheduler[LrType], LearningRate[LrType]],
         max_percentage_update: float = float("+inf"),
+        cho_before_update: bool = False,
         cho_maxiter: int = 1000,
         cho_solve_kwargs: Optional[dict[str, Any]] = None,
         **kwargs: Any,
@@ -49,6 +50,18 @@ class RlLearningAgent(
             changed during each update. For example, `max_percentage_update=0.5` means
             that the parameters can be updated by up to 50% of their current value. By
             default, it is set to `+inf`.
+        cho_before_update : bool, optional
+            Whether to perform a Cholesky's factorization of the hessian in preparation
+            of each update. If `False`, the QP update's objective is
+            ```math
+                min 1/2 * dtheta' * H * dtheta + (lr * g)' * dtheta
+            ```
+            else, if `True`, the objective is
+            ```math
+                min 1/2 * ||dtheta||^2' + (lr * H^-1 * g)' * dtheta
+            ```
+            where the hessian linear system is performed via Cholesky's factorization.
+            Only relevant if the RL algorithm uses hessian info. By default, `False`.
         cho_maxiter : int, optional
             Maximum number of iterations in the Cholesky's factorization with additive
             multiples of the identity to ensure positive definiteness of the hessian. By
@@ -61,15 +74,16 @@ class RlLearningAgent(
         kwargs
             Additional arguments to be passed to `LearningAgent`.
         """
+        self.discount_factor = discount_factor
         if not isinstance(learning_rate, LearningRate):
             learning_rate = LearningRate(learning_rate, "on_update")
         self._learning_rate: LearningRate[LrType] = learning_rate
-        self.discount_factor = discount_factor
+        self.max_percentage_update = max_percentage_update
+        self.cho_before_update = cho_before_update
         self.cho_maxiter = cho_maxiter
         if cho_solve_kwargs is None:
             cho_solve_kwargs = {"check_finite": False}
         self.cho_solve_kwargs = cho_solve_kwargs
-        self.max_percentage_update = max_percentage_update
         super().__init__(**kwargs)
         self._update_solver = self._init_update_solver()
 
@@ -157,11 +171,18 @@ class RlLearningAgent(
 
         if H is None:
             H = np.eye(theta.shape[0])
+            p = g
         else:
             L = cholesky_added_multiple_identities(H, maxiter=self.cho_maxiter)
-            H = L @ L.T
+            if self.cho_before_update:
+                H = np.eye(theta.shape[0])  # hessian info is already in L
+                p = cho_solve((L, True), g, **self.cho_solve_kwargs)
+            else:
+                H = L @ L.T
+                p = g
+
         lbx, ubx = self._get_update_bounds(theta)
-        sol = solver(p=np.concatenate((lr * g, H), None), lbx=lbx, ubx=ubx)
+        sol = solver(p=np.concatenate((lr * p, H), None), lbx=lbx, ubx=ubx)
         dtheta = np.clip(sol["x"].full()[:, 0], lbx, ubx)
         self._learnable_pars.update_values(theta + dtheta)
         stats = solver.stats()

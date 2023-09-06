@@ -68,6 +68,7 @@ class LstdQLearningAgent(
         warmstart: Literal["last", "last-successful"] = "last-successful",
         hessian_type: Literal["none", "approx", "full"] = "approx",
         record_td_errors: bool = False,
+        cho_before_update: bool = False,
         cho_maxiter: int = 1000,
         cho_solve_kwargs: Optional[dict[str, Any]] = None,
         use_last_action_on_fail: bool = False,
@@ -135,6 +136,18 @@ class LstdQLearningAgent(
         record_td_errors: bool, optional
             If `True`, the TD errors are recorded in the field `td_errors`, which
             otherwise is `None`. By default, does not record them.
+        cho_before_update : bool, optional
+            Whether to perform a Cholesky's factorization of the hessian in preparation
+            of each update. If `False`, the QP update's objective is
+            ```math
+                min 1/2 * dtheta' * H * dtheta + (lr * g)' * dtheta
+            ```
+            else, if `True`, the objective is
+            ```math
+                min 1/2 * ||dtheta||^2' + (lr * H^-1 * g)' * dtheta
+            ```
+            where the hessian linear system is performed via Cholesky's factorization.
+            Only relevant if the RL algorithm uses hessian info. By default, `False`.
         cho_maxiter : int, optional
             Maximum number of iterations in the Cholesky's factorization with additive
             multiples of the identity to ensure positive definiteness of the hessian. By
@@ -167,6 +180,7 @@ class LstdQLearningAgent(
             experience=experience,
             max_percentage_update=max_percentage_update,
             warmstart=warmstart,
+            cho_before_update=cho_before_update,
             cho_maxiter=cho_maxiter,
             cho_solve_kwargs=cho_solve_kwargs,
             use_last_action_on_fail=use_last_action_on_fail,
