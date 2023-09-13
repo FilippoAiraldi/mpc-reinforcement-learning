@@ -135,7 +135,7 @@ class QuadRotorEnv:
         self._x = val.copy()
 
     def position_error(self, x: np.ndarray) -> float:
-        return (np.square((x - self.config.xf)) * self._Wx).sum(axis=-1)
+        return (np.square(x - self.config.xf) * self._Wx).sum(axis=-1)
 
     def control_usage(self, u: np.ndarray) -> float:
         return (np.square(u) * self._Wu).sum(axis=-1)
