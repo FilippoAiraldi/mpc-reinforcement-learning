@@ -80,7 +80,6 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         linsolver: Literal["csparse", "qr", "mldivide"] = "csparse",
         ridge_regression_regularization: float = 1e-6,
         use_last_action_on_fail: bool = False,
-        remove_bounds_on_initial_action: bool = False,
         name: Optional[str] = None,
     ) -> None:
         """Instantiates the LSTD DPG agent.
@@ -173,12 +172,6 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
             When `True`, if the MPC solver fails in solving the state value function
             `V(s)`, the last successful action is returned. When `False`, the action
             from the last MPC iteration is returned instead. By default, `False`.
-        remove_bounds_on_initial_action : bool, optional
-            When `True`, the upper and lower bounds on the initial action are removed in
-            the action-value function approximator Q(s,a) since the first action is
-            constrained to be equal to the initial action. This is useful to avoid
-            issues in the LICQ of the NLP. However, it can lead to numerical problems.
-            By default, `False`.
         name : str, optional
             Name of the agent. If `None`, one is automatically created from a counter of
             the class' instancies.
@@ -198,7 +191,6 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
             max_percentage_update=max_percentage_update,
             warmstart=warmstart,
             use_last_action_on_fail=use_last_action_on_fail,
-            remove_bounds_on_initial_action=remove_bounds_on_initial_action,
             name=name,
         )
         self._sensitivity = self._init_sensitivity(linsolver)
