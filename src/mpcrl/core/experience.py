@@ -1,5 +1,6 @@
+from collections.abc import Iterable, Iterator, Sequence
 from itertools import chain
-from typing import Deque, Iterable, Iterator, Optional, Sequence, TypeVar, Union
+from typing import Deque, Optional, TypeVar, Union
 
 import numpy as np
 

@@ -1,14 +1,6 @@
 from abc import ABC, abstractmethod
-from typing import (
-    Any,
-    Callable,
-    Collection,
-    Generic,
-    Optional,
-    Sequence,
-    TypeVar,
-    Union,
-)
+from collections.abc import Collection, Sequence
+from typing import Any, Callable, Generic, Optional, TypeVar, Union
 
 import numpy as np
 import numpy.typing as npt

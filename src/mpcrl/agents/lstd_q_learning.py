@@ -1,13 +1,5 @@
-from typing import (
-    Any,
-    Callable,
-    Collection,
-    Generic,
-    Literal,
-    Optional,
-    SupportsFloat,
-    Union,
-)
+from collections.abc import Collection
+from typing import Any, Callable, Generic, Literal, Optional, SupportsFloat, Union
 
 import casadi as cs
 import numpy as np

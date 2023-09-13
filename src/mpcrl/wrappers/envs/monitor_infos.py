@@ -1,6 +1,7 @@
 from collections import deque
+from collections.abc import Iterable
 from logging import warn
-from typing import Any, Deque, Iterable, Optional, SupportsFloat, TypeVar
+from typing import Any, Deque, Optional, SupportsFloat, TypeVar
 
 from gymnasium import Env, Wrapper, utils
 

@@ -1,15 +1,5 @@
-from typing import (
-    Any,
-    Collection,
-    Generic,
-    Iterable,
-    Iterator,
-    Literal,
-    Optional,
-    Sequence,
-    TypeVar,
-    Union,
-)
+from collections.abc import Collection, Iterable, Iterator, Sequence
+from typing import Any, Generic, Literal, Optional, TypeVar, Union
 
 import casadi as cs
 import numpy as np

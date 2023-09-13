@@ -1,6 +1,7 @@
 import logging
+from collections.abc import Iterable, Iterator
 from itertools import chain
-from typing import Iterable, Iterator, Optional, Set, TypeVar
+from typing import Optional, TypeVar
 
 import numpy as np
 import numpy.typing as npt
@@ -94,7 +95,7 @@ class Log(Wrapper[SymType]):
         self.precision = precision
 
         # store excluded-mandatory-callbacks and callbacks-with-frequency
-        self.exclude_mandatory: Set[str] = (
+        self.exclude_mandatory: set[str] = (
             set() if exclude_mandatory is None else set(exclude_mandatory)
         )
         self.log_frequencies: dict[str, Iterator[bool]] = {}

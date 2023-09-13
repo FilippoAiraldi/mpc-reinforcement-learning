@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
-from typing import Any, Literal, Optional, Sequence, Union
+from collections.abc import Sequence
+from typing import Any, Literal, Optional, Union
 
 import numpy as np
 import numpy.typing as npt

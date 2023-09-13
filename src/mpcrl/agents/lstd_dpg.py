@@ -1,14 +1,6 @@
+from collections.abc import Collection, Iterator
 from itertools import repeat
-from typing import (
-    Callable,
-    Collection,
-    Generic,
-    Iterator,
-    Literal,
-    Optional,
-    SupportsFloat,
-    Union,
-)
+from typing import Callable, Generic, Literal, Optional, SupportsFloat, Union
 
 import casadi as cs
 import numba as nb

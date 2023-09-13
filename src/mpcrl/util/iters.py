@@ -1,5 +1,5 @@
+from collections.abc import Iterator
 from itertools import chain, cycle, repeat
-from typing import Iterator
 
 
 def bool_cycle(frequency: int, starts_with: bool = False) -> Iterator[bool]:

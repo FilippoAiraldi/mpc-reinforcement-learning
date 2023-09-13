@@ -1,8 +1,9 @@
 import pickle
 import unittest
+from collections.abc import Iterator
 from copy import deepcopy
 from itertools import product
-from typing import Iterator, Union
+from typing import Union
 from unittest.mock import Mock
 
 import casadi as cs
