@@ -1,4 +1,4 @@
-from typing import Any, Generic, Type
+from typing import Any, Generic
 
 from csnlp.util.io import SupportsDeepcopyAndPickle
 
@@ -31,7 +31,7 @@ class Wrapper(SupportsDeepcopyAndPickle, RemovesCallbackHooksInState, Generic[Sy
         """'Returns the original agent of the wrapper."""
         return self.agent.unwrapped
 
-    def is_wrapped(self, wrapper_type: Type["Wrapper[SymType]"]) -> bool:
+    def is_wrapped(self, wrapper_type: type["Wrapper[SymType]"]) -> bool:
         """Gets whether the agent instance is wrapped or not by the wrapper type.
 
         Parameters

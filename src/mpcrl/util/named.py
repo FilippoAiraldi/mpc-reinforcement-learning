@@ -1,11 +1,12 @@
+from collections.abc import Iterator
 from itertools import count
-from typing import Iterator, Optional, Type
+from typing import Optional
 
 
 class Named:
     """Base class for objects with names."""
 
-    __ids: dict[Type, Iterator[int]] = {}
+    __ids: dict[type, Iterator[int]] = {}
 
     def __init__(self, name: Optional[str] = None) -> None:
         """Instantiates the class with the given `name` attribute.

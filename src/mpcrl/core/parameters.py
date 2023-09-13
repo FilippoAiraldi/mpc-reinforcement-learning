@@ -1,7 +1,8 @@
+from collections.abc import Iterable
 from functools import cached_property
 from itertools import chain
 from numbers import Integral
-from typing import Any, Generic, Iterable, Optional, TypeVar, Union
+from typing import Any, Generic, Optional, TypeVar, Union
 
 import numpy as np
 import numpy.typing as npt

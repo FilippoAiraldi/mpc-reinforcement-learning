@@ -1,20 +1,10 @@
 import unittest
 from abc import ABC, abstractmethod
+from collections.abc import Iterable, Iterator, Sequence
 from dataclasses import dataclass, field
 from functools import partial
 from itertools import chain
-from typing import (
-    Any,
-    Deque,
-    Generic,
-    Iterable,
-    Iterator,
-    Optional,
-    Sequence,
-    Type,
-    TypeVar,
-    Union,
-)
+from typing import Any, Deque, Generic, Optional, TypeVar, Union
 
 import casadi as cs
 import numpy as np
@@ -463,7 +453,7 @@ ConfigType = TypeVar("ConfigType")
 
 
 def init_config(
-    config: Optional[Union[ConfigType, dict]], cls: Type[ConfigType]
+    config: Optional[Union[ConfigType, dict]], cls: type[ConfigType]
 ) -> ConfigType:
     if config is None:
         return cls()
