@@ -112,7 +112,7 @@ class LinearMpc(Mpc[cs.SX]):
         B = self.parameter("B", (nx, nu))
 
         # variables (state, action, slack)
-        x, _ = self.state("x", nx, remove_bounds_on_initial=True)
+        x, _ = self.state("x", nx, bound_initial=False)
         u, _ = self.action("u", nu, lb=a_bnd[0], ub=a_bnd[1])
         s, _, _ = self.variable("s", (nx, N), lb=0)
 
