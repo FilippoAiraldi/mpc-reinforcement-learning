@@ -32,7 +32,7 @@ class LearningAgent(
         update_strategy: Union[int, UpdateStrategy],
         learnable_parameters: LearnableParametersDict[SymType],
         exploration: Optional[ExplorationStrategy] = None,
-        experience: Optional[ExperienceReplay[ExpType]] = None,
+        experience: Union[None, int, ExperienceReplay[ExpType]] = None,
         **kwargs: Any,
     ) -> None:
         """Instantiates the learning agent.
@@ -51,10 +51,11 @@ class LearningAgent(
         exploration : ExplorationStrategy, optional
             Exploration strategy for inducing exploration in the MPC policy. By default
             `None`, in which case `NoExploration` is used in the fixed-MPC agent.
-        experience : ExperienceReplay, optional
+        experience : int or ExperienceReplay, optional
             The container for experience replay memory. If `None` is passed, then a
             memory with length 1 is created, i.e., it keeps only the latest memory
-            transition.
+            transition. If an integer `n` is passed, then a memory with the length `n`
+            is created and with sample size `n`.
         kwargs
             Additional arguments to be passed to `Agent`.
         """
@@ -62,9 +63,11 @@ class LearningAgent(
         LearningAgentCallbacks.__init__(self)
         self._raises: bool = True
         self._learnable_pars = learnable_parameters
-        self._experience = (
-            ExperienceReplay(maxlen=1) if experience is None else experience
-        )
+        if experience is None:
+            experience = ExperienceReplay(maxlen=1)
+        elif isinstance(experience, int):
+            experience = ExperienceReplay(maxlen=experience, sample_size=experience)
+        self._experience = experience
         if exploration is not None:
             self._exploration = exploration
         if not isinstance(update_strategy, UpdateStrategy):

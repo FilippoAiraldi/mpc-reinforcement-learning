@@ -55,7 +55,7 @@ class LstdQLearningAgent(
             None, dict[str, npt.ArrayLike], Collection[dict[str, npt.ArrayLike]]
         ] = None,
         exploration: Optional[ExplorationStrategy] = None,
-        experience: Optional[ExperienceReplay[ExpType]] = None,
+        experience: Union[None, int, ExperienceReplay[ExpType]] = None,
         max_percentage_update: float = float("+inf"),
         warmstart: Literal["last", "last-successful"] = "last-successful",
         hessian_type: Literal["none", "approx", "full"] = "approx",
@@ -105,12 +105,14 @@ class LstdQLearningAgent(
         exploration : ExplorationStrategy, optional
             Exploration strategy for inducing exploration in the MPC policy. By default
             `None`, in which case `NoExploration` is used in the fixed-MPC agent.
-        experience : ExperienceReplay, optional
+        experience : int or ExperienceReplay, optional
             The container for experience replay memory. If `None` is passed, then a
             memory with length 1 is created, i.e., it keeps only the latest memory
-            transition. In the case of LSTD Q-learning, each memory item consists of the
-            action value function's gradient and hessian computed at each (succesful)
-            env's step.
+            transition.  If an integer `n` is passed, then a memory with the length `n`
+            is created and with sample size `n`.
+            In the case of LSTD Q-learning, each memory item consists of the action
+            value function's gradient and hessian computed at each (succesful) env's
+            step.
         max_percentage_update : float, optional
             A positive float that specifies the maximum percentage the parameters can be
             changed during each update. For example, `max_percentage_update=0.5` means
