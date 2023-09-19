@@ -178,7 +178,7 @@ agent = Log(
             learning_rate=1e-6,
             update_strategy=UpdateStrategy(rollout_length, "on_timestep_end"),
             rollout_length=rollout_length,
-            exploration=E.GreedyExploration(0.2),  # type: ignore[arg-type]
+            exploration=E.GreedyExploration(0.2),
             record_policy_performance=True,
             record_policy_gradient=True,
         )
