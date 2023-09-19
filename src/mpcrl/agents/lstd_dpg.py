@@ -1,5 +1,4 @@
 from collections.abc import Collection, Iterator
-from itertools import repeat
 from typing import Callable, Generic, Literal, Optional, SupportsFloat, Union
 
 import casadi as cs
@@ -24,7 +23,8 @@ ExpType: TypeAlias = tuple[
     npt.NDArray[np.floating],  # rollout's costs
     npt.NDArray[np.floating],  # rollout's state feature vectors Phi(s)
     npt.NDArray[np.floating],  # rollout's Psi(s,a)
-    npt.NDArray[np.floating],  # rollout's gradient of policy
+    npt.NDArray[np.floating],  # rollout's gradient of policy w.r.t. theta
+    npt.NDArray[np.floating],  # rollout's CAFA weight v
 ]
 
 
@@ -213,16 +213,9 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
 
     def update(self) -> Optional[str]:
         sample = self.experience.sample()
-        L, Phi, Psi, dpidtheta, mask_phi = _congregate_rollouts_sample(sample)
-        _, w = _compute_cafa_weights(
-            Phi[mask_phi[1:]],
-            Phi[mask_phi[:-1]],
-            Psi,
-            L,
-            self.discount_factor,
-            self.ridge_regression_regularization,
+        dJdtheta = _estimate_gradient_update(
+            sample, self.discount_factor, self.ridge_regression_regularization
         )
-        dJdtheta = (dpidtheta @ dpidtheta.transpose((0, 2, 1))).sum(0) @ w
         if self.policy_gradients is not None:
             self.policy_gradients.append(dJdtheta)
         return self._do_gradient_update(dJdtheta, None)
@@ -326,15 +319,15 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         # convert to arrays
         N, S, E, L, vals = _consolidate_rollout(self._rollout, self._V.ns, self._V.na)
 
-        # compute Phi
-        Phi = self._Phi(S.T).full().T
-
-        # compute dpidtheta and Psi
+        # compute Phi, dpidtheta, Psi, and CAFA weight v
+        Phi = np.ascontiguousarray(self._Phi(S.T).full().T)
         dpidtheta = self._sensitivity(vals, N)
         Psi = (dpidtheta @ E).reshape(N, dpidtheta.shape[1])
+        R = self.ridge_regression_regularization
+        v = _compute_cafa_weight_v(Phi, L, self.discount_factor, R)
 
         # save to memory and clear rollout
-        self.store_experience((L, Phi, Psi, dpidtheta))
+        self.store_experience((L, Phi, Psi, dpidtheta, v))
         self._rollout.clear()
         if self.policy_performances is not None:
             self.policy_performances.append(L.sum())
@@ -362,45 +355,53 @@ def _consolidate_rollout(
     return N, S, E, L, sol_vals
 
 
-def _congregate_rollouts_sample(
-    sample: Iterator[ExpType],
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, list[bool]]:
-    """Internal utility to congregate a sample of rollouts into single arrays."""
-    # jit does not seem to provide any speedup here
-    L_, Phi_, Psi_, dpidtheta_, mask_phi = [], [], [], [], [False]
-    for L, Phi, Psi, dpidtheta in sample:
-        L_.append(L)
-        Phi_.append(Phi)
-        Psi_.append(Psi)
-        dpidtheta_.append(dpidtheta)
-        mask_phi.extend(repeat(True, L.shape[0]))
-        mask_phi.append(False)
-    L = np.concatenate(L_)
-    Phi = np.concatenate(Phi_)
-    Psi = np.concatenate(Psi_)
-    dpidtheta = np.concatenate(dpidtheta_)
-    return L, Phi, Psi, dpidtheta, mask_phi
-
-
 @nb.njit(cache=True, nogil=True)
-def _compute_cafa_weights(
-    Phi: np.ndarray,
-    Phi_next: np.ndarray,
-    Psi: np.ndarray,
-    L: np.ndarray,
-    discount_factor: float,
-    regularization: float,
-) -> tuple[np.ndarray, np.ndarray]:
-    """Compute the CAFA weights via ridge regression."""
+def _compute_cafa_weight_v(
+    Phi_all: np.ndarray, L: np.ndarray, discount_factor: float, regularization: float
+) -> np.ndarray:
+    """Compute the CAFA weight v via ridge regression."""
     # solve for v via ridge regression: -phi'(gamma phi+ - phi) v = phi'L
+    Phi = Phi_all[:-1]
+    Phi_next = Phi_all[1:]
     Phi_diff = discount_factor * Phi_next - Phi
     M = Phi_diff.T @ Phi @ Phi.T
     R = regularization * np.eye(M.shape[0])
-    v = np.linalg.solve(M @ Phi_diff + R, -M @ L)
+    return np.linalg.solve(M @ Phi_diff + R, -M @ L)
 
+
+@nb.njit(cache=True, nogil=True)
+def _compute_cafa_weight_w(
+    Phi_all: np.ndarray,
+    Psi: np.ndarray,
+    L: np.ndarray,
+    v: np.ndarray,
+    discount_factor: float,
+    regularization: float,
+) -> np.ndarray:
+    """Compute the CAFA weight w via ridge regression."""
     # solve for w via ridge regression: psi' psi w = psi' (L + (gamma phi+ - phi) v)
-    Aw = Psi.T @ Psi
-    bw = Psi.T @ (L + Phi_diff @ v)
-    R = regularization * np.eye(Aw.shape[0])
-    w = np.linalg.solve(Aw.T @ Aw + R, Aw.T @ bw)
-    return v, w
+    Phi = Phi_all[:-1]
+    Phi_next = Phi_all[1:]
+    Phi_diff = discount_factor * Phi_next - Phi
+    A = Psi.T @ Psi
+    b = Psi.T @ (L + Phi_diff @ v)
+    R = regularization * np.eye(A.shape[0])
+    return np.linalg.solve(A.T @ A + R, A.T @ b)
+
+
+def _estimate_gradient_update(
+    sample: Iterator[ExpType], discount_factor: float, regularization: float
+) -> np.ndarray:
+    """Internal utility to estimate the gradient of the policy."""
+    # compute average v and w
+    sample_ = list(sample)  # load whole iterator into a list
+    v = np.mean([o[4] for o in sample_], 0)
+    w_list = [
+        _compute_cafa_weight_w(Phi, Psi, L, v, discount_factor, regularization)
+        for L, Phi, Psi, _, _ in sample_
+    ]
+    w = np.mean(w_list, 0)
+
+    # compute policy gradient estimate
+    dJdtheta_list = [(o[3] @ o[3].transpose((0, 2, 1))).sum(0) @ w for o in sample_]
+    return np.mean(dJdtheta_list, 0)

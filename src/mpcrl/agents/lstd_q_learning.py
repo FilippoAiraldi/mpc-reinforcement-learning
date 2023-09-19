@@ -19,8 +19,8 @@ from mpcrl.core.schedulers import Scheduler
 from mpcrl.core.update import UpdateStrategy
 
 ExpType: TypeAlias = tuple[
-    npt.NDArray[np.floating],  # gradient of Q(s,a)
-    npt.NDArray[np.floating],  # (approximate) hessian of Q(s,a)
+    npt.NDArray[np.floating],  # gradient of Bellman residuals w.r.t. theta
+    npt.NDArray[np.floating],  # (approximate) hessian of Bellman residuals w.r.t. theta
 ]
 
 
