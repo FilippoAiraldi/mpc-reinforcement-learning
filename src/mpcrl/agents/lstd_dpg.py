@@ -62,7 +62,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
             None, dict[str, npt.ArrayLike], Collection[dict[str, npt.ArrayLike]]
         ] = None,
         exploration: Optional[ExplorationStrategy] = None,
-        experience: Optional[ExperienceReplay[ExpType]] = None,
+        experience: Union[None, int, ExperienceReplay[ExpType]] = None,
         max_percentage_update: float = float("+inf"),
         warmstart: Literal["last", "last-successful"] = "last-successful",
         rollout_length: Optional[int] = None,
@@ -112,12 +112,14 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         exploration : ExplorationStrategy, optional
             Exploration strategy for inducing exploration in the MPC policy. By default
             `None`, in which case `NoExploration` is used in the fixed-MPC agent.
-        experience : ExperienceReplay, optional
+        experience : int or ExperienceReplay, optional
             The container for experience replay memory. If `None` is passed, then a
             memory with length 1 is created, i.e., it keeps only the latest memory
-            transition. In case of LSTD DPG, each memory item is obtain from a single
-            rollout, and is a 4-tuple that contains: costs, state vector features (Phi),
-            Psi (a temporary value), and the gradient of the policy.
+            transition. If an integer `n` is passed, then a memory with the length `n`
+            is created and with sample size `n`.
+            In case of LSTD DPG, each memory item is obtain from a single rollout, and
+            is a 4-tuple that contains: costs, state vector features (Phi), Psi (a
+            temporary value), and the gradient of the policy.
         max_percentage_update : float, optional
             A positive float that specifies the maximum percentage the parameters can be
             changed during each update. For example, `max_percentage_update=0.5` means
