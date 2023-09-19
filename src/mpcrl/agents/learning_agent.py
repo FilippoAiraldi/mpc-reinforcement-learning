@@ -157,8 +157,9 @@ class LearningAgent(
             self.reset(current_seed)
             state, _ = env.reset(seed=current_seed, options=env_reset_options)
             self.on_episode_start(env, episode)
-            returns[episode] = self.train_one_episode(env, episode, state, raises)
-            self.on_episode_end(env, episode, returns[episode])
+            r = self.train_one_episode(env, episode, state, raises)
+            self.on_episode_end(env, episode, r)
+            returns[episode] = r
 
         self.on_training_end(env, returns)
         return returns
@@ -227,7 +228,7 @@ class LearningAgent(
             "on_timestep_end",
         }, "Updates can be hooked only to `episode_end` or `on_timestep_end`."
         func: Callable = (
-            (lambda _, e: self._check_and_perform_update(e, None))
+            (lambda _, e, __: self._check_and_perform_update(e, None))
             if self._update_strategy.hook == "on_episode_end"
             else (lambda _, e, t: self._check_and_perform_update(e, t))  # type: ignore
         )
