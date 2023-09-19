@@ -326,9 +326,8 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         # convert to arrays
         N, S, E, L, vals = _consolidate_rollout(self._rollout, self._V.ns, self._V.na)
 
-        # compute Phi (to avoid repeating computations, compute only the last Phi(s+))
-        s_next_last = self._rollout[-1][3].T
-        Phi = self._Phi(np.concatenate((S, s_next_last)).T).full().T
+        # compute Phi
+        Phi = self._Phi(S.T).full().T
 
         # compute dpidtheta and Psi
         dpidtheta = self._sensitivity(vals, N)
@@ -349,7 +348,7 @@ def _consolidate_rollout(
 ) -> tuple[int, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Internal utility to convert a rollout list to arrays."""
     N = len(rollout)
-    S = np.empty((N, ns))
+    S = np.empty((N + 1, ns))
     E = np.empty((N, na, 1))  # additional dim required for Psi
     L = np.empty(N)
     sol_vals = np.empty((N, rollout[0][-1].size))
@@ -359,6 +358,7 @@ def _consolidate_rollout(
         E[i] = e
         L[i] = cost
         sol_vals[i] = sol_val.reshape(-1)
+    S[-1] = rollout[-1][3].reshape(-1)
     return N, S, E, L, sol_vals
 
 
@@ -392,11 +392,13 @@ def _compute_cafa_weights(
     regularization: float,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Compute the CAFA weights via ridge regression."""
+    # solve for v via ridge regression: -phi'(gamma phi+ - phi) v = phi'L
     Phi_diff = discount_factor * Phi_next - Phi
     M = Phi_diff.T @ Phi @ Phi.T
     R = regularization * np.eye(M.shape[0])
     v = np.linalg.solve(M @ Phi_diff + R, -M @ L)
 
+    # solve for w via ridge regression: psi' psi w = psi' (L + (gamma phi+ - phi) v)
     Aw = Psi.T @ Psi
     bw = Psi.T @ (L + Phi_diff @ v)
     R = regularization * np.eye(Aw.shape[0])
