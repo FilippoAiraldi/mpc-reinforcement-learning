@@ -15,7 +15,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
 from csnlp import Nlp
-from csnlp.util.math import quad_form
 from csnlp.wrappers import Mpc
 from gymnasium.wrappers import TimeLimit
 
@@ -123,7 +122,7 @@ class LinearMpc(Mpc[cs.SX]):
         gammapowers = cs.DM(gamma ** np.arange(N)).T
         self.minimize(
             V0
-            + quad_form(S, x[:, -1])
+            + cs.bilin(S, x[:, -1])
             + cs.sum2(f.T @ cs.vertcat(x[:, :-1], u))
             + 0.5
             * cs.sum2(

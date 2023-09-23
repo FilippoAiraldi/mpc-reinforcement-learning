@@ -4,7 +4,6 @@ from typing import Any, Generic, Optional, TypeVar, Union
 import casadi as cs
 import numpy as np
 import numpy.typing as npt
-from csnlp.util.math import quad_form
 from scipy.linalg import cho_solve
 
 from mpcrl.agents.agent import SymType
@@ -120,7 +119,7 @@ class RlLearningAgent(
         H = sym_type.sym("H", n_p, n_p)
         qp = {
             "x": dtheta,
-            "f": 0.5 * quad_form(H, dtheta) + cs.dot(g, dtheta),
+            "f": 0.5 * cs.bilin(H, dtheta) + cs.dot(g, dtheta),
             "p": cs.veccat(g, H),
         }
         opts = {
