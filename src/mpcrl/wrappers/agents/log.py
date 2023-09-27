@@ -140,9 +140,12 @@ class Log(Wrapper[SymType]):
         S = np.array2string(returns, precision=self.precision)
         self.logger.info(f"validation of {env} concluded with returns={S}.")
 
-    def _on_episode_start(self, env: Env[ObsType, ActType], episode: int) -> None:
+    def _on_episode_start(
+        self, env: Env[ObsType, ActType], episode: int, state: ObsType
+    ) -> None:
         if next(self.log_frequencies["on_episode_start"]):
-            self.logger.debug(f"episode {episode} started.")
+            S = np.array2string(state, precision=self.precision)
+            self.logger.debug(f"episode {episode} started with state={S}.")
 
     def _on_episode_end(
         self, env: Env[ObsType, ActType], episode: int, rewards: float

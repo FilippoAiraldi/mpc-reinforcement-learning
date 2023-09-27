@@ -82,7 +82,9 @@ class AgentCallbacks:
             Each episode's cumulative rewards.
         """
 
-    def on_episode_start(self, env: Env[ObsType, ActType], episode: int) -> None:
+    def on_episode_start(
+        self, env: Env[ObsType, ActType], episode: int, state: ObsType
+    ) -> None:
         """Callback called at the beginning of each episode in the training process.
 
         Parameters
@@ -91,6 +93,8 @@ class AgentCallbacks:
             A gym environment where the agent is being trained on.
         episode : int
             Number of the training episode.
+        state : ObsType
+            Starting state for this episode.
         """
 
     def on_episode_end(
