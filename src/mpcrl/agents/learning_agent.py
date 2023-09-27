@@ -159,7 +159,7 @@ class LearningAgent(
         for episode, current_seed in zip(range(episodes), seeds):
             self.reset(current_seed)
             state, _ = env.reset(seed=current_seed, options=env_reset_options)
-            self.on_episode_start(env, episode)
+            self.on_episode_start(env, episode, state)
             r = self.train_one_episode(env, episode, state, raises)
             self.on_episode_end(env, episode, r)
             returns[episode] = r

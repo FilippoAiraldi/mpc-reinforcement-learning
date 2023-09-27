@@ -372,7 +372,7 @@ class Agent(
             self.reset(current_seed)
             state, _ = env.reset(seed=current_seed, options=env_reset_options)
             truncated, terminated, timestep = False, False, 0
-            self.on_episode_start(env, episode)
+            self.on_episode_start(env, episode, state)
 
             while not (truncated or terminated):
                 action, sol = self.state_value(state, deterministic)
