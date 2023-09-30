@@ -166,8 +166,8 @@ learnable_pars = LearnableParametersDict[cs.SX](
         for name, val in mpc.learnable_pars_init.items()
     )
 )
-env = MonitorEpisodes(TimeLimit(LtiSystem(), max_episode_steps=int(3e3)))
-rollout_length = 200
+env = MonitorEpisodes(TimeLimit(LtiSystem(), max_episode_steps=int(5e3)))
+rollout_length = 100
 agent = Log(
     RecordUpdates(
         LstdDpgAgent(
@@ -177,7 +177,7 @@ agent = Log(
             learning_rate=1e-6,
             update_strategy=UpdateStrategy(rollout_length, "on_timestep_end"),
             rollout_length=rollout_length,
-            exploration=E.GreedyExploration(0.2),
+            exploration=E.GreedyExploration(0.05),
             record_policy_performance=True,
             record_policy_gradient=True,
         )
@@ -206,7 +206,7 @@ axs[2].set_ylabel("$a$")
 
 _, axs = plt.subplots(3, 1, constrained_layout=True)
 axs[0].plot(agent.policy_performances)
-axs[1].plot(np.linalg.norm(agent.policy_gradients, axis=1))
+axs[1].semilogy(np.linalg.norm(agent.policy_gradients, axis=1))
 axs[2].semilogy(R, "o", markersize=1)
 axs[0].set_ylabel(r"$J(\pi_\theta)$")
 axs[1].set_ylabel(r"$\nabla_\theta J(\pi_\theta)$")

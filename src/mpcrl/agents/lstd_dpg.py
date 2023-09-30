@@ -69,7 +69,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         record_policy_performance: bool = False,
         record_policy_gradient: bool = False,
         state_features: Optional[cs.Function] = None,
-        linsolver: Literal["csparse", "qr", "mldivide"] = "csparse",
+        linsolver: Literal["csparse", "mldivide"] = "csparse",
         ridge_regression_regularization: float = 1e-6,
         use_last_action_on_fail: bool = False,
         name: Optional[str] = None,
@@ -155,7 +155,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
             feature vector. This function is assumed to have one input and one output.
             By default, if not provided, it is designed as all monomials of the state
             with degrees <= 2 (see `mpcrl.util.math.monomials_basis_function`).
-        linsolver : "csparse" or "qr" or "mldivide", optional
+        linsolver : "csparse" or "mldivide", optional
             The type of linear solver to be used for solving the linear system derived
             from the KKT conditions and used to estimate the gradient of the policy. By
             default, `"csparse"` is chosen as the KKT matrix is most often sparse.
@@ -248,7 +248,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
                 # According to Gros and Zanon [2], it is hinted that the perturbed
                 # solution should be used instead (sol).
                 exploration = (action - action_opt).full()
-                sol_vals = sol.all_vals.full()  # NOTE: is correct?
+                sol_vals = sol_opt.all_vals.full()
                 self._rollout.append((state, exploration, cost, state_new, sol_vals))
             else:
                 status = f"{sol.status}/{sol_opt.status}"
@@ -281,9 +281,9 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
 
         # compute first bunch of derivatives
         nlp_ = NlpSensitivity(nlp, theta)
-        Kt = nlp_.jacobians["K-p"].T
-        Ky = nlp_.jacobians["K-y"].T  # NOTE: is correct?
-        dydu0 = cs.evalf(cs.jacobian(u0, y)).T
+        Kt = nlp_.jacobians["K-p"]
+        Ky = nlp_.jacobians["K-y"]
+        dydu0 = cs.evalf(cs.jacobian(y, u0))
 
         # instantiate linear solver (must be MX, so SX has to be converted)
         if nlp.sym_type is cs.SX:
@@ -296,9 +296,14 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         )
 
         # compute sensitivity and convert to function (faster runtime)
-        dpidtheta = -Kt @ solver(Ky, dydu0)
+        dpidtheta = -solver(Ky, Kt).T @ dydu0
         sensitivity = cs.Function(
-            "dpi", (x_lam_p,), (dpidtheta,), ("x_lam_p",), ("dpidtheta",), {"cse": True}
+            "dpidtheta",
+            (x_lam_p,),
+            (dpidtheta,),
+            ("x_lam_p",),
+            ("dpidtheta",),
+            {"cse": True},
         )
         ntheta, na = dpidtheta.shape
 
