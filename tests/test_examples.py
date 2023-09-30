@@ -257,7 +257,7 @@ class TestExamples(unittest.TestCase):
                     learning_rate=1e-7,
                     update_strategy=UpdateStrategy(rollout_length, "on_timestep_end"),
                     rollout_length=rollout_length,
-                    exploration=E.GreedyExploration(0.1),  # type: ignore[arg-type]
+                    exploration=E.GreedyExploration(0.05),
                     record_policy_performance=True,
                     record_policy_gradient=True,
                     max_percentage_update=1e3,  # does nothing, just allows to test qp
