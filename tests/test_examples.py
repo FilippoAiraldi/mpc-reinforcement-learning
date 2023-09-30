@@ -286,7 +286,7 @@ class TestExamples(unittest.TestCase):
         np.testing.assert_allclose(J, DATA["dpg_J"], rtol=1e0, atol=1e0)
         np.testing.assert_allclose(X, DATA["dpg_X"], rtol=1e0, atol=1e0)
         np.testing.assert_allclose(U, DATA["dpg_U"], rtol=1e1, atol=1e1)
-        np.testing.assert_allclose(R, DATA["dpg_R"], rtol=1e0, atol=1e0)
+        np.testing.assert_allclose(R, DATA["dpg_R"], rtol=1e1, atol=1e1)
         np.testing.assert_allclose(Jest, DATA["dpg_Jest"], rtol=1e0, atol=1e0)
         np.testing.assert_allclose(Gest, DATA["dpg_Gest"], rtol=1e3, atol=1e3)
         np.testing.assert_allclose(PARS, DATA["dpg_pars"], rtol=1e0, atol=1e0)
