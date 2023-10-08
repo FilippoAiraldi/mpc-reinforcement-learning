@@ -98,6 +98,23 @@ class TestControl(unittest.TestCase):
         np.testing.assert_allclose(K, K_exp)
         np.testing.assert_allclose(P, P_exp)
 
+    def test_dlqr__with_M__returns_correctly(self):
+        K_exp = np.array([[1.132928272226698, 1.820247185260309]])
+        P_exp = np.array(
+            [
+                [6.426698776552665, 2.359469798498852],
+                [2.359469798498852, 3.806839220681791],
+            ]
+        )
+        A = np.array([[1, 0.25], [0, 1]])
+        B = np.array([[0.03], [0.25]])
+        Q = np.eye(2)
+        R = np.atleast_2d(0.5)
+        M = np.array([[0.1], [0.2]])
+        K, P = control.dlqr(A, B, Q, R, M)
+        np.testing.assert_allclose(K, K_exp)
+        np.testing.assert_allclose(P, P_exp)
+
     def test_rk4__returns_correcly(self):
         def f(x):
             return -3 * x
