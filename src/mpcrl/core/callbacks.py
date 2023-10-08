@@ -17,19 +17,19 @@ ActType = TypeVar("ActType")
 
 
 def _failure_msg(
-    type: Literal["mpc", "update"],
+    category: Literal["mpc", "update"],
     name: str,
     episode: int,
     timestep: Optional[int],
     status: str,
 ) -> str:
     """Internal utility for composing message for mpc/update failure."""
-    p = type.title()
+    C = category.title()
     if timestep is None:
-        return f"{p} failure of {name} at episode {episode}, status: {status}."
+        return f"{C} failure of {name} at episode {episode}, status: {status}."
     else:
         return (
-            f"{p} failure of {name} at episode {episode}, time {timestep}, "
+            f"{C} failure of {name} at episode {episode}, time {timestep}, "
             f"status: {status}."
         )
 

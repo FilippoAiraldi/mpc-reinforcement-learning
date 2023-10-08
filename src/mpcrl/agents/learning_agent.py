@@ -230,10 +230,10 @@ class LearningAgent(
             "on_episode_end",
             "on_timestep_end",
         }, "Updates can be hooked only to `episode_end` or `on_timestep_end`."
-        func: Callable = (
+        func: Callable[..., None] = (
             (lambda _, e, __: self._check_and_perform_update(e, None))
             if self._update_strategy.hook == "on_episode_end"
-            else (lambda _, e, t: self._check_and_perform_update(e, t))  # type: ignore
+            else (lambda _, e, t: self._check_and_perform_update(e, t))
         )
         self.hook_callback(
             repr(self._update_strategy),
