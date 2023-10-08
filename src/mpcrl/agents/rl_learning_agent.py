@@ -26,6 +26,7 @@ class RlLearningAgent(
         discount_factor: float,
         learning_rate: Union[LrType, Scheduler[LrType], LearningRate[LrType]],
         max_percentage_update: float = float("+inf"),
+        weight_decay: float = 0.0,
         cho_before_update: bool = False,
         cho_maxiter: int = 1000,
         cho_solve_kwargs: Optional[dict[str, Any]] = None,
@@ -49,6 +50,10 @@ class RlLearningAgent(
             changed during each update. For example, `max_percentage_update=0.5` means
             that the parameters can be updated by up to 50% of their current value. By
             default, it is set to `+inf`.
+        weight_decay : float, optional
+            A positive float that specifies the decay of the learnable parameters in the
+            form of an L2 regularization term. By default, it is set to `0.0`, so no
+            decay/regularization takes place.
         cho_before_update : bool, optional
             Whether to perform a Cholesky's factorization of the hessian in preparation
             of each update. If `False`, the QP update's objective is
@@ -78,6 +83,7 @@ class RlLearningAgent(
             learning_rate = LearningRate(learning_rate, "on_update")
         self._learning_rate: LearningRate[LrType] = learning_rate
         self.max_percentage_update = max_percentage_update
+        self.weight_decay = weight_decay
         self.cho_before_update = cho_before_update
         self.cho_maxiter = cho_maxiter
         if cho_solve_kwargs is None:
@@ -115,13 +121,10 @@ class RlLearningAgent(
         sym_type = cs.MX
         n_p = self._learnable_pars.size
         dtheta = sym_type.sym("dtheta", n_p, 1)
-        g = sym_type.sym("g", n_p, 1)  # includes learning rate
+        J = sym_type.sym("J", n_p, 1)
         H = sym_type.sym("H", n_p, n_p)
-        qp = {
-            "x": dtheta,
-            "f": 0.5 * cs.bilin(H, dtheta) + cs.dot(g, dtheta),
-            "p": cs.veccat(g, H),
-        }
+        f = 0.5 * cs.bilin(H, dtheta) + cs.dot(J, dtheta)
+        qp = {"x": dtheta, "f": f, "p": cs.veccat(J, H)}
         opts = {
             "expand": True,
             "print_info": False,
@@ -158,30 +161,53 @@ class RlLearningAgent(
         solver = self._update_solver
         theta = self._learnable_pars.value  # current values of parameters
         lr = self.learning_rate
+        w = self.weight_decay
+        no_decay = w <= 0.0
+        no_hessian = H is None
 
+        # if solver is None, then we do a manual update
         if solver is None:
-            if H is None:
-                p = g
+            if no_hessian:
+                if no_decay:
+                    dtheta = -lr * g
+                else:
+                    dtheta = -(lr * g + w * theta) / (1 + w)
             else:
                 L = cholesky_added_multiple_identities(H, maxiter=self.cho_maxiter)
-                p = cho_solve((L, True), g, **self.cho_solve_kwargs)
-            self._learnable_pars.update_values(theta - lr * p)
+                if no_decay:
+                    dtheta = -lr * cho_solve((L, True), g)
+                else:
+                    dtheta = -np.linalg.solve(
+                        L @ L.T + w * np.eye(theta.shape[0]), lr * g + w * theta
+                    )
+            self._learnable_pars.update_values(theta + dtheta)
             return None
 
-        if H is None:
+        # if solver is not None, then we run the QP update. We can either pre-compute
+        # the factorization of the hessian, or pass it directly to the solver
+        if no_hessian:
+            if no_decay:
+                J = lr * g
+            else:
+                J = (lr * g + w * theta) / (1 + w)
             H = np.eye(theta.shape[0])
-            p = g
         else:
             L = cholesky_added_multiple_identities(H, maxiter=self.cho_maxiter)
-            if self.cho_before_update:
-                H = np.eye(theta.shape[0])  # hessian info is already in L
-                p = cho_solve((L, True), g, **self.cho_solve_kwargs)
+            if no_decay:
+                if self.cho_before_update:
+                    J = cho_solve((L, True), lr * g)
+                    H = np.eye(theta.shape[0])
+                else:
+                    J = lr * g
+                    H = L @ L.T
             else:
-                H = L @ L.T
-                p = g
-
+                J = lr * g + w * theta
+                H = L @ L.T + w * np.eye(theta.shape[0])
+                if self.cho_before_update:
+                    J = np.linalg.solve(H, J)
+                    H = np.eye(theta.shape[0])
         lbx, ubx = self._get_update_bounds(theta)
-        sol = solver(p=np.concatenate((lr * p, H), None), lbx=lbx, ubx=ubx)
+        sol = solver(p=np.concatenate((J, H.T), None), lbx=lbx, ubx=ubx)
         dtheta = np.clip(sol["x"].full()[:, 0], lbx, ubx)
         self._learnable_pars.update_values(theta + dtheta)
         stats = solver.stats()

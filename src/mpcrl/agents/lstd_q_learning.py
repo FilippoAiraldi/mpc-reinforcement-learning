@@ -57,6 +57,7 @@ class LstdQLearningAgent(
         exploration: Optional[ExplorationStrategy] = None,
         experience: Union[None, int, ExperienceReplay[ExpType]] = None,
         max_percentage_update: float = float("+inf"),
+        weight_decay: float = 0.0,
         warmstart: Literal["last", "last-successful"] = "last-successful",
         hessian_type: Literal["none", "approx", "full"] = "approx",
         record_td_errors: bool = False,
@@ -118,6 +119,10 @@ class LstdQLearningAgent(
             changed during each update. For example, `max_percentage_update=0.5` means
             that the parameters can be updated by up to 50% of their current value. By
             default, it is set to `+inf`.
+        weight_decay : float, optional
+            A positive float that specifies the decay of the learnable parameters in the
+            form of an L2 regularization term. By default, it is set to `0.0`, so no
+            decay/regularization takes place.
         warmstart: 'last' or 'last-successful', optional
             The warmstart strategy for the MPC's NLP. If 'last-successful', the last
             successful solution is used to warm start the solver for the next iteration.
@@ -173,6 +178,7 @@ class LstdQLearningAgent(
             exploration=exploration,
             experience=experience,
             max_percentage_update=max_percentage_update,
+            weight_decay=weight_decay,
             warmstart=warmstart,
             cho_before_update=cho_before_update,
             cho_maxiter=cho_maxiter,
