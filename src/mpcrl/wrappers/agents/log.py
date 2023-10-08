@@ -132,59 +132,66 @@ class Log(Wrapper[SymType]):
         m(_failure_msg("mpc", self.agent.name, episode, timestep, status))
 
     def _on_validation_start(self, env: Env[ObsType, ActType]) -> None:
-        self.logger.debug(f"validation of {env} started.")
+        self.logger.debug("validation of %s started.", env)
 
     def _on_validation_end(
         self, env: Env[ObsType, ActType], returns: npt.NDArray[np.floating]
     ) -> None:
         S = np.array2string(returns, precision=self.precision)
-        self.logger.info(f"validation of {env} concluded with returns={S}.")
+        self.logger.info("validation of %s concluded with returns=%s.", env, S)
 
     def _on_episode_start(
         self, env: Env[ObsType, ActType], episode: int, state: ObsType
     ) -> None:
         if next(self.log_frequencies["on_episode_start"]):
             S = np.array2string(state, precision=self.precision)
-            self.logger.debug(f"episode {episode} started with state={S}.")
+            self.logger.debug("episode %d started with state=%s.", episode, S)
 
     def _on_episode_end(
         self, env: Env[ObsType, ActType], episode: int, rewards: float
     ) -> None:
         if next(self.log_frequencies["on_episode_end"]):
             self.logger.info(
-                f"episode {episode} ended with rewards={rewards:.{self.precision}f}."
+                "episode %d ended with rewards=%.*f.", episode, self.precision, rewards
             )
 
     def _on_env_step(
         self, env: Env[ObsType, ActType], episode: int, timestep: int
     ) -> None:
         if next(self.log_frequencies["on_env_step"]):
-            self.logger.debug(f"env stepped in episode {episode} at time {timestep}.")
+            self.logger.debug(
+                "env stepped in episode %d at time %d.", episode, timestep
+            )
 
     def _on_timestep_end(
         self, env: Env[ObsType, ActType], episode: int, timestep: int
     ) -> None:
         if next(self.log_frequencies["on_timestep_end"]):
-            self.logger.debug(f"episode {episode} stepped at time {timestep}.")
+            self.logger.debug("episode %d stepped at time %d.", episode, timestep)
 
     # callbacks for LearningAgent
 
     def _on_update_failure(
         self, episode: int, timestep: Optional[int], errormsg: str, raises: bool
     ) -> None:
-        m = self.logger.error if raises else self.logger.warning
-        m(_failure_msg("update", self.agent.name, episode, timestep, errormsg))
+        (self.logger.error if raises else self.logger.warning)(
+            "_failure_msg('update', %s, %d, %s, %s)",
+            self.agent.name,
+            episode,
+            timestep,
+            errormsg,
+        )
 
     def _on_training_start(self, env: Env[ObsType, ActType]) -> None:
-        self.logger.debug(f"training of {env} started.")
+        self.logger.debug("training of %s started.", env)
 
     def _on_training_end(
         self, env: Env[ObsType, ActType], returns: npt.NDArray[np.floating]
     ) -> None:
         S = np.array2string(returns, precision=self.precision)
-        self.logger.info(f"training of {env} concluded with returns={S}.")
+        self.logger.info("training of %s concluded with returns=%s.", env, S)
 
     def _on_update(self) -> None:
         if next(self.log_frequencies["on_update"]):
             S = self.agent.learnable_parameters.stringify()
-            self.logger.info(f"updated parameters: {S}.")
+            self.logger.info("updated parameters: %s.", S)
