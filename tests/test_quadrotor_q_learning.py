@@ -993,8 +993,8 @@ class QuadRotorBaseLearningAgent(QuadRotorBaseAgent, ABC):
         max_perc_update: float,
     ) -> tuple[np.ndarray, np.ndarray]:
         max_delta = np.maximum(np.abs(max_perc_update * theta), 0.1)
-        lb = np.maximum(theta_bounds[:, 0], theta - max_delta)
-        ub = np.minimum(theta_bounds[:, 1], theta + max_delta)
+        lb = np.maximum(theta_bounds[:, 0], theta - max_delta) - theta
+        ub = np.minimum(theta_bounds[:, 1], theta + max_delta) - theta
         return lb, ub
 
 

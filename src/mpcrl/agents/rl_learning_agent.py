@@ -143,15 +143,14 @@ class RlLearningAgent(
         """Internal utility to retrieve the current bounds on the QP solver for an
         update. Only called if the update problem is not unconstrained, i.e., there are
         either some lb or ub, or a maximum percentage update"""
-        lb = self._learnable_pars.lb
-        ub = self._learnable_pars.ub
+        lb = self._learnable_pars.lb - theta
+        ub = self._learnable_pars.ub - theta
         perc = self.max_percentage_update
-        if perc == float("+inf"):
-            return lb, ub
-        max_update_delta = np.maximum(np.abs(perc * theta), eps)
-        lbx = np.maximum(lb - theta, -max_update_delta)
-        ubx = np.minimum(ub - theta, +max_update_delta)
-        return lbx, ubx
+        if perc != float("+inf"):
+            max_update_delta = np.maximum(np.abs(perc * theta), eps)
+            lb = np.maximum(lb, -max_update_delta)
+            ub = np.minimum(ub, +max_update_delta)
+        return lb, ub
 
     def _do_gradient_update(
         self, g: npt.NDArray[np.floating], H: Optional[npt.NDArray[np.floating]]
