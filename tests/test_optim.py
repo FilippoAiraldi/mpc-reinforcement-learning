@@ -1,5 +1,4 @@
 import unittest
-from copy import deepcopy
 from itertools import product
 
 import casadi as cs
@@ -55,7 +54,7 @@ class TestGradientBasedOptimizer(unittest.TestCase):
         self.assertIsInstance(opt._update_solver, cs.Function)
 
     def test_init__creates_update_solver(self):
-        learnable_pars = deepcopy(LEARNABLE_PARS)
+        learnable_pars = LEARNABLE_PARS.copy(deep=True)
         learnable_pars.lb = -np.arange(1, N_PARAMS + 1, dtype=float)
         learnable_pars.ub = np.arange(1, N_PARAMS + 1, dtype=float)
         opt = DummyOptimizer(0.1)
@@ -69,7 +68,7 @@ class TestGradientBasedOptimizer(unittest.TestCase):
             opt._get_update_bounds(np.random.rand(N_PARAMS))
 
     def test_get_update_bounds(self):
-        learnable_pars = deepcopy(LEARNABLE_PARS)
+        learnable_pars = LEARNABLE_PARS.copy(deep=True)
         lb = -np.arange(1, N_PARAMS + 1, dtype=float)
         ub = theta = np.arange(1, N_PARAMS + 1, dtype=float)
         learnable_pars.lb = lb
@@ -81,7 +80,7 @@ class TestGradientBasedOptimizer(unittest.TestCase):
         np.testing.assert_array_equal(ub_dtheta, 0)
 
     def test_get_update_bounds__with_maximum_update_percentage(self):
-        learnable_pars = deepcopy(LEARNABLE_PARS)
+        learnable_pars = LEARNABLE_PARS.copy(deep=True)
         lb = theta = -np.arange(1, N_PARAMS + 1, dtype=float)
         ub = np.arange(1, N_PARAMS + 1, dtype=float)
         learnable_pars.lb = lb
@@ -103,7 +102,7 @@ class TestGradientDescent(unittest.TestCase):
             dampening=SMALL,
             nesterov=nesterov,
         )
-        learnable_pars = deepcopy(LEARNABLE_PARS)
+        learnable_pars = LEARNABLE_PARS.copy(deep=True)
         learnable_pars.value = theta = np.random.randn(N_PARAMS)
         opt.set_learnable_parameters(learnable_pars)
         g = np.random.randn(N_PARAMS)
@@ -120,7 +119,7 @@ class TestGradientDescent(unittest.TestCase):
             dampening=SMALL,
             nesterov=nesterov,
         )
-        learnable_pars = deepcopy(LEARNABLE_PARS)
+        learnable_pars = LEARNABLE_PARS.copy(deep=True)
         learnable_pars.value = theta = np.random.randn(N_PARAMS)
         lb = learnable_pars.lb = theta - np.abs(theta) * 5e-2
         ub = learnable_pars.ub = theta + np.abs(theta) * 5e-2
@@ -144,7 +143,7 @@ class TestGradientDescent(unittest.TestCase):
             dampening=SMALL,
             nesterov=nesterov,
         )
-        learnable_pars = deepcopy(LEARNABLE_PARS)
+        learnable_pars = LEARNABLE_PARS.copy(deep=True)
         learnable_pars.value = theta = np.random.randn(N_PARAMS)
         learnable_pars.lb = -np.abs(theta) * 100
         learnable_pars.ub = np.abs(theta) * 100
@@ -159,7 +158,7 @@ class TestNetwonMethod(unittest.TestCase):
     @parameterized.expand(product((0.0, SMALL), (False, True)))
     def test_update__unconstrained(self, w: float, cho_before_update: bool):
         opt = O.NetwonMethod(0.1, weight_decay=w, cho_before_update=cho_before_update)
-        learnable_pars = deepcopy(LEARNABLE_PARS)
+        learnable_pars = LEARNABLE_PARS.copy(deep=True)
         learnable_pars.value = theta = np.random.randn(N_PARAMS)
         opt.set_learnable_parameters(learnable_pars)
         g = np.random.randn(N_PARAMS)
@@ -176,7 +175,7 @@ class TestNetwonMethod(unittest.TestCase):
         self, w: float, cho_before_update: bool
     ):
         opt = O.NetwonMethod(0.1, weight_decay=w, cho_before_update=cho_before_update)
-        learnable_pars = deepcopy(LEARNABLE_PARS)
+        learnable_pars = LEARNABLE_PARS.copy(deep=True)
         learnable_pars.value = theta = np.random.randn(N_PARAMS)
         opt.set_learnable_parameters(learnable_pars)
         g = np.random.randn(N_PARAMS)
@@ -190,7 +189,7 @@ class TestNetwonMethod(unittest.TestCase):
         self, w: float, cho_before_update: bool
     ):
         opt = O.NetwonMethod(0.1, weight_decay=w, cho_before_update=cho_before_update)
-        learnable_pars = deepcopy(LEARNABLE_PARS)
+        learnable_pars = LEARNABLE_PARS.copy(deep=True)
         learnable_pars.value = theta = np.random.randn(N_PARAMS)
         learnable_pars.lb = -np.abs(theta) * 100
         learnable_pars.ub = np.abs(theta) * 100
@@ -206,7 +205,7 @@ class TestNetwonMethod(unittest.TestCase):
         self, w: float, cho_before_update: bool
     ):
         opt = O.NetwonMethod(0.1, weight_decay=w, cho_before_update=cho_before_update)
-        learnable_pars = deepcopy(LEARNABLE_PARS)
+        learnable_pars = LEARNABLE_PARS.copy(deep=True)
         learnable_pars.value = theta = np.random.randn(N_PARAMS)
         lb = learnable_pars.lb = theta - np.abs(theta) * 5e-2
         ub = learnable_pars.ub = theta + np.abs(theta) * 5e-2
