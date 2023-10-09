@@ -47,10 +47,14 @@ class RlLearningAgent(
             self.hook_callback(repr(lr), lr_hook, lr.step)
 
     def _do_gradient_update(
-        self, gradient: np.ndarray, hessian: Optional[np.ndarray]
+        self, gradient: np.ndarray, hessian: Optional[np.ndarray] = None
     ) -> Optional[str]:
         """Internal utility to call the optimizer and perform the gradient update."""
-        theta_new, status = self.optimizer.update(gradient, hessian)
+        theta_new, status = (
+            self.optimizer.update(gradient)
+            if hessian is None
+            else self.optimizer.update(gradient, hessian)
+        )
         # theta_new = np.clip(theta_new, self._learnable_pars.lb, self._learnable_pars.ub)
         self._learnable_pars.update_values(theta_new)
         return status
