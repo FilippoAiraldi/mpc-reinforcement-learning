@@ -1,3 +1,5 @@
+import logging
+import os
 import unittest
 from functools import lru_cache
 from typing import Any
@@ -11,6 +13,7 @@ from csnlp.multistart import StackedMultistartNlp
 from csnlp.wrappers import Mpc, NlpScaling
 
 from mpcrl import (
+    Agent,
     LearnableParameter,
     LearnableParametersDict,
     LearningAgent,
@@ -66,6 +69,10 @@ def get_mpc(horizon: int, multistart: bool):
     mpc.minimize(m[0] - m[-1] + cs.sum2(u2))
     mpc.init_solver()
     return mpc
+
+
+class DummyAgent(Agent):
+    ...
 
 
 class DummyLearningAgent(LearningAgent):
@@ -151,6 +158,136 @@ class TestWrapperAndLearningWrapper(unittest.TestCase):
         wrapped = wrappers_agents.LearningWrapper(AGENT)
         self.assertTrue(wrapped.is_wrapped(wrappers_agents.LearningWrapper))
         self.assertFalse(wrapped.is_wrapped(cs.SX))
+
+
+class TestLog(unittest.TestCase):
+    def setUp(self):
+        self.agent = AGENT.copy()
+        self.env = SimpleEnv()
+        self.name = "test_logger"
+        self.log = None
+
+    def tearDown(self) -> None:
+        # remove logging files with name "DummyLearningAgent*.txt"
+        for handler in self.log.logger.handlers:
+            if isinstance(handler, logging.FileHandler):
+                handler.close()
+                if os.path.isfile(handler.baseFilename):
+                    os.remove(handler.baseFilename)
+
+    def test_init__to_file__creates_log_file(self):
+        self.log = wrappers_agents.Log(self.agent, to_file=True)
+        found = False
+        for handler in self.log.logger.handlers:
+            if isinstance(
+                handler, logging.FileHandler
+            ) and handler.baseFilename.endswith(f"{self.agent.name}.txt"):
+                found = True
+                break
+        self.assertTrue(found)
+
+    def test_init__establishes_correct_hooks(self):
+        agent = DummyAgent(get_mpc(3, False))
+        log_frequencies = {
+            "on_episode_start": 2,
+            "on_episode_end": 3,
+            "on_env_step": 4,
+            "on_timestep_end": 5,
+            "on_update": 6,
+        }
+        exclude_mandatory = ["on_mpc_failure", "on_validation_start"]
+        self.log = wrappers_agents.Log(
+            agent, log_frequencies=log_frequencies, exclude_mandatory=exclude_mandatory
+        )
+
+        expected_hooks = {
+            "on_episode_start",
+            "on_episode_end",
+            "on_env_step",
+            "on_timestep_end",
+            "on_validation_end",
+        }
+        actual_hooks = set(self.log.unwrapped._hooks.keys())
+        self.assertEqual(len(set.difference(expected_hooks, actual_hooks)), 0)
+
+    def test_on_mpc_failure(self):
+        episode = 1
+        timestep = 10
+        status = "failed"
+        raises = False
+        self.log = wrappers_agents.Log(self.agent)
+        with self.assertLogs(self.log.logger, logging.WARNING):
+            self.log.on_mpc_failure(episode, timestep, status, raises)
+
+    def test_on_validation_start(self):
+        self.log = wrappers_agents.Log(self.agent)
+        with self.assertLogs(self.log.logger, logging.DEBUG):
+            self.log.on_validation_start(self.env)
+
+    def test_on_validation_end(self):
+        returns = np.array([1.0, 2.0, 3.0])
+        self.log = wrappers_agents.Log(self.agent)
+        with self.assertLogs(self.log.logger, logging.INFO):
+            self.log.on_validation_end(self.env, returns)
+
+    def test_on_episode_start(self):
+        episode = 1
+        state = np.array([1, 2, 3])
+        self.log = wrappers_agents.Log(
+            self.agent, log_frequencies={"on_episode_start": 1}
+        )
+        with self.assertLogs(self.log.logger, logging.DEBUG):
+            self.log.on_episode_start(self.env, episode, state)
+
+    def test_on_episode_end(self):
+        episode = 1
+        rewards = 10.0
+        self.log = wrappers_agents.Log(
+            self.agent, log_frequencies={"on_episode_end": 1}
+        )
+        with self.assertLogs(self.log.logger, logging.INFO):
+            self.log.on_episode_end(self.env, episode, rewards)
+
+    def test_on_env_step(self):
+        episode = 1
+        timestep = 10
+        self.log = wrappers_agents.Log(self.agent, log_frequencies={"on_env_step": 1})
+        with self.assertLogs(self.log.logger, logging.DEBUG):
+            self.log.on_env_step(self.env, episode, timestep)
+
+    def test_on_timestep_end(self):
+        episode = 1
+        timestep = 10
+        self.log = wrappers_agents.Log(
+            self.agent, log_frequencies={"on_timestep_end": 1}
+        )
+        with self.assertLogs(self.log.logger, logging.DEBUG):
+            self.log.on_timestep_end(self.env, episode, timestep)
+
+    def test_on_update_failure(self):
+        episode = 1
+        timestep = 10
+        errormsg = "update failed"
+        raises = False
+        self.log = wrappers_agents.Log(self.agent)
+        with self.assertLogs(self.log.logger, logging.WARNING):
+            self.log.on_update_failure(episode, timestep, errormsg, raises)
+
+    def test_on_training_start(self):
+        self.log = wrappers_agents.Log(self.agent)
+        with self.assertLogs(self.log.logger, logging.DEBUG):
+            self.log.on_training_start(self.env)
+
+    def test_on_training_end(self):
+        returns = np.array([1.0, 2.0, 3.0])
+        self.log = wrappers_agents.Log(self.agent)
+        with self.assertLogs(self.log.logger, logging.INFO):
+            self.log.on_training_end(self.env, returns)
+
+    def test_on_update(self):
+        self.log = wrappers_agents.Log(self.agent, log_frequencies={"on_update": 1})
+        with self.assertLogs(self.log.logger, logging.INFO):
+            self.log.on_update()
 
 
 class TestRecordUpdates(unittest.TestCase):

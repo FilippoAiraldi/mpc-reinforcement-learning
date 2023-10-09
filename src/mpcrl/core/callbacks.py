@@ -118,7 +118,7 @@ class AgentCallbackMixin(CallbackMixin):
             _failure_msg("mpc", name, episode, timestep, status),
             raises,
         )
-        self._run_hooks("on_mpc_failure", episode, timestep, status)
+        self._run_hooks("on_mpc_failure", episode, timestep, status, raises)
 
     def on_validation_start(self, env: Env[ObsType, ActType]) -> None:
         """Callback called at the beginning of the validation process.
@@ -235,7 +235,7 @@ class LearningAgentCallbackMixin(AgentCallbackMixin):
             _failure_msg("update", name, episode, timestep, errormsg),
             raises,
         )
-        self._run_hooks("on_update_failure", episode, timestep, errormsg)
+        self._run_hooks("on_update_failure", episode, timestep, errormsg, raises)
 
     def on_training_start(self, env: Env[ObsType, ActType]) -> None:
         """Callback called at the beginning of the training process.
