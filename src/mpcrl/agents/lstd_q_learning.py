@@ -111,10 +111,12 @@ class LstdQLearningAgent(
             successful solution is used to warm start the solver for the next iteration.
             If 'last', the last solution is used, regardless of success or failure.
         hessian_type : 'none', 'approx' or 'full', optional
-            The type of hessian to use in this second-order algorithm. If 'none', no
-            second order information is used. If `approx`, an easier approximation of it
-            is used; otherwise, the full hessian is computed but this is much more
-            expensive.
+            The type of hessian to use in this (potentially) second-order algorithm.
+            If 'none', no second order information is used. If `approx`, an easier
+            approximation of it is used; otherwise, the full hessian is computed but
+            this is much more expensive. This option must be in accordance with the
+            choice of `optimizer`, that is, if the optimizer does not use second order
+            information, then this option must be set to `none`.
         record_td_errors: bool, optional
             If `True`, the TD errors are recorded in the field `td_errors`, which
             otherwise is `None`. By default, does not record them.

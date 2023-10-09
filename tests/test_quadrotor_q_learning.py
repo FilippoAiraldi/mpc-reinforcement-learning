@@ -23,7 +23,7 @@ from mpcrl import (
 )
 from mpcrl import exploration as E
 from mpcrl import schedulers as S
-from mpcrl.optim import GradientDescent
+from mpcrl.optim import NetwonMethod
 from mpcrl.util.math import cholesky_added_multiple_identities
 from mpcrl.wrappers.agents import RecordUpdates
 
@@ -1341,7 +1341,7 @@ class TestQuadRotorQlearning(unittest.TestCase):
             LstdQLearningAgent(
                 mpc=mpc,
                 discount_factor=agent_config["gamma"],
-                optimizer=GradientDescent(
+                optimizer=NetwonMethod(
                     learning_rate=agent_config["lr"][0],
                     cho_before_update=True,
                 ),

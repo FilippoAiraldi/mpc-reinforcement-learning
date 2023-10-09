@@ -22,7 +22,7 @@ from mpcrl import (
     UpdateStrategy,
 )
 from mpcrl import exploration as E
-from mpcrl.optim import GradientDescent
+from mpcrl.optim import GradientDescent, NetwonMethod
 from mpcrl.util.control import dlqr
 from mpcrl.wrappers.agents import Log, RecordUpdates
 from mpcrl.wrappers.envs import MonitorEpisodes
@@ -201,7 +201,7 @@ class TestExamples(unittest.TestCase):
                     mpc=mpc,
                     learnable_parameters=learnable_pars,
                     discount_factor=mpc.discount_factor,
-                    optimizer=GradientDescent(
+                    optimizer=NetwonMethod(
                         learning_rate=5e-2,
                         max_percentage_update=1e3,  # does nothing; allows to test qp
                     ),
