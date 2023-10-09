@@ -99,6 +99,8 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
         self._exploration: ExplorationStrategy = NoExploration()
         self._store_last_successful = warmstart == "last-successful"
         self._last_action_on_fail = use_last_action_on_fail
+        self._last_solution: Optional[Solution[SymType]] = None
+        self._last_action: Optional[cs.DM] = None
         self._V, self._Q = self._setup_V_and_Q(mpc, remove_bounds_on_initial_action)
         self._post_setup_V_and_Q()
 
@@ -139,8 +141,8 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
         self, seed: Union[None, int, Sequence[int], np.random.SeedSequence] = None
     ) -> None:
         """Resets the agent's internal variables and exploration's RNG."""
-        self._last_solution: Optional[Solution[SymType]] = None
-        self._last_action: Optional[cs.DM] = None
+        self._last_solution = None
+        self._last_action = None
         if hasattr(self.exploration, "reset"):
             self.exploration.reset(seed)
 
@@ -219,7 +221,7 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
         elif isinstance(pars, dict):
             pars.update(additional_pars)
         else:  # iterable of dict
-            pars = _update_dicts(pars, additional_pars)  # type: ignore[assignment]
+            pars = _update_dicts(pars, additional_pars)
         if vals0 is None and self._last_solution is not None:
             vals0 = self._last_solution.vals
 

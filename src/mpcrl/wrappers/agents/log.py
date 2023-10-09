@@ -3,7 +3,7 @@ from collections.abc import Iterable, Iterator
 from inspect import getmembers, isfunction
 from itertools import chain
 from operator import itemgetter
-from typing import Optional, TypeVar
+from typing import Callable, Optional, TypeVar
 
 import numpy as np
 import numpy.typing as npt
@@ -37,6 +37,15 @@ _LEARNING_AGENT_CALLBACKS = set.difference(
     _AGENT_CALLBACKS,
 )
 del _pred
+
+
+def _generate_method_caller(m: Callable) -> Callable:
+    """Returns a method that calls the given method `m`."""
+
+    def method_caller(*args, **kwargs):
+        return m(*args, **kwargs)
+
+    return method_caller
 
 
 class Log(Wrapper[SymType]):
@@ -132,10 +141,9 @@ class Log(Wrapper[SymType]):
         repr_self = repr(self)
         optional_cbs = self.log_frequencies.keys()
         mandatory_cbs = _MANDATORY_CALLBACKS.difference(self.exclude_mandatory)
-        generate_method_caller = lambda m: lambda *args, **kwargs: m(*args, **kwargs)
         for name in chain(optional_cbs, mandatory_cbs):
             method = getattr(self, f"_{name}")
-            self.hook_callback(repr_self, name, generate_method_caller(method))
+            self.hook_callback(repr_self, name, _generate_method_caller(method))
 
     # callbacks for Agent
 
