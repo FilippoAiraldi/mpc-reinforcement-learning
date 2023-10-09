@@ -1,7 +1,6 @@
 import unittest
 from copy import deepcopy
 from itertools import product
-from unittest.mock import Mock
 
 import casadi as cs
 import numpy as np
@@ -14,6 +13,7 @@ from mpcrl.optim.gradient_based_optimizer import GradientBasedOptimizer
 
 np.random.seed(10)
 
+SMALL = 1e-270
 N_PARAMS = 5
 pars = np.random.randn(N_PARAMS)
 LEARNABLE_PARS = LearnableParametersDict(
@@ -35,7 +35,7 @@ class TestGradientBasedOptimizer(unittest.TestCase):
         self.assertIsNone(opt.learnable_parameters)
         self.assertIsNone(opt._update_solver)
 
-    def test_init_with_scheduler(self):
+    def test_init__with_scheduler(self):
         learning_rate = S.ExponentialScheduler(0.56, 0.99)
         opt = DummyOptimizer(learning_rate)
         self.assertIsInstance(opt.learning_rate, LearningRate)
@@ -54,7 +54,7 @@ class TestGradientBasedOptimizer(unittest.TestCase):
         self.assertIs(opt.learnable_parameters, LEARNABLE_PARS)
         self.assertIsInstance(opt._update_solver, cs.Function)
 
-    def test_init_update_solver(self):
+    def test_init__creates_update_solver(self):
         learnable_pars = deepcopy(LEARNABLE_PARS)
         learnable_pars.lb = -np.arange(1, N_PARAMS + 1, dtype=float)
         learnable_pars.ub = np.arange(1, N_PARAMS + 1, dtype=float)
@@ -80,7 +80,7 @@ class TestGradientBasedOptimizer(unittest.TestCase):
         np.testing.assert_array_equal(lb_dtheta, lb - theta)
         np.testing.assert_array_equal(ub_dtheta, 0)
 
-    def test_get_update_bounds_with_maximum_update_percentage(self):
+    def test_get_update_bounds__with_maximum_update_percentage(self):
         learnable_pars = deepcopy(LEARNABLE_PARS)
         lb = theta = -np.arange(1, N_PARAMS + 1, dtype=float)
         ub = np.arange(1, N_PARAMS + 1, dtype=float)
@@ -94,22 +94,15 @@ class TestGradientBasedOptimizer(unittest.TestCase):
 
 
 class TestGradientDescent(unittest.TestCase):
-    @parameterized.expand(product(("1st", "2nd"), (object(), None)))
-    def test_update__calls_correct_method(self, order: str, solver: object):
-        opt = O.GradientDescent(0.1)
-        opt._update_solver = solver
-        category = "constrained" if solver is not None else "unconstrained"
-        mock = Mock()
-        setattr(opt, f"_do_{order}_order_{category}_update", mock)
-        g = np.random.randn(N_PARAMS)
-        H = np.random.randn(N_PARAMS, N_PARAMS) if order == "2nd" else None
-        opt.update(g, H)
-        args = (g,) if order == "1st" else (g, H)
-        mock.assert_called_once_with(*args)
-
-    @parameterized.expand([(0.0,), (1e-100,)])
-    def test_do_1st_order_unconstrained_update(self, wd: float):
-        opt = O.GradientDescent(0.1, weight_decay=wd)
+    @parameterized.expand([(False,), (True,)])
+    def test_update__unconstrained(self, nesterov: bool):
+        opt = O.GradientDescent(
+            learning_rate=0.1,
+            weight_decay=SMALL,
+            momentum=SMALL,
+            dampening=SMALL,
+            nesterov=nesterov,
+        )
         learnable_pars = deepcopy(LEARNABLE_PARS)
         learnable_pars.value = theta = np.random.randn(N_PARAMS)
         opt.set_learnable_parameters(learnable_pars)
@@ -118,36 +111,15 @@ class TestGradientDescent(unittest.TestCase):
         self.assertIsNone(status)
         np.testing.assert_array_almost_equal(theta_new, theta - 0.1 * g)
 
-    @parameterized.expand([(0.0,), (1e-100,)])
-    def test_do_2nd_order_unconstrained_update(self, wd: float):
-        opt = O.GradientDescent(0.1, weight_decay=wd)
-        learnable_pars = deepcopy(LEARNABLE_PARS)
-        learnable_pars.value = theta = np.random.randn(N_PARAMS)
-        opt.set_learnable_parameters(learnable_pars)
-        g = np.random.randn(N_PARAMS)
-        H = np.random.randn(N_PARAMS, N_PARAMS)
-        H = H @ H.T + np.eye(N_PARAMS)
-        theta_new, status = opt.update(g, H)
-        self.assertIsNone(status)
-        np.testing.assert_array_almost_equal(
-            theta_new, theta - 0.1 * np.linalg.solve(H, g)
+    @parameterized.expand([(False,), (True,)])
+    def test_update__constrained__with_small_bounds(self, nesterov: bool):
+        opt = O.GradientDescent(
+            learning_rate=0.1,
+            weight_decay=SMALL,
+            momentum=SMALL,
+            dampening=SMALL,
+            nesterov=nesterov,
         )
-
-    @parameterized.expand([(0.0,), (1e-100,)])
-    def test_do_2nd_order_unconstrained_update_with_identity_hessian(self, wd: float):
-        opt = O.GradientDescent(0.1, weight_decay=wd)
-        learnable_pars = deepcopy(LEARNABLE_PARS)
-        learnable_pars.value = theta = np.random.randn(N_PARAMS)
-        opt.set_learnable_parameters(learnable_pars)
-        g = np.random.randn(N_PARAMS)
-        H = np.eye(N_PARAMS)
-        theta_new, status = opt.update(g, H)
-        self.assertIsNone(status)
-        np.testing.assert_array_almost_equal(theta_new, theta - 0.1 * g)
-
-    @parameterized.expand([(0.0,), (1e-100,)])
-    def test_do_1st_order_constrained_update_with_small_bounds(self, wd: float):
-        opt = O.GradientDescent(0.1, weight_decay=wd)
         learnable_pars = deepcopy(LEARNABLE_PARS)
         learnable_pars.value = theta = np.random.randn(N_PARAMS)
         lb = learnable_pars.lb = theta - np.abs(theta) * 5e-2
@@ -163,9 +135,15 @@ class TestGradientDescent(unittest.TestCase):
             np.where(theta_new <= ub, True, np.isclose(theta_new, ub)).all()
         )
 
-    @parameterized.expand([(0.0,), (1e-100,)])
-    def test_do_1st_order_constrained_update_with_large_bounds(self, wd: float):
-        opt = O.GradientDescent(0.1, weight_decay=wd)
+    @parameterized.expand([(False,), (True,)])
+    def test_update__constrained__with_large_bounds(self, nesterov: bool):
+        opt = O.GradientDescent(
+            learning_rate=0.1,
+            weight_decay=SMALL,
+            momentum=SMALL,
+            dampening=SMALL,
+            nesterov=nesterov,
+        )
         learnable_pars = deepcopy(LEARNABLE_PARS)
         learnable_pars.value = theta = np.random.randn(N_PARAMS)
         learnable_pars.lb = -np.abs(theta) * 100
@@ -176,11 +154,42 @@ class TestGradientDescent(unittest.TestCase):
         self.assertIsNone(status)
         np.testing.assert_array_equal(theta_new, theta - 0.1 * g)
 
-    @parameterized.expand([(0.0,), (1e-100,)])
-    def test_do_2nd_order_constrained_update_with_large_bounds_with_identity_hessian(
-        self, wd: float
+
+class TestNetwonMethod(unittest.TestCase):
+    @parameterized.expand(product((0.0, SMALL), (False, True)))
+    def test_update__unconstrained(self, w: float, cho_before_update: bool):
+        opt = O.NetwonMethod(0.1, weight_decay=w, cho_before_update=cho_before_update)
+        learnable_pars = deepcopy(LEARNABLE_PARS)
+        learnable_pars.value = theta = np.random.randn(N_PARAMS)
+        opt.set_learnable_parameters(learnable_pars)
+        g = np.random.randn(N_PARAMS)
+        H = np.random.randn(N_PARAMS, N_PARAMS)
+        H = H @ H.T + np.eye(N_PARAMS)
+        theta_new, status = opt.update(g, H)
+        self.assertIsNone(status)
+        np.testing.assert_array_almost_equal(
+            theta_new, theta - 0.1 * np.linalg.solve(H, g)
+        )
+
+    @parameterized.expand(product((0.0, SMALL), (False, True)))
+    def test_update__unconstrained__with_identity_hessian(
+        self, w: float, cho_before_update: bool
     ):
-        opt = O.GradientDescent(0.1, weight_decay=wd)
+        opt = O.NetwonMethod(0.1, weight_decay=w, cho_before_update=cho_before_update)
+        learnable_pars = deepcopy(LEARNABLE_PARS)
+        learnable_pars.value = theta = np.random.randn(N_PARAMS)
+        opt.set_learnable_parameters(learnable_pars)
+        g = np.random.randn(N_PARAMS)
+        H = np.eye(N_PARAMS)
+        theta_new, status = opt.update(g, H)
+        self.assertIsNone(status)
+        np.testing.assert_array_almost_equal(theta_new, theta - 0.1 * g)
+
+    @parameterized.expand(product((0.0, SMALL), (False, True)))
+    def test_update__constrained__with_large_bounds_with_identity_hessian(
+        self, w: float, cho_before_update: bool
+    ):
+        opt = O.NetwonMethod(0.1, weight_decay=w, cho_before_update=cho_before_update)
         learnable_pars = deepcopy(LEARNABLE_PARS)
         learnable_pars.value = theta = np.random.randn(N_PARAMS)
         learnable_pars.lb = -np.abs(theta) * 100
@@ -192,13 +201,11 @@ class TestGradientDescent(unittest.TestCase):
         self.assertIsNone(status)
         np.testing.assert_array_equal(theta_new, theta - 0.1 * g)
 
-    @parameterized.expand(product((0.0, 1e-100), (True, False)))
-    def test_do_2nd_order_constrained_update_with_small_bounds(
-        self, wd: float, cho_before_update: bool
+    @parameterized.expand(product((0.0, SMALL), (False, True)))
+    def test_update__constrained__with_small_bounds(
+        self, w: float, cho_before_update: bool
     ):
-        opt = O.GradientDescent(
-            0.1, weight_decay=wd, cho_before_update=cho_before_update
-        )
+        opt = O.NetwonMethod(0.1, weight_decay=w, cho_before_update=cho_before_update)
         learnable_pars = deepcopy(LEARNABLE_PARS)
         learnable_pars.value = theta = np.random.randn(N_PARAMS)
         lb = learnable_pars.lb = theta - np.abs(theta) * 5e-2

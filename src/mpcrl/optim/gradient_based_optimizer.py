@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Optional, Union
+from typing import Any, Optional, Union
 
 import casadi as cs
 import numpy as np
@@ -12,6 +12,10 @@ from mpcrl.core.schedulers import Scheduler
 
 class GradientBasedOptimizer(ABC):
     """Abstract base class for gradient-based optimization algorithms."""
+
+    _hessian_sparsity = "dense"
+    """This is the default sparsity of the hessian, which is dense. It can be overridden
+    by each subclass, in case a particular structure is known, e.g., diagonal."""
 
     def __init__(
         self,
@@ -80,7 +84,7 @@ class GradientBasedOptimizer(ABC):
         ):
             return None
         n_params = self.learnable_parameters.size
-        qp = {"h": cs.Sparsity_dense(n_params, n_params)}
+        qp = {"h": getattr(cs.Sparsity, self._hessian_sparsity)(n_params, n_params)}
         opts = {
             "print_info": False,
             "print_iter": False,
@@ -92,20 +96,17 @@ class GradientBasedOptimizer(ABC):
 
     @abstractmethod
     def update(
-        self,
-        gradient: npt.NDArray[np.floating],
-        hessian: Optional[npt.NDArray[np.floating]] = None,
+        self, *args: Any, **kwargs: Any
     ) -> tuple[npt.NDArray[np.floating], Optional[str]]:
         """Computes the gradient update of the learnable parameters dictated by the
         current RL algorithm.
 
         Parameters
         ----------
-        gradient : array
-            Gradient of the update.
-        hessian : array, optional
-            Hessian of the update. Can be `None` in case the algorithm does not make use
-            of second-order information.
+        args, kwargs
+            In general, any argument is accepted. In practice, the arguments are often
+            the gradient of the update and, if available in the RL algorithm, the
+            Hessian.
 
         Returns
         -------
