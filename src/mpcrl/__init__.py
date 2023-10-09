@@ -19,22 +19,16 @@ __all__ = [
     "wrappers_envs",
 ]
 
-import mpcrl.core.exploration as exploration
-import mpcrl.core.schedulers as schedulers
-import mpcrl.wrappers.agents as wrappers_agents
-import mpcrl.wrappers.envs as wrappers_envs
-from mpcrl.agents.agent import Agent
-from mpcrl.agents.learning_agent import LearningAgent
-from mpcrl.agents.lstd_dpg import LstdDpgAgent
-from mpcrl.agents.lstd_q_learning import LstdQLearningAgent
-from mpcrl.agents.rl_learning_agent import RlLearningAgent
-from mpcrl.core.errors import (
-    MpcSolverError,
-    MpcSolverWarning,
-    UpdateError,
-    UpdateWarning,
-)
-from mpcrl.core.experience import ExperienceReplay
-from mpcrl.core.learning_rate import LearningRate
-from mpcrl.core.parameters import LearnableParameter, LearnableParametersDict
-from mpcrl.core.update import UpdateStrategy
+from .agents.agent import Agent
+from .agents.learning_agent import LearningAgent
+from .agents.lstd_dpg import LstdDpgAgent
+from .agents.lstd_q_learning import LstdQLearningAgent
+from .agents.rl_learning_agent import RlLearningAgent
+from .core import exploration, schedulers
+from .core.errors import MpcSolverError, MpcSolverWarning, UpdateError, UpdateWarning
+from .core.experience import ExperienceReplay
+from .core.learning_rate import LearningRate
+from .core.parameters import LearnableParameter, LearnableParametersDict
+from .core.update import UpdateStrategy
+from .wrappers import agents as wrappers_agents
+from .wrappers import envs as wrappers_envs
