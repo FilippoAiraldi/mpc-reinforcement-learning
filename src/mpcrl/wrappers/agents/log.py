@@ -1,6 +1,8 @@
 import logging
 from collections.abc import Iterable, Iterator
+from inspect import getmembers, isfunction
 from itertools import chain
+from operator import itemgetter
 from typing import Optional, TypeVar
 
 import numpy as np
@@ -9,7 +11,11 @@ from gymnasium import Env
 
 from mpcrl.agents.agent import Agent
 from mpcrl.agents.learning_agent import LearningAgent
-from mpcrl.core.callbacks import _LEARNING_AGENT_CALLBACKS, _failure_msg
+from mpcrl.core.callbacks import (
+    AgentCallbackMixin,
+    LearningAgentCallbackMixin,
+    _failure_msg,
+)
 from mpcrl.util.iters import bool_cycle
 from mpcrl.wrappers.agents.wrapper import SymType, Wrapper
 
@@ -23,6 +29,14 @@ _MANDATORY_CALLBACKS = {
     "on_training_start",
     "on_training_end",
 }
+
+_pred = lambda o: isfunction(o) and o.__name__.startswith("on_")
+_AGENT_CALLBACKS = set(map(itemgetter(0), getmembers(AgentCallbackMixin, _pred)))
+_LEARNING_AGENT_CALLBACKS = set.difference(
+    set(map(itemgetter(0), getmembers(LearningAgentCallbackMixin, _pred))),
+    _AGENT_CALLBACKS,
+)
+del _pred
 
 
 class Log(Wrapper[SymType]):

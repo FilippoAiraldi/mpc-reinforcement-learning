@@ -7,7 +7,7 @@ import numpy.typing as npt
 from gymnasium import Env
 
 from mpcrl.agents.agent import ActType, Agent, ObsType, SymType, _update_dicts
-from mpcrl.core.callbacks import LearningAgentCallbacks
+from mpcrl.core.callbacks import LearningAgentCallbackMixin
 from mpcrl.core.experience import ExperienceReplay
 from mpcrl.core.exploration import ExplorationStrategy
 from mpcrl.core.parameters import LearnableParametersDict
@@ -17,7 +17,7 @@ ExpType = TypeVar("ExpType")
 
 
 class LearningAgent(
-    Agent[SymType], LearningAgentCallbacks, ABC, Generic[SymType, ExpType]
+    Agent[SymType], LearningAgentCallbackMixin, ABC, Generic[SymType, ExpType]
 ):
     """Base class for a learning agent with MPC as policy provider where the main method
     `update`, which is called to update the learnable parameters of the MPC according to
@@ -60,7 +60,7 @@ class LearningAgent(
             Additional arguments to be passed to `Agent`.
         """
         Agent.__init__(self, **kwargs)
-        LearningAgentCallbacks.__init__(self)
+        LearningAgentCallbackMixin.__init__(self)
         self._raises: bool = True
         self._learnable_pars = learnable_parameters
         if experience is None:
