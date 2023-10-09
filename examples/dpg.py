@@ -25,6 +25,7 @@ from mpcrl import (
     UpdateStrategy,
 )
 from mpcrl import exploration as E
+from mpcrl.optim import GradientDescent
 from mpcrl.util.control import dlqr
 from mpcrl.wrappers.agents import Log, RecordUpdates
 from mpcrl.wrappers.envs import MonitorEpisodes
@@ -174,7 +175,7 @@ agent = Log(
             mpc=mpc,
             learnable_parameters=learnable_pars,
             discount_factor=mpc.discount_factor,
-            learning_rate=1e-6,
+            optimizer=GradientDescent(learning_rate=1e-6),
             update_strategy=UpdateStrategy(rollout_length, "on_timestep_end"),
             rollout_length=rollout_length,
             exploration=E.GreedyExploration(0.05),

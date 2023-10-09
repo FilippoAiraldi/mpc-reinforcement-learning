@@ -19,6 +19,7 @@ from csnlp.wrappers import Mpc
 from gymnasium.wrappers import TimeLimit
 
 from mpcrl import LearnableParameter, LearnableParametersDict, LstdQLearningAgent
+from mpcrl.optim import GradientDescent
 from mpcrl.util.control import dlqr
 from mpcrl.wrappers.agents import Log, RecordUpdates
 from mpcrl.wrappers.envs import MonitorEpisodes
@@ -169,7 +170,7 @@ agent = Log(  # type: ignore[var-annotated]
             learnable_parameters=learnable_pars,
             discount_factor=mpc.discount_factor,
             update_strategy=1,
-            learning_rate=5e-2,
+            optimizer=GradientDescent(learning_rate=5e-2),
             hessian_type="approx",
             record_td_errors=True,
             remove_bounds_on_initial_action=True,

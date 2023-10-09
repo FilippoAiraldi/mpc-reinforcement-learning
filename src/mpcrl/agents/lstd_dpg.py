@@ -13,10 +13,9 @@ from mpcrl.agents.agent import ActType, ObsType, SymType
 from mpcrl.agents.rl_learning_agent import LrType, RlLearningAgent
 from mpcrl.core.experience import ExperienceReplay
 from mpcrl.core.exploration import ExplorationStrategy
-from mpcrl.core.learning_rate import LearningRate
 from mpcrl.core.parameters import LearnableParametersDict
-from mpcrl.core.schedulers import Scheduler
 from mpcrl.core.update import UpdateStrategy
+from mpcrl.optim.gradient_based_optimizer import GradientBasedOptimizer
 from mpcrl.util.math import monomials_basis_function
 
 ExpType: TypeAlias = tuple[
@@ -56,15 +55,13 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         mpc: Mpc[SymType],
         update_strategy: Union[int, UpdateStrategy],
         discount_factor: float,
-        learning_rate: Union[LrType, Scheduler[LrType], LearningRate[LrType]],
+        optimizer: GradientBasedOptimizer,
         learnable_parameters: LearnableParametersDict[SymType],
         fixed_parameters: Union[
             None, dict[str, npt.ArrayLike], Collection[dict[str, npt.ArrayLike]]
         ] = None,
         exploration: Optional[ExplorationStrategy] = None,
         experience: Union[None, int, ExperienceReplay[ExpType]] = None,
-        max_percentage_update: float = float("+inf"),
-        weight_decay: float = 0.0,
         warmstart: Literal["last", "last-successful"] = "last-successful",
         rollout_length: Optional[int] = None,
         record_policy_performance: bool = False,
@@ -95,12 +92,10 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         discount_factor : float
             In RL, the factor that discounts future rewards in favor of immediate
             rewards. Usually denoted as `\\gamma`. Should be a number in (0, 1).
-        learning_rate : float/array, scheduler or LearningRate
-            The learning rate of the algorithm. A float/array can be passed in case the
-            learning rate must stay constant; otherwise, a scheduler can be passed which
-            will be stepped `on_update` by default. Otherwise, a LearningRate can be
-            passed, allowing to specify both the scheduling and stepping strategies of
-            the learning rate.
+        optimizer : GradientBasedOptimizer
+            A gradient-based optimizer (e.g., `mpcrl.optim.GradientDescent`) to compute
+            the updates of the learnable parameters, based on the current gradient-based
+            RL algorithm.
         learnable_parameters : LearnableParametersDict
             A special dict containing the learnable parameters of the MPC, together with
             their bounds and values. This dict is complementary with `fixed_parameters`,
@@ -182,13 +177,11 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
             mpc=mpc,
             update_strategy=update_strategy,
             discount_factor=discount_factor,
-            learning_rate=learning_rate,
+            optimizer=optimizer,
             learnable_parameters=learnable_parameters,
             fixed_parameters=fixed_parameters,
             exploration=exploration,
             experience=experience,
-            max_percentage_update=max_percentage_update,
-            weight_decay=weight_decay,
             warmstart=warmstart,
             use_last_action_on_fail=use_last_action_on_fail,
             name=name,

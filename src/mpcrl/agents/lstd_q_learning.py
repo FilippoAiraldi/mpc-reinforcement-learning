@@ -1,5 +1,5 @@
 from collections.abc import Collection
-from typing import Any, Callable, Generic, Literal, Optional, SupportsFloat, Union
+from typing import Callable, Generic, Literal, Optional, SupportsFloat, Union
 
 import casadi as cs
 import numpy as np
@@ -13,10 +13,9 @@ from mpcrl.agents.agent import ActType, ObsType, SymType
 from mpcrl.agents.rl_learning_agent import LrType, RlLearningAgent
 from mpcrl.core.experience import ExperienceReplay
 from mpcrl.core.exploration import ExplorationStrategy
-from mpcrl.core.learning_rate import LearningRate
 from mpcrl.core.parameters import LearnableParametersDict
-from mpcrl.core.schedulers import Scheduler
 from mpcrl.core.update import UpdateStrategy
+from mpcrl.optim.gradient_based_optimizer import GradientBasedOptimizer
 
 ExpType: TypeAlias = tuple[
     npt.NDArray[np.floating],  # gradient of Bellman residuals w.r.t. theta
@@ -49,21 +48,16 @@ class LstdQLearningAgent(
         mpc: Mpc[SymType],
         update_strategy: Union[int, UpdateStrategy],
         discount_factor: float,
-        learning_rate: Union[LrType, Scheduler[LrType], LearningRate[LrType]],
+        optimizer: GradientBasedOptimizer,
         learnable_parameters: LearnableParametersDict[SymType],
         fixed_parameters: Union[
             None, dict[str, npt.ArrayLike], Collection[dict[str, npt.ArrayLike]]
         ] = None,
         exploration: Optional[ExplorationStrategy] = None,
         experience: Union[None, int, ExperienceReplay[ExpType]] = None,
-        max_percentage_update: float = float("+inf"),
-        weight_decay: float = 0.0,
         warmstart: Literal["last", "last-successful"] = "last-successful",
         hessian_type: Literal["none", "approx", "full"] = "approx",
         record_td_errors: bool = False,
-        cho_before_update: bool = False,
-        cho_maxiter: int = 1000,
-        cho_solve_kwargs: Optional[dict[str, Any]] = None,
         use_last_action_on_fail: bool = False,
         remove_bounds_on_initial_action: bool = False,
         name: Optional[str] = None,
@@ -88,12 +82,10 @@ class LstdQLearningAgent(
         discount_factor : float
             In RL, the factor that discounts future rewards in favor of immediate
             rewards. Usually denoted as `\\gamma`. Should be a number in (0, 1].
-        learning_rate : float/array, scheduler or LearningRate
-            The learning rate of the algorithm. A float/array can be passed in case the
-            learning rate must stay constant; otherwise, a scheduler can be passed which
-            will be stepped `on_update` by default. Otherwise, a LearningRate can be
-            passed, allowing to specify both the scheduling and stepping strategies of
-            the learning rate.
+        optimizer : GradientBasedOptimizer
+            A gradient-based optimizer (e.g., `mpcrl.optim.GradientDescent`) to compute
+            the updates of the learnable parameters, based on the current gradient-based
+            RL algorithm.
         learnable_parameters : LearnableParametersDict
             A special dict containing the learnable parameters of the MPC, together with
             their bounds and values. This dict is complementary with `fixed_parameters`,
@@ -114,15 +106,6 @@ class LstdQLearningAgent(
             In the case of LSTD Q-learning, each memory item consists of the action
             value function's gradient and hessian computed at each (succesful) env's
             step.
-        max_percentage_update : float, optional
-            A positive float that specifies the maximum percentage the parameters can be
-            changed during each update. For example, `max_percentage_update=0.5` means
-            that the parameters can be updated by up to 50% of their current value. By
-            default, it is set to `+inf`.
-        weight_decay : float, optional
-            A positive float that specifies the decay of the learnable parameters in the
-            form of an L2 regularization term. By default, it is set to `0.0`, so no
-            decay/regularization takes place.
         warmstart: 'last' or 'last-successful', optional
             The warmstart strategy for the MPC's NLP. If 'last-successful', the last
             successful solution is used to warm start the solver for the next iteration.
@@ -135,25 +118,6 @@ class LstdQLearningAgent(
         record_td_errors: bool, optional
             If `True`, the TD errors are recorded in the field `td_errors`, which
             otherwise is `None`. By default, does not record them.
-        cho_before_update : bool, optional
-            Whether to perform a Cholesky's factorization of the hessian in preparation
-            of each update. If `False`, the QP update's objective is
-            ```math
-                min 1/2 * dtheta' * H * dtheta + (lr * g)' * dtheta
-            ```
-            else, if `True`, the objective is
-            ```math
-                min 1/2 * ||dtheta||^2' + (lr * H^-1 * g)' * dtheta
-            ```
-            where the hessian linear system is performed via Cholesky's factorization.
-            Only relevant if the RL algorithm uses hessian info. By default, `False`.
-        cho_maxiter : int, optional
-            Maximum number of iterations in the Cholesky's factorization with additive
-            multiples of the identity to ensure positive definiteness of the hessian. By
-            default, `1000`.
-        cho_solve_kwargs : kwargs for scipy.linalg.cho_solve, optional
-            The optional kwargs to be passed to `scipy.linalg.cho_solve`. If `None`, it
-            is equivalent to `cho_solve_kwargs = {'check_finite': False }`.
         use_last_action_on_fail : bool, optional
             When `True`, if the MPC solver fails in solving the state value function
             `V(s)`, the last successful action is returned. When `False`, the action
@@ -172,17 +136,12 @@ class LstdQLearningAgent(
             mpc=mpc,
             update_strategy=update_strategy,
             discount_factor=discount_factor,
-            learning_rate=learning_rate,
             learnable_parameters=learnable_parameters,
+            optimizer=optimizer,
             fixed_parameters=fixed_parameters,
             exploration=exploration,
             experience=experience,
-            max_percentage_update=max_percentage_update,
-            weight_decay=weight_decay,
             warmstart=warmstart,
-            cho_before_update=cho_before_update,
-            cho_maxiter=cho_maxiter,
-            cho_solve_kwargs=cho_solve_kwargs,
             use_last_action_on_fail=use_last_action_on_fail,
             remove_bounds_on_initial_action=remove_bounds_on_initial_action,
             name=name,
@@ -194,13 +153,13 @@ class LstdQLearningAgent(
     def update(self) -> Optional[str]:
         sample = self.experience.sample()
         gradients = []
-        Hessians = []
+        hessians = []
         for g, H in sample:
             gradients.append(g)
-            Hessians.append(H)
+            hessians.append(H)
         gradient = np.mean(gradients, 0)
-        Hessian = np.mean(Hessians, 0) if self.hessian_type != "none" else None
-        return self._do_gradient_update(gradient.reshape(-1), Hessian)
+        hessian = np.mean(hessians, 0) if self.hessian_type != "none" else None
+        return self._do_gradient_update(gradient.reshape(-1), hessian)
 
     def train_one_episode(
         self,
