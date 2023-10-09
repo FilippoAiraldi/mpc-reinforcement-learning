@@ -11,7 +11,7 @@ from csnlp.wrappers import Mpc
 from gymnasium import Env
 from typing_extensions import TypeAlias
 
-from mpcrl.core.callbacks import AgentCallbacks, RemovesCallbackHooksInState
+from mpcrl.core.callbacks import AgentCallbackMixin
 from mpcrl.core.exploration import ExplorationStrategy, NoExploration
 from mpcrl.util.named import Named
 
@@ -27,13 +27,7 @@ def _update_dicts(sinks: Iterable[dict], source: dict) -> Iterator[dict]:
         yield sink
 
 
-class Agent(
-    Named,
-    SupportsDeepcopyAndPickle,
-    AgentCallbacks,
-    RemovesCallbackHooksInState,
-    Generic[SymType],
-):
+class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymType]):
     """Simple MPC-based agent with a fixed (i.e., non-learnable) MPC controller.
 
     In this agent, the MPC controller is used as policy provider, as well as to provide
@@ -100,13 +94,12 @@ class Agent(
         """
         Named.__init__(self, name)
         SupportsDeepcopyAndPickle.__init__(self)
-        AgentCallbacks.__init__(self)
-        RemovesCallbackHooksInState.__init__(self)
-        self._V, self._Q = self._setup_V_and_Q(mpc, remove_bounds_on_initial_action)
+        AgentCallbackMixin.__init__(self)
         self._fixed_pars = fixed_parameters
         self._exploration: ExplorationStrategy = NoExploration()
         self._store_last_successful = warmstart == "last-successful"
         self._last_action_on_fail = use_last_action_on_fail
+        self._V, self._Q = self._setup_V_and_Q(mpc, remove_bounds_on_initial_action)
         self._post_setup_V_and_Q()
 
     @property

@@ -1,6 +1,5 @@
 import unittest
 from functools import lru_cache
-from itertools import count
 from typing import Any
 from unittest.mock import Mock, call
 
@@ -156,34 +155,32 @@ class TestWrapperAndLearningWrapper(unittest.TestCase):
 
 class TestRecordUpdates(unittest.TestCase):
     def test__update__records_learnable_parameters_correctly(self):
-        P, K = 3, 10
-        pars = np.random.rand(P, K + 1)
+        n_params, n_updates = 3, 10
+        pars = np.random.rand(n_updates + 1, n_params)
         parsdict = LearnableParametersDict(
-            [LearnableParameter(f"p{i}", 1, pars[i, 0]) for i in range(P)]
+            [LearnableParameter(f"p{i}", 1, pars[0, i]) for i in range(n_params)]
         )
-        iter = count(1)
         agent = AGENT.copy()
         agent._learnable_pars = parsdict
-        agent.on_update = Mock(
-            return_value=None,
-            side_effect=lambda: agent.learnable_parameters.update_values(
-                pars[:, next(iter)]
-            ),
-        )
+        on_update_original = agent.on_update
+        pars_iter = iter(pars[1:])
+
+        def side_effect():
+            agent.learnable_parameters.update_values(next(pars_iter))
+            on_update_original()
+
+        agent.on_update = Mock(return_value=None, side_effect=side_effect)
         wrapped = wrappers_agents.RecordUpdates(agent)
 
-        for _ in range(K):
+        for _ in range(n_updates):
             wrapped.on_update()
 
-        agent.on_update.__wrapped__.assert_has_calls([call()] * K)
+        agent.on_update.assert_has_calls([call()] * n_updates)
         self.assertListEqual(
-            [f"p{i}" for i in range(P)],
-            list(wrapped.updates_history.keys()),
+            [f"p{i}" for i in range(n_params)], list(wrapped.updates_history.keys())
         )
-        np.testing.assert_equal(
-            np.stack(list(wrapped.updates_history.values())).squeeze(),
-            pars,
-        )
+        pars_actual = np.squeeze(list(wrapped.updates_history.values())).T
+        np.testing.assert_equal(pars_actual, pars)
 
 
 class TestMonitorEpisodesAndInfos(unittest.TestCase):

@@ -4,10 +4,10 @@ from csnlp.util.io import SupportsDeepcopyAndPickle
 
 from mpcrl.agents.agent import Agent, SymType
 from mpcrl.agents.learning_agent import ExpType, LearningAgent
-from mpcrl.core.callbacks import RemovesCallbackHooksInState
+from mpcrl.core.callbacks import CallbackMixin
 
 
-class Wrapper(SupportsDeepcopyAndPickle, RemovesCallbackHooksInState, Generic[SymType]):
+class Wrapper(SupportsDeepcopyAndPickle, CallbackMixin, Generic[SymType]):
     """Wraps a learning agent to allow a modular transformation of its methods. This
     class is the base class for all wrappers. The subclass could override some methods
     to change the behavior of the original environment without touching the original
@@ -22,7 +22,7 @@ class Wrapper(SupportsDeepcopyAndPickle, RemovesCallbackHooksInState, Generic[Sy
             The agent to wrap.
         """
         SupportsDeepcopyAndPickle.__init__(self)
-        RemovesCallbackHooksInState.__init__(self)
+        CallbackMixin.__init__(self)
         self.agent = agent
         self.establish_callback_hooks()
 
