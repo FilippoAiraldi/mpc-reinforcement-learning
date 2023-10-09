@@ -24,7 +24,7 @@ class ExplorationStrategy(ABC):
         """
 
     @abstractmethod
-    def step(self) -> None:
+    def step(self, *args: Any, **kwargs: Any) -> None:
         """Updates the exploration strength and/or probability, in case the strategy
         supports them (usually, by decaying them over time)."""
 
@@ -50,7 +50,7 @@ class NoExploration(ExplorationStrategy):
     def can_explore(self) -> bool:
         return False
 
-    def step(self) -> None:
+    def step(self, *_, **__) -> None:
         return
 
     def perturbation(self, *args: Any, **kwargs: Any) -> npt.NDArray[np.floating]:
@@ -121,7 +121,7 @@ class GreedyExploration(ExplorationStrategy):
     def can_explore(self) -> bool:
         return True
 
-    def step(self) -> None:
+    def step(self, *_, **__) -> None:
         """Updates the exploration strength according to its scheduler."""
         self.strength_scheduler.step()
 
@@ -216,7 +216,7 @@ class EpsilonGreedyExploration(GreedyExploration):
     def can_explore(self) -> bool:
         return self.np_random.random() <= self.epsilon_scheduler.value
 
-    def step(self) -> None:
+    def step(self, *_, **__) -> None:
         """Updates the exploration probability and strength according to their
         schedulers."""
         self.strength_scheduler.step()
@@ -290,7 +290,7 @@ class StepWiseExploration(ExplorationStrategy):
         self._cached_can_explore = self.base_exploration.can_explore()
         return self._cached_can_explore
 
-    def step(self) -> None:
+    def step(self, *_, **__) -> None:
         if not self._stepwise_decay:
             return self.base_exploration.step()
         self._step_counter %= self.step_size

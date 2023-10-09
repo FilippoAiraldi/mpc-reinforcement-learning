@@ -102,9 +102,7 @@ class RlLearningAgent(
         lr_hook = self._learning_rate.hook
         if lr_hook is not None:
             self.hook_callback(
-                repr(self._learning_rate),
-                lr_hook,
-                lambda *_, **__: self._learning_rate.step(),
+                repr(self._learning_rate), lr_hook, self._learning_rate.step
             )
 
     def _init_update_solver(self) -> Optional[cs.Function]:
