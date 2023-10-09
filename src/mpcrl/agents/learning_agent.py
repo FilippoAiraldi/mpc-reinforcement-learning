@@ -221,9 +221,7 @@ class LearningAgent(
         exploration_hook: Optional[str] = getattr(self._exploration, "hook", None)
         if exploration_hook is not None:
             self.hook_callback(
-                repr(self._exploration),
-                exploration_hook,
-                lambda *_, **__: self._exploration.step(),
+                repr(self._exploration), exploration_hook, self._exploration.step
             )
         # hook updates (always necessary)
         assert self._update_strategy.hook in {

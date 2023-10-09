@@ -52,7 +52,7 @@ class LearningRate(Generic[LrType]):
         # return hook only if the learning rate scheduler requires to be stepped
         return None if isinstance(self.scheduler, NoScheduling) else self._hook
 
-    def step(self) -> None:
+    def step(self, *_, **__) -> None:
         """Steps/decays the learning rate according to its scheduler."""
         self.scheduler.step()
 

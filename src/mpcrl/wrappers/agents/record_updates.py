@@ -21,7 +21,7 @@ class RecordUpdates(LearningWrapper[SymType, ExpType]):
             p.name: [p.value] for p in agent.learnable_parameters.values()
         }
 
-    def _on_update(self) -> None:
+    def _on_update(self, *_, **__) -> None:
         """Internal utility to store the current parameters in memory."""
         for par in self.agent.learnable_parameters.values():
             self.updates_history[par.name].append(par.value)
@@ -29,4 +29,4 @@ class RecordUpdates(LearningWrapper[SymType, ExpType]):
     def establish_callback_hooks(self) -> None:
         super().establish_callback_hooks()
         # connect the agent's on_update callback to this wrapper storing action
-        self.hook_callback(repr(self), "on_update", lambda *_, **__: self._on_update())
+        self.hook_callback(repr(self), "on_update", self._on_update)
