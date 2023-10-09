@@ -23,6 +23,7 @@ from mpcrl import (
 )
 from mpcrl import exploration as E
 from mpcrl import schedulers as S
+from mpcrl.optim import GradientDescent
 from mpcrl.util.math import cholesky_added_multiple_identities
 from mpcrl.wrappers.agents import RecordUpdates
 
@@ -1340,7 +1341,10 @@ class TestQuadRotorQlearning(unittest.TestCase):
             LstdQLearningAgent(
                 mpc=mpc,
                 discount_factor=agent_config["gamma"],
-                learning_rate=agent_config["lr"][0],
+                optimizer=GradientDescent(
+                    learning_rate=agent_config["lr"][0],
+                    cho_before_update=True,
+                ),
                 learnable_parameters=learnable_pars,
                 fixed_parameters=fixed_pars,
                 exploration=E.EpsilonGreedyExploration(
@@ -1350,7 +1354,6 @@ class TestQuadRotorQlearning(unittest.TestCase):
                 ),
                 experience=ExperienceReplay(maxlen=Tlimit, sample_size=1.0),
                 update_strategy=Tlimit,
-                cho_before_update=True,
             )
         )
         results_actual = LstdQLearningAgent.train(

@@ -22,6 +22,7 @@ from mpcrl import (
     UpdateStrategy,
 )
 from mpcrl import exploration as E
+from mpcrl.optim import GradientDescent
 from mpcrl.util.control import dlqr
 from mpcrl.wrappers.agents import Log, RecordUpdates
 from mpcrl.wrappers.envs import MonitorEpisodes
@@ -200,10 +201,12 @@ class TestExamples(unittest.TestCase):
                     mpc=mpc,
                     learnable_parameters=learnable_pars,
                     discount_factor=mpc.discount_factor,
-                    learning_rate=5e-2,
+                    optimizer=GradientDescent(
+                        learning_rate=5e-2,
+                        max_percentage_update=1e3,  # does nothing; allows to test qp
+                    ),
                     hessian_type="approx",
                     record_td_errors=True,
-                    max_percentage_update=1e3,  # does nothing, just allows to test qp
                 )
             ),
             level=logging.DEBUG,
@@ -254,13 +257,15 @@ class TestExamples(unittest.TestCase):
                     mpc=mpc,
                     learnable_parameters=learnable_pars,
                     discount_factor=mpc.discount_factor,
-                    learning_rate=1e-7,
+                    optimizer=GradientDescent(
+                        learning_rate=1e-7,
+                        max_percentage_update=1e3,  # does nothing; allows to test qp
+                    ),
                     update_strategy=UpdateStrategy(rollout_length, "on_timestep_end"),
                     rollout_length=rollout_length,
                     exploration=E.GreedyExploration(0.05),
                     record_policy_performance=True,
                     record_policy_gradient=True,
-                    max_percentage_update=1e3,  # does nothing, just allows to test qp
                 )
             ),
             level=logging.DEBUG,

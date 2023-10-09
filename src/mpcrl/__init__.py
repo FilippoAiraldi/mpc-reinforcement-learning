@@ -14,11 +14,13 @@ __all__ = [
     "UpdateStrategy",
     "UpdateWarning",
     "exploration",
+    "optim",
     "schedulers",
     "wrappers_agents",
     "wrappers_envs",
 ]
 
+from . import optim
 from .agents.agent import Agent
 from .agents.learning_agent import LearningAgent
 from .agents.lstd_dpg import LstdDpgAgent
