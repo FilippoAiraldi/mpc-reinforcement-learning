@@ -1,5 +1,6 @@
-__all__ = ["GradientDescent", "GD", "NetwonMethod", "NM"]
+__all__ = ["Adam", "GradientDescent", "GD", "NetwonMethod", "NM"]
 
+from .adam import Adam
 from .gradient_descent import GradientDescent
 from .newton_method import NetwonMethod
 
