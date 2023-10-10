@@ -1,2 +1,4 @@
 coverage==7.1.0
 parameterized==0.8.1
+--index-url https://download.pytorch.org/whl/cpu
+torch==2.1.0+cpu
