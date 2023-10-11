@@ -52,16 +52,15 @@ class NetwonMethod(GradientBasedOptimizer):
                 min 1/2 * ||dtheta||^2' + (lr * H^-1 * g)' * dtheta
             ```
             where the hessian linear system is performed via Cholesky's factorization.
-            Only relevant if the RL algorithm uses hessian info. By default, `False`.
+            Only relevant if the update is  constrained. By default, `False`.
         cho_maxiter : int, optional
             Maximum number of iterations in the Cholesky's factorization with additive
             multiples of the identity to ensure positive definiteness of the hessian. By
-            default, `1000`. Only used if the algorithm exploits the hessian.
-        cho_solve_kwargs : kwargs for scipy.linalg.cho_solve, optional
-            The optional kwargs to be passed to `scipy.linalg.cho_solve` to solve for
-            the inversion of the hessian. If `None`, it is equivalent to
-            `cho_solve_kwargs = {'check_finite': False }`. Only used if the algorithm
-            exploits the hessian.
+            default, `1000`.
+        cho_solve_kwargs : kwargs for `scipy.linalg.cho_solve`, optional
+            The optional kwargs to be passed to `scipy.linalg.cho_solve` to solve linear
+            systems with the hessian's Cholesky decomposition. If `None`, it is
+            equivalent to `cho_solve_kwargs = {'check_finite': False }`.
         """
         if cho_before_update:
             self._hessian_sparsity = "diag"
@@ -73,22 +72,22 @@ class NetwonMethod(GradientBasedOptimizer):
             cho_solve_kwargs = {"check_finite": False}
         self.cho_solve_kwargs = cho_solve_kwargs
 
-    def update(
+    def _second_order_update(
         self, gradient: npt.NDArray[np.floating], hessian: npt.NDArray[np.floating]
     ) -> tuple[npt.NDArray[np.floating], Optional[str]]:
         theta = self.learnable_parameters.value
         lr = self.learning_rate.value
         w = self.weight_decay
         cho_kw = self.cho_solve_kwargs
-        chol = cholesky_added_multiple_identities(hessian, maxiter=self.cho_maxiter)
+        L = cholesky_added_multiple_identities(hessian, maxiter=self.cho_maxiter)
 
         # if unconstrained, apply the update directly; otherwise, solve the QP
         solver = self._update_solver
         if solver is None:
-            dtheta = _nm_unconstrained(theta, gradient, chol, lr, w, cho_kw)
+            dtheta = _nm_unconstrained(theta, gradient, L, lr, w, cho_kw)
             return theta + dtheta, None
         H, G = _nm_constrained(
-            theta, gradient, hessian, chol, lr, w, self.cho_before_update, cho_kw
+            theta, gradient, hessian, L, lr, w, self.cho_before_update, cho_kw
         )
         lbx, ubx = self._get_update_bounds(theta)
         sol = solver(h=H, g=G, lbx=lbx, ubx=ubx)

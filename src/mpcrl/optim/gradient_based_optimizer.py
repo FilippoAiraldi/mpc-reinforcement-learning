@@ -1,5 +1,4 @@
-from abc import ABC, abstractmethod
-from typing import Any, Optional, Union
+from typing import Optional, Union
 
 import casadi as cs
 import numpy as np
@@ -10,8 +9,8 @@ from mpcrl.core.parameters import LearnableParametersDict, SymType
 from mpcrl.core.schedulers import Scheduler
 
 
-class GradientBasedOptimizer(ABC):
-    """Abstract base class for gradient-based optimization algorithms."""
+class GradientBasedOptimizer:
+    """Base class for first- and second-order gradient-based optimization algorithms."""
 
     _hessian_sparsity = "dense"
     """This is the default sparsity of the hessian, which is dense. It can be overridden
@@ -94,19 +93,21 @@ class GradientBasedOptimizer(ABC):
         }
         return cs.conic(f"qpsol_{id(self)}", "qrqp", qp, opts)
 
-    @abstractmethod
     def update(
-        self, *args: Any, **kwargs: Any
+        self,
+        gradient: npt.NDArray[np.floating],
+        hessian: Optional[npt.NDArray[np.floating]] = None,
     ) -> tuple[npt.NDArray[np.floating], Optional[str]]:
         """Computes the gradient update of the learnable parameters dictated by the
         current RL algorithm.
 
         Parameters
         ----------
-        args, kwargs
-            In general, any argument is accepted. In practice, the arguments are often
-            the gradient of the update and, if available in the RL algorithm, the
-            Hessian.
+        gradient : array
+            The gradient of the learnable parameters.
+        hessian : array, optional
+            The hessian of the learnable parameters. When the optimizer is firt-order,
+            must be `None`.
 
         Returns
         -------
@@ -116,3 +117,26 @@ class GradientBasedOptimizer(ABC):
                 - an optional string containing the status of the update, e.g., the
                   status of the QP solver, if used.
         """
+        if hessian is None:
+            return self._first_order_update(gradient)
+        return self._second_order_update(gradient, hessian)
+
+    def _first_order_update(
+        self, gradient: npt.NDArray[np.floating]
+    ) -> tuple[npt.NDArray[np.floating], Optional[str]]:
+        """Internally runs a first order update."""
+        raise NotImplementedError(
+            f"`{self.__class__.__name__}` optimizer does not implement "
+            "`_first_order_update`"
+        )
+
+    def _second_order_update(
+        self,
+        gradient: npt.NDArray[np.floating],
+        hessian: Optional[npt.NDArray[np.floating]] = None,
+    ) -> tuple[npt.NDArray[np.floating], Optional[str]]:
+        """Internally runs a second order update."""
+        raise NotImplementedError(
+            f"`{self.__class__.__name__}` optimizer does not implement "
+            "`_second_order_update`"
+        )

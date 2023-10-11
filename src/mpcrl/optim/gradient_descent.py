@@ -69,7 +69,7 @@ class GradientDescent(GradientBasedOptimizer):
         self.nesterov = nesterov
         self._momentum_buffer = None
 
-    def update(
+    def _first_order_update(
         self, gradient: npt.NDArray[np.floating]
     ) -> tuple[npt.NDArray[np.floating], Optional[str]]:
         theta = self.learnable_parameters.value
@@ -108,9 +108,9 @@ def _gd(
     nesterov: bool,
 ) -> tuple[np.ndarray, Optional[np.ndarray]]:
     """Computes the update's change according to the gradient descent algorithm."""
-    if weight_decay >= 0.0:
+    if weight_decay > 0.0:
         g += weight_decay * theta
-    if momentum >= 0.0:
+    if momentum > 0.0:
         if momentum_buffer is None:
             momentum_buffer = g.copy()
         else:
