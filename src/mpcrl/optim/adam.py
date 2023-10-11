@@ -80,15 +80,15 @@ class Adam(GradientBasedOptimizer):
         self.amsgrad = amsgrad
 
     def set_learnable_parameters(self, pars: LearnableParametersDict[SymType]) -> None:
-        # initialize also running averages
         super().set_learnable_parameters(pars)
+        # initialize also running averages
         n = pars.size
         self._exp_avg = np.zeros(n, dtype=float)
         self._exp_avg_sq = np.zeros(n, dtype=float)
         self._max_exp_avg_sq = np.zeros(n, dtype=float) if self.amsgrad else None
         self._step = 0
 
-    def update(
+    def _first_order_update(
         self, gradient: npt.NDArray[np.floating]
     ) -> tuple[npt.NDArray[np.floating], Optional[str]]:
         theta = self.learnable_parameters.value
@@ -96,7 +96,7 @@ class Adam(GradientBasedOptimizer):
         # compute candidate update
         weight_decay = self.weight_decay
         lr = self.learning_rate.value
-        if weight_decay >= 0.0:
+        if weight_decay > 0.0:
             if self.decoupled_weight_decay:  # i.e., AdamW
                 theta = theta * (1 - weight_decay * lr)
             else:
