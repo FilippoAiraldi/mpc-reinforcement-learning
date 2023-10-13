@@ -91,7 +91,7 @@ class LearnableParameter(SupportsDeepcopyAndPickle, Generic[SymType]):
         if ((v < lb) & ~np.isclose(v, lb, **is_close_kwargs)).any() or (
             (v > ub) & ~np.isclose(v, ub, **is_close_kwargs)
         ).any():
-            raise ValueError(f"Updated parameter {self.name} is outside bounds.")
+            raise ValueError(f"Updated parameter `{self.name}` is outside bounds.")
         self.value: npt.NDArray[np.floating] = np.clip(v, lb, ub)
 
     def _check_sym_shape(self) -> None:
