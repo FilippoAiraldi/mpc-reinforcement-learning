@@ -85,13 +85,19 @@ class GradientBasedOptimizer:
         n_params = self.learnable_parameters.size
         qp = {"h": getattr(cs.Sparsity, self._hessian_sparsity)(n_params, n_params)}
         opts = {
-            "print_info": False,
-            "print_iter": False,
-            "print_header": False,
             "error_on_fail": False,
-            "max_iter": 2000,
+            "osqp": {
+                "verbose": False,
+                "polish": True,
+                "scaling": 20,
+                "eps_abs": 1e-9,
+                "eps_rel": 1e-9,
+                "eps_prim_inf": 1e-10,
+                "eps_dual_inf": 1e-10,
+                "max_iter": 6000,
+            }
         }
-        return cs.conic(f"qpsol_{id(self)}", "qrqp", qp, opts)
+        return cs.conic(f"qpsol_{id(self)}", "osqp", qp, opts)
 
     def update(
         self,
