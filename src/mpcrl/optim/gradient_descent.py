@@ -27,12 +27,11 @@ class GradientDescent(GradientBasedOptimizer):
     def __init__(
         self,
         learning_rate: Union[LrType, Scheduler[LrType], LearningRate[LrType]],
-        max_percentage_update: float = float("+inf"),
         weight_decay: float = 0.0,
-        #
         momentum: float = 0.0,
         dampening: float = 0.0,
         nesterov: bool = False,
+        max_percentage_update: float = float("+inf"),
     ) -> None:
         """Instantiates the optimizer.
 
@@ -44,13 +43,6 @@ class GradientDescent(GradientBasedOptimizer):
             will be stepped `on_update` by default. Otherwise, a `LearningRate` object
             can be passed, allowing to specify both the scheduling and stepping
             strategies of this fundamental hyper-parameter.
-        max_percentage_update : float, optional
-            A positive float that specifies the maximum percentage change the learnable
-            parameters can experience in each update. For example,
-            `max_percentage_update=0.5` means that the parameters can be updated by up
-            to 50% of their current value. By default, it is set to `+inf`. If
-            specified, the update becomes constrained and has to be solved as a QP,
-            which is inevitably slower than its unconstrained counterpart.
         weight_decay : float, optional
             A positive float that specifies the decay of the learnable parameters in the
             form of an L2 regularization term. By default, it is set to `0.0`, so no
@@ -61,6 +53,16 @@ class GradientDescent(GradientBasedOptimizer):
         dampening : float, optional
             A positive float that specifies the dampening factor for the momentum. By
             default, it is set to `0.0`, so no dampening is used.
+        nesterov : bool, optional
+            A boolean that specifies whether to use Nesterov momentum. By default, it is
+            set to `False`.
+        max_percentage_update : float, optional
+            A positive float that specifies the maximum percentage change the learnable
+            parameters can experience in each update. For example,
+            `max_percentage_update=0.5` means that the parameters can be updated by up
+            to 50% of their current value. By default, it is set to `+inf`. If
+            specified, the update becomes constrained and has to be solved as a QP,
+            which is inevitably slower than its unconstrained counterpart.
         """
         super().__init__(learning_rate, max_percentage_update)
         self.weight_decay = weight_decay

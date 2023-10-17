@@ -95,7 +95,7 @@ class GradientBasedOptimizer:
                 "eps_prim_inf": 1e-10,
                 "eps_dual_inf": 1e-10,
                 "max_iter": 6000,
-            }
+            },
         }
         return cs.conic(f"qpsol_{id(self)}", "osqp", qp, opts)
 
@@ -103,7 +103,7 @@ class GradientBasedOptimizer:
         self,
         gradient: npt.NDArray[np.floating],
         hessian: Optional[npt.NDArray[np.floating]] = None,
-    ) -> tuple[npt.NDArray[np.floating], Optional[str]]:
+    ) -> Optional[str]:
         """Computes the gradient update of the learnable parameters dictated by the
         current RL algorithm.
 
@@ -117,15 +117,19 @@ class GradientBasedOptimizer:
 
         Returns
         -------
-        new parameters, status
-            Returns a tuple containing
-                - the value of the new parameters, after this update
-                - an optional string containing the status of the update, e.g., the
-                  status of the QP solver, if used.
+        status : str, optional
+            An optional string containing the status of the update, e.g., the status of
+            the QP solver, if used.
         """
         if hessian is None:
-            return self._first_order_update(gradient)
-        return self._second_order_update(gradient, hessian)
+            theta_new, status = self._first_order_update(gradient)
+        else:
+            theta_new, status = self._second_order_update(gradient, hessian)
+        # theta_new = np.clip(
+        #     theta_new, self.learnable_parameters.lb, self.learnable_parameters.ub
+        # )
+        self.learnable_parameters.update_values(theta_new)
+        return status
 
     def _first_order_update(
         self, gradient: npt.NDArray[np.floating]

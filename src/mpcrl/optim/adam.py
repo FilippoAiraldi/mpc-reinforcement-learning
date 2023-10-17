@@ -34,12 +34,12 @@ class Adam(GradientBasedOptimizer):
     def __init__(
         self,
         learning_rate: Union[LrType, Scheduler[LrType], LearningRate[LrType]],
-        max_percentage_update: float = float("+inf"),
         betas: tuple[float, float] = (0.9, 0.999),
         eps: float = 1e-8,
         weight_decay: float = 0.0,
         decoupled_weight_decay: bool = False,
         amsgrad: bool = False,
+        max_percentage_update: float = float("+inf"),
     ) -> None:
         """Instantiates the optimizer.
 
@@ -51,13 +51,6 @@ class Adam(GradientBasedOptimizer):
             will be stepped `on_update` by default. Otherwise, a `LearningRate` object
             can be passed, allowing to specify both the scheduling and stepping
             strategies of this fundamental hyper-parameter.
-        max_percentage_update : float, optional
-            A positive float that specifies the maximum percentage change the learnable
-            parameters can experience in each update. For example,
-            `max_percentage_update=0.5` means that the parameters can be updated by up
-            to 50% of their current value. By default, it is set to `+inf`. If
-            specified, the update becomes constrained and has to be solved as a QP,
-            which is inevitably slower than its unconstrained counterpart.
         betas : tuple of 2 floats, optional
             Coefficients used for computing running averages of gradient and its square.
             By default, they are set to `(0.9, 0.999)`.
@@ -71,6 +64,15 @@ class Adam(GradientBasedOptimizer):
         decoupled_weight_decay : bool, optional
             If `False`, the optimizer is Adam. Otherwise, it is `AdamW`. By default, it
             is `False`.
+        amsgrad : bool, optional
+            If `True`, uses the AMSGrad variant. By default, it is `False`.
+        max_percentage_update : float, optional
+            A positive float that specifies the maximum percentage change the learnable
+            parameters can experience in each update. For example,
+            `max_percentage_update=0.5` means that the parameters can be updated by up
+            to 50% of their current value. By default, it is set to `+inf`. If
+            specified, the update becomes constrained and has to be solved as a QP,
+            which is inevitably slower than its unconstrained counterpart.
         """
         super().__init__(learning_rate, max_percentage_update)
         self.weight_decay = weight_decay
