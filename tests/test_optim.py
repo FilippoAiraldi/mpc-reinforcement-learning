@@ -229,12 +229,11 @@ class TestNetwonMethod(unittest.TestCase):
 
 
 class TestAdam(unittest.TestCase):
-    @parameterized.expand(product((False, True), (False, True)))
-    def test(self, decouple_weight_decay: bool, amsgrad: bool):
+    @parameterized.expand(product((0, 0.01), (False, True), (False, True)))
+    def test(self, weight_decay: float, decouple_weight_decay: bool, amsgrad: bool):
         # prepare data
         betas = tuple(np.random.uniform(0.9, 1.0, size=2))
         eps = np.random.uniform(1e-8, 1e-6)
-        weight_decay = 0 if np.random.rand() < 0.5 else np.random.uniform(0.0, 1e-2)
         lr = np.random.uniform(1e-4, 1e-3)
 
         # prepare torch elements
@@ -281,6 +280,114 @@ class TestAdam(unittest.TestCase):
             weight_decay=weight_decay,
             decoupled_weight_decay=decouple_weight_decay,
             amsgrad=amsgrad,
+        )
+        optimizer_mpcrl.set_learnable_parameters(learnable_pars)
+
+        # run test
+        cmp = lambda x, y, msg: np.testing.assert_allclose(
+            x, y, rtol=1e-6, atol=1e-6, err_msg=msg
+        )
+        for i in range(20):
+            # torch
+            y_pred_torch = model_torch(xx_torch).flatten()
+            loss_torch = loss_fn_torch(y_pred_torch, y_actual_torch)
+            optimizer_torch.zero_grad()
+            loss_torch.backward()
+            optimizer_torch.step()
+            grad_torch = np.concatenate(
+                [
+                    model_torch.weight.grad.detach().clone().numpy(),
+                    model_torch.bias.grad.detach().clone().numpy(),
+                ],
+                None,
+            )
+
+            # mpcrl
+            y_pred_mpcrl, loss_mpcrl, grad_mpcrl = model_mpcrl(
+                np.concatenate([A_mpcrl, b_mpcrl], None)
+            )
+            grad_mpcrl = grad_mpcrl.full().flatten()
+            status = optimizer_mpcrl.update(grad_mpcrl)
+            p_new = learnable_pars.value
+            A_mpcrl, b_mpcrl = np.array_split(p_new, [A_mpcrl.size])
+
+            # check
+            self.assertIsNone(status)
+            cmp(
+                y_pred_mpcrl.full().flatten(),
+                y_pred_torch.detach().clone().numpy(),
+                f"prediction mismatch at iteration {i}",
+            )
+            cmp(
+                float(loss_mpcrl),
+                loss_torch.detach().clone().item(),
+                f"loss mismatch at iteration {i}",
+            )
+            cmp(grad_mpcrl, grad_torch, f"gradient mismatch at iteration {i}")
+            cmp(
+                A_mpcrl,
+                model_torch.weight.detach().clone().numpy().reshape(A_mpcrl.shape),
+                f"`A` mismatch at iteration {i}",
+            )
+            cmp(
+                b_mpcrl,
+                model_torch.bias.detach().clone().numpy().reshape(b_mpcrl.shape),
+                f"`b` mismatch at iteration {i}",
+            )
+
+
+class TestRMSprop(unittest.TestCase):
+    @parameterized.expand(product((0, 0.1), (0, 0.9), (False, True)))
+    def test(self, weight_decay: float, momentum: float, centered: bool):
+        # prepare data
+        alpha = np.random.uniform(0.9, 0.99)
+        eps = np.random.uniform(1e-8, 1e-6)
+        lr = np.random.uniform(1e-4, 1e-3)
+
+        # prepare torch elements
+        x = torch.linspace(-np.pi, np.pi, 2, dtype=torch.float64)
+        xx_torch = x.unsqueeze(-1).pow(torch.tensor([1, 2, 3]))
+        y_actual_torch = torch.sin(x)
+        model_torch = torch.nn.Linear(3, 1, dtype=torch.float64)
+        loss_fn_torch = torch.nn.MSELoss(reduction="sum")
+        optimizer_torch = torch.optim.RMSprop(
+            params=model_torch.parameters(),
+            lr=lr,
+            alpha=alpha,
+            eps=eps,
+            weight_decay=weight_decay,
+            momentum=momentum,
+            centered=centered,
+        )
+
+        # prepare mpcrl elements
+        xx_dm = cs.DM(xx_torch.detach().numpy())
+        A_sym = cs.MX.sym("A", *model_torch.weight.shape)
+        b_sym = cs.MX.sym("b", *model_torch.bias.shape)
+        y_pred_sym = xx_dm @ A_sym.T + b_sym
+        y_actual_dm = cs.DM(y_actual_torch.detach().clone().numpy())
+        loss_sym = cs.sumsqr(y_pred_sym - y_actual_dm)
+        p_sym = cs.veccat(A_sym, b_sym)
+        dldp_sym = cs.gradient(loss_sym, p_sym)
+        model_mpcrl = cs.Function(
+            "F", [p_sym], [y_pred_sym, loss_sym, dldp_sym], ["p"], ["y", "l", "dldp"]
+        )
+        A_mpcrl = model_torch.weight.data.detach().clone().numpy().flatten()
+        b_mpcrl = model_torch.bias.data.detach().clone().numpy()
+        learnable_pars = LearnableParametersDict(
+            [
+                LearnableParameter("A", A_mpcrl.size, A_mpcrl),
+                LearnableParameter("b", b_mpcrl.size, b_mpcrl),
+            ]
+        )
+        optimizer_mpcrl = O.RMSprop(
+            learning_rate=lr,
+            alpha=alpha,
+            eps=eps,
+            weight_decay=weight_decay,
+            momentum=momentum,
+            centered=centered,
+            max_percentage_update=1e4,  # test constrained
         )
         optimizer_mpcrl.set_learnable_parameters(learnable_pars)
 

@@ -10,35 +10,29 @@ from mpcrl.core.schedulers import Scheduler
 from mpcrl.optim.gradient_based_optimizer import GradientBasedOptimizer
 
 
-class Adam(GradientBasedOptimizer):
-    """Adam and AdamW optimizers, based on [1,2] and [3,4], respectively. AMSGrad is
-    also supported [5].
+class RMSprop(GradientBasedOptimizer):
+    """RMSprop optimizer, based on [1,2].
 
     References
     ----------
-    [1] Kingma, D.P. and Ba, J., 2014. Adam: A method for stochastic optimization.
-        arXiv preprint arXiv:1412.6980.
-    [2] Loshchilov, I. and Hutter, F., 2017. Decoupled weight decay regularization.
-        arXiv preprint arXiv:1711.05101.
-    [3] Adam - PyTorch 2.1 documentation.
-        https://pytorch.org/docs/stable/generated/torch.optim.Adam.html
-    [4] AdamW - PyTorch 2.1 documentation.
-        https://pytorch.org/docs/stable/generated/torch.optim.AdamW.html
-    [5] Reddi, S.J., Kale, S. and Kumar, S., 2019. On the convergence of adam and
-        beyond. arXiv preprint arXiv:1904.09237.
+    [1] Geoffrey Hinton, Nitish Srivastava, and Kevin Swersky. Neural networks for
+        machine learning lecture 6a overview of mini-batch gradient descent. page 14,
+        2012.
+    [2] RMSprop - PyTorch 2.1 documentation.
+        https://pytorch.org/docs/stable/generated/torch.optim.RMSprop.html
     """
 
     _hessian_sparsity = "diag"
-    """In Adam, hessian is at most diagonal, i.e., in case we have constraints."""
+    """In RMSprop, hessian is at most diagonal, i.e., in case we have constraints."""
 
     def __init__(
         self,
         learning_rate: Union[LrType, Scheduler[LrType], LearningRate[LrType]],
-        betas: tuple[float, float] = (0.9, 0.999),
+        alpha: float = 0.99,
         eps: float = 1e-8,
         weight_decay: float = 0.0,
-        decoupled_weight_decay: bool = False,
-        amsgrad: bool = False,
+        momentum: float = 0.0,
+        centered: bool = False,
         max_percentage_update: float = float("+inf"),
     ) -> None:
         """Instantiates the optimizer.
@@ -51,9 +45,9 @@ class Adam(GradientBasedOptimizer):
             will be stepped `on_update` by default. Otherwise, a `LearningRate` object
             can be passed, allowing to specify both the scheduling and stepping
             strategies of this fundamental hyper-parameter.
-        betas : tuple of 2 floats, optional
-            Coefficients used for computing running averages of gradient and its square.
-            By default, they are set to `(0.9, 0.999)`.
+        alpha : float, optional
+            A positive float that specifies the decay rate of the running average of the
+            gradient. By default, it is set to `0.99`.
         eps : float, optional
             Term added to the denominator to improve numerical stability. By default, it
             is set to `1e-8`.
@@ -61,11 +55,12 @@ class Adam(GradientBasedOptimizer):
             A positive float that specifies the decay of the learnable parameters in the
             form of an L2 regularization term. By default, it is set to `0.0`, so no
             decay/regularization takes place.
-        decoupled_weight_decay : bool, optional
-            If `False`, the optimizer is Adam. Otherwise, it is `AdamW`. By default, it
-            is `False`.
-        amsgrad : bool, optional
-            If `True`, uses the AMSGrad variant. By default, it is `False`.
+        momentum : float, optional
+            A positive float that specifies the momentum factor. By default, it is set
+            to `0.0`, so no momentum is used.
+        centered : bool, optional
+            If `True`, compute the centered RMSProp, i.e., the gradient is normalized by
+            an estimation of its variance.
         max_percentage_update : float, optional
             A positive float that specifies the maximum percentage change the learnable
             parameters can experience in each update. For example,
@@ -76,19 +71,18 @@ class Adam(GradientBasedOptimizer):
         """
         super().__init__(learning_rate, max_percentage_update)
         self.weight_decay = weight_decay
-        self.beta1, self.beta2 = betas
+        self.alpha = alpha
         self.eps = eps
-        self.decoupled_weight_decay = decoupled_weight_decay
-        self.amsgrad = amsgrad
+        self.momentum = momentum
+        self.centered = centered
 
     def set_learnable_parameters(self, pars: LearnableParametersDict[SymType]) -> None:
         super().set_learnable_parameters(pars)
         # initialize also running averages
         n = pars.size
-        self._exp_avg = np.zeros(n, dtype=float)
-        self._exp_avg_sq = np.zeros(n, dtype=float)
-        self._max_exp_avg_sq = np.zeros(n, dtype=float) if self.amsgrad else None
-        self._step = 0
+        self._square_avg = np.zeros(n, dtype=float)
+        self._grad_avg = np.zeros(n, dtype=float) if self.centered else None
+        self._momentum_buf = np.zeros(n, dtype=float) if self.momentum > 0.0 else None
 
     def _first_order_update(
         self, gradient: npt.NDArray[np.floating]
@@ -99,21 +93,17 @@ class Adam(GradientBasedOptimizer):
         weight_decay = self.weight_decay
         lr = self.learning_rate.value
         if weight_decay > 0.0:
-            if self.decoupled_weight_decay:  # i.e., AdamW
-                theta = theta * (1 - weight_decay * lr)
-            else:
-                gradient = gradient + weight_decay * theta
-        self._step += 1
-        dtheta, self._exp_avg, self._exp_avg_sq, self._max_exp_avg_sq = _adam(
-            self._step,
+            gradient = gradient + weight_decay * theta
+        dtheta, self._square_avg, self._grad_avg, self._momentum_buf = _rmsprop(
             gradient,
-            self._exp_avg,
-            self._exp_avg_sq,
+            self._square_avg,
             lr,
-            self.beta1,
-            self.beta2,
+            self.alpha,
             self.eps,
-            self._max_exp_avg_sq,
+            self.centered,
+            self._grad_avg,
+            self.momentum,
+            self._momentum_buf,
         )
 
         # if unconstrained, apply the update directly; otherwise, solve the QP
@@ -127,30 +117,30 @@ class Adam(GradientBasedOptimizer):
         return theta + dtheta, None if stats["success"] else stats["return_status"]
 
 
-def _adam(
-    step: int,
-    g: np.ndarray,
-    exp_avg: np.ndarray,
-    exp_avg_sq: np.ndarray,
+def _rmsprop(
+    grad: np.ndarray,
+    square_avg: np.ndarray,
     lr: LrType,
-    beta1: float,
-    beta2: float,
+    alpha: float,
     eps: float,
-    max_exp_avg_sq: Optional[np.ndarray],
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, Optional[np.ndarray]]:
+    centered: bool,
+    grad_avg: Optional[np.ndarray],
+    momentum: float,
+    momentum_buffer: Optional[np.ndarray],
+) -> tuple[np.ndarray, np.ndarray, Optional[np.ndarray], Optional[np.ndarray]]:
     """Computes the update's change according to Adam algorithm."""
-    exp_avg = beta1 * exp_avg + (1 - beta1) * g
-    exp_avg_sq = beta2 * exp_avg_sq + (1 - beta2) * np.square(g)
+    square_avg = alpha * square_avg + (1 - alpha) * np.square(grad)
 
-    bias_correction1 = 1 - beta1**step
-    bias_correction2 = 1 - beta2**step
-    step_size = lr / bias_correction1
-    bias_correction2_sqrt = np.sqrt(bias_correction2)
+    if centered:
+        grad_avg = alpha * grad_avg + (1 - alpha) * grad
+        avg = np.sqrt(square_avg - np.square(grad_avg))
+    else:
+        avg = np.sqrt(square_avg)
+    avg += eps
 
-    if max_exp_avg_sq is None:
-        denom = np.sqrt(exp_avg_sq) / bias_correction2_sqrt + eps
-    else:  # i.e., AMSGrad
-        max_exp_avg_sq = np.maximum(max_exp_avg_sq, exp_avg_sq)
-        denom = np.sqrt(max_exp_avg_sq) / bias_correction2_sqrt + eps
-    dtheta = -step_size * (exp_avg / denom)
-    return dtheta, exp_avg, exp_avg_sq, max_exp_avg_sq
+    if momentum > 0.0:
+        momentum_buffer = momentum * momentum_buffer + grad / avg
+        dtheta = -lr * momentum_buffer
+    else:
+        dtheta = -lr * grad / avg
+    return dtheta, square_avg, grad_avg, momentum_buffer
