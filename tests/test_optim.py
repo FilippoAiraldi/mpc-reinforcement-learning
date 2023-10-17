@@ -109,9 +109,9 @@ class TestGradientDescent(unittest.TestCase):
         learnable_pars.value = theta = np.random.randn(N_PARAMS)
         opt.set_learnable_parameters(learnable_pars)
         g = np.random.randn(N_PARAMS)
-        theta_new, status = opt.update(g)
+        status = opt.update(g)
         self.assertIsNone(status)
-        np.testing.assert_array_almost_equal(theta_new, theta - 0.1 * g)
+        np.testing.assert_array_almost_equal(learnable_pars.value, theta - 0.1 * g)
 
     @parameterized.expand([(False,), (True,)])
     def test_update__constrained__with_small_bounds(self, nesterov: bool):
@@ -128,7 +128,8 @@ class TestGradientDescent(unittest.TestCase):
         ub = learnable_pars.ub = theta + np.abs(theta) * 5e-2
         opt.set_learnable_parameters(learnable_pars)
         g = np.random.randn(N_PARAMS) * 100
-        theta_new, status = opt.update(g)
+        status = opt.update(g)
+        theta_new = learnable_pars.value
         self.assertIsNone(status)
         self.assertTrue(
             np.where(theta_new >= lb, True, np.isclose(theta_new, lb)).all()
@@ -152,9 +153,9 @@ class TestGradientDescent(unittest.TestCase):
         learnable_pars.ub = np.abs(theta) * 100
         opt.set_learnable_parameters(learnable_pars)
         g = np.random.randn(N_PARAMS) / 100
-        theta_new, status = opt.update(g)
+        status = opt.update(g)
         self.assertIsNone(status)
-        np.testing.assert_array_equal(theta_new, theta - 0.1 * g)
+        np.testing.assert_array_equal(learnable_pars.value, theta - 0.1 * g)
 
 
 class TestNetwonMethod(unittest.TestCase):
@@ -167,10 +168,10 @@ class TestNetwonMethod(unittest.TestCase):
         g = np.random.randn(N_PARAMS)
         H = np.random.randn(N_PARAMS, N_PARAMS)
         H = H @ H.T + np.eye(N_PARAMS)
-        theta_new, status = opt.update(g, H)
+        status = opt.update(g, H)
         self.assertIsNone(status)
         np.testing.assert_array_almost_equal(
-            theta_new, theta - 0.1 * np.linalg.solve(H, g)
+            learnable_pars.value, theta - 0.1 * np.linalg.solve(H, g)
         )
 
     @parameterized.expand(product((0.0, SMALL), (False, True)))
@@ -183,9 +184,9 @@ class TestNetwonMethod(unittest.TestCase):
         opt.set_learnable_parameters(learnable_pars)
         g = np.random.randn(N_PARAMS)
         H = np.eye(N_PARAMS)
-        theta_new, status = opt.update(g, H)
+        status = opt.update(g, H)
         self.assertIsNone(status)
-        np.testing.assert_array_almost_equal(theta_new, theta - 0.1 * g)
+        np.testing.assert_array_almost_equal(learnable_pars.value, theta - 0.1 * g)
 
     @parameterized.expand(product((0.0, SMALL), (False, True)))
     def test_update__constrained__with_large_bounds_with_identity_hessian(
@@ -199,9 +200,9 @@ class TestNetwonMethod(unittest.TestCase):
         opt.set_learnable_parameters(learnable_pars)
         g = np.random.randn(N_PARAMS) / 100
         H = np.eye(N_PARAMS)
-        theta_new, status = opt.update(g, H)
+        status = opt.update(g, H)
         self.assertIsNone(status)
-        np.testing.assert_array_equal(theta_new, theta - 0.1 * g)
+        np.testing.assert_array_equal(learnable_pars.value, theta - 0.1 * g)
 
     @parameterized.expand(product((0.0, SMALL), (False, True)))
     def test_update__constrained__with_small_bounds(
@@ -216,7 +217,8 @@ class TestNetwonMethod(unittest.TestCase):
         g = np.random.randn(N_PARAMS) * 100
         H = np.random.randn(N_PARAMS, N_PARAMS)
         H = H @ H.T
-        theta_new, status = opt.update(g, H)
+        status = opt.update(g, H)
+        theta_new = learnable_pars.value
         self.assertIsNone(status)
         self.assertTrue(
             np.where(theta_new >= lb, True, np.isclose(theta_new, lb)).all()
@@ -306,8 +308,8 @@ class TestAdam(unittest.TestCase):
                 np.concatenate([A_mpcrl, b_mpcrl], None)
             )
             grad_mpcrl = grad_mpcrl.full().flatten()
-            p_new, status = optimizer_mpcrl.update(grad_mpcrl)
-            learnable_pars.update_values(p_new)
+            status = optimizer_mpcrl.update(grad_mpcrl)
+            p_new = learnable_pars.value
             A_mpcrl, b_mpcrl = np.array_split(p_new, [A_mpcrl.size])
 
             # check

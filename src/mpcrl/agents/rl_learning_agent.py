@@ -50,11 +50,8 @@ class RlLearningAgent(
         self, gradient: np.ndarray, hessian: Optional[np.ndarray] = None
     ) -> Optional[str]:
         """Internal utility to call the optimizer and perform the gradient update."""
-        theta_new, status = (
+        return (
             self.optimizer.update(gradient)
             if hessian is None
             else self.optimizer.update(gradient, hessian)
         )
-        # theta_new = np.clip(theta_new, self._learnable_pars.lb, self._learnable_pars.ub)
-        self._learnable_pars.update_values(theta_new)
-        return status
