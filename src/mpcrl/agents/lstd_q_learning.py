@@ -161,7 +161,7 @@ class LstdQLearningAgent(
             hessians.append(H)
         gradient = np.mean(gradients, 0)
         hessian = np.mean(hessians, 0) if self.hessian_type != "none" else None
-        return self._do_gradient_update(gradient.reshape(-1), hessian)
+        return self._do_gradient_update(gradient, hessian)
 
     def train_one_episode(
         self,
@@ -237,7 +237,7 @@ class LstdQLearningAgent(
         # wrap to conveniently return numpy arrays
         def func(sol_values: cs.DM) -> tuple[np.ndarray, np.ndarray]:
             dQ, ddQ = sensitivity(sol_values)
-            return dQ.full().reshape(-1, 1), ddQ.full()
+            return np.asarray(dQ.elements()), ddQ.toarray()
 
         return func
 
@@ -252,7 +252,11 @@ class LstdQLearningAgent(
             dQ, ddQ = self._sensitivity(sol_values)
             td_error = cost + self.discount_factor * solV.f - solQ.f
             g = -td_error * dQ
-            H = (dQ @ dQ.T - td_error * ddQ) if self.hessian_type != "none" else np.nan
+            H = (
+                (np.multiply.outer(dQ, dQ) - td_error * ddQ)
+                if self.hessian_type != "none"
+                else np.nan
+            )
             self.store_experience((g, H))
             success = True
         else:

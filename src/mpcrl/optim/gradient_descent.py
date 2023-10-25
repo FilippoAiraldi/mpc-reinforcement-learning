@@ -94,7 +94,7 @@ class GradientDescent(GradientBasedOptimizer):
             return theta + dtheta, None
         lbx, ubx = self._get_update_bounds(theta)
         sol = solver(h=cs.DM.eye(theta.shape[0]), g=-dtheta, lbx=lbx, ubx=ubx)
-        dtheta = sol["x"].full().reshape(-1)
+        dtheta = np.asarray(sol["x"].elements())
         stats = solver.stats()
         return theta + dtheta, None if stats["success"] else stats["return_status"]
 
