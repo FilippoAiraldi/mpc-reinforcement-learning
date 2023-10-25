@@ -246,8 +246,8 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
                 # computed with the solution of unpertubed MPC (i.e., sol_opt).
                 # According to Gros and Zanon [2], it is hinted that the perturbed
                 # solution should be used instead (sol).
-                exploration = (action - action_opt).full()
-                sol_vals = sol_opt.all_vals.full()
+                exploration = np.asarray((action - action_opt).elements())
+                sol_vals = np.asarray(sol_opt.all_vals.elements())
                 self._rollout.append((state, exploration, cost, state_new, sol_vals))
             else:
                 status = f"{sol.status}/{sol_opt.status}"
@@ -310,8 +310,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         # >2 dims, so dpidtheta gets squished in the 3rd dim and needs reshaping
         def func(sol_values: cs.DM, N: int) -> np.ndarray:
             return (
-                sensitivity(sol_values.T)
-                .full()
+                np.ascontiguousarray(sensitivity(sol_values.T).elements())
                 .reshape(ntheta, na, N, order="F")
                 .transpose((2, 0, 1))
             )
@@ -320,19 +319,19 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
 
     def _consolidate_rollout_into_memory(self) -> None:
         """Internal utility to compact current rollout into a single item in memory."""
-        # convert to arrays
+        # convert rollout to arrays and clear it
         N, S, E, L, vals = _consolidate_rollout(self._rollout, self._V.ns, self._V.na)
+        self._rollout.clear()
 
         # compute Phi, dpidtheta, Psi, and CAFA weight v
-        Phi = np.ascontiguousarray(self._Phi(S.T).full().T)
+        Phi = np.ascontiguousarray(self._Phi(S.T).elements()).reshape(N + 1, -1)
         dpidtheta = self._sensitivity(vals, N)
         Psi = (dpidtheta @ E).reshape(N, dpidtheta.shape[1])
         R = self.ridge_regression_regularization
         v = _compute_cafa_weight_v(Phi, L, self.discount_factor, R)
 
-        # save to memory and clear rollout
+        # save to experience
         self.store_experience((L, Phi, Psi, dpidtheta, v))
-        self._rollout.clear()
         if self.policy_performances is not None:
             self.policy_performances.append(L.sum())
 
@@ -354,7 +353,7 @@ def _consolidate_rollout(
         S[i] = s.reshape(-1)
         E[i] = e
         L[i] = cost
-        sol_vals[i] = sol_val.reshape(-1)
+        sol_vals[i] = sol_val
     S[-1] = rollout[-1][3].reshape(-1)
     return N, S, E, L, sol_vals
 
