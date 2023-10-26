@@ -28,6 +28,7 @@ class Adam(GradientBasedOptimizer):
         beyond. arXiv preprint arXiv:1904.09237.
     """
 
+    _order = 1
     _hessian_sparsity = "diag"
     """In Adam, hessian is at most diagonal, i.e., in case we have constraints."""
 

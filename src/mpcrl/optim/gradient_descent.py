@@ -21,6 +21,7 @@ class GradientDescent(GradientBasedOptimizer):
         https://pytorch.org/docs/stable/generated/torch.optim.SGD.html
     """
 
+    _order = 1
     _hessian_sparsity = "diag"
     """In GD, the hessian is at most diagonal, i.e., in case we have constraints."""
 

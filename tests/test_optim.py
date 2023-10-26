@@ -24,6 +24,8 @@ LEARNABLE_PARS = LearnableParametersDict(
 
 
 class DummyOptimizer(GradientBasedOptimizer):
+    _hessian_sparsity = "dense"
+
     def update(self, *args, **kwargs):
         pass
 
