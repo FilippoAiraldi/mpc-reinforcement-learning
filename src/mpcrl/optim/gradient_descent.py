@@ -5,10 +5,10 @@ import numpy as np
 import numpy.typing as npt
 
 from mpcrl.core.schedulers import Scheduler
-from mpcrl.optim.gradient_based_optimizer import GradientBasedOptimizer, LrType
+from mpcrl.optim.gradient_based_optimizer import GradientBasedOptimizer, LrType, SymType
 
 
-class GradientDescent(GradientBasedOptimizer):
+class GradientDescent(GradientBasedOptimizer[SymType, LrType]):
     """First-order Gradient descent optimizer, based on [1,2].
 
     References

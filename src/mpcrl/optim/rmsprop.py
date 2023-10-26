@@ -9,7 +9,7 @@ from mpcrl.core.schedulers import Scheduler
 from mpcrl.optim.gradient_based_optimizer import GradientBasedOptimizer, LrType
 
 
-class RMSprop(GradientBasedOptimizer):
+class RMSprop(GradientBasedOptimizer[SymType, LrType]):
     """RMSprop optimizer, based on [1,2].
 
     References

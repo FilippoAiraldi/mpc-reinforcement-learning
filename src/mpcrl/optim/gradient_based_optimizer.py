@@ -1,4 +1,4 @@
-from typing import Literal, Optional, TypeVar, Union
+from typing import Generic, Literal, Optional, TypeVar, Union
 
 import casadi as cs
 import numpy as np
@@ -10,7 +10,7 @@ from mpcrl.core.schedulers import NoScheduling, Scheduler
 LrType = TypeVar("LrType", npt.NDArray[np.floating], float)
 
 
-class GradientBasedOptimizer:
+class GradientBasedOptimizer(Generic[SymType, LrType]):
     """Base class for first- and second-order gradient-based optimization algorithms."""
 
     _order: Literal[1, 2]
