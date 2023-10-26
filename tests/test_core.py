@@ -3,6 +3,7 @@ import unittest
 from collections.abc import Iterator
 from copy import deepcopy
 from itertools import product
+from random import shuffle
 from typing import Union
 from unittest.mock import Mock
 
@@ -197,6 +198,57 @@ class TestSchedulers(unittest.TestCase):
         scheduler = S.LogLinearScheduler(base**x0, base**xf, K)
         scheduler_copy = deepcopy(scheduler)
         do_test_similar_schedulers(self, scheduler, scheduler_copy)
+
+    def test_chain(self):
+        # create a list of random schedulers
+        rd, ri = np.random.rand, np.random.randint
+        mk1 = lambda: (S.NoScheduling(rd()), ri(10, 100))
+        mk2 = lambda: (S.ExponentialScheduler(*rd(2)), ri(10, 100))
+        mk3 = lambda: S.LinearScheduler(*rd(2), ri(10, 100))
+        mk4 = lambda: S.LogLinearScheduler(*rd(2), ri(10, 100))
+        schedulers = []
+        for mk in (mk1, mk2, mk3, mk4):
+            for _ in range(ri(1, 5)):
+                schedulers.append(mk())
+        shuffle(schedulers)
+
+        # extract the expected values
+        values_expected = []
+        schedulers_ = deepcopy(schedulers)
+        for scheduler in schedulers_:
+            if isinstance(scheduler, tuple):
+                scheduler, K = scheduler
+                while True:
+                    values_expected.append(scheduler.value)
+                    scheduler.step()
+                    K -= 1
+                    if K == 0:
+                        break
+            else:
+                while True:
+                    values_expected.append(scheduler.value)
+                    try:
+                        scheduler.step()
+                    except StopIteration:
+                        break
+
+        # create the chain and extract the actual values
+        scheduler = S.Chain(schedulers)
+        values_actual = []
+        while True:
+            values_actual.append(scheduler.value)
+            try:
+                scheduler.step()
+            except StopIteration:
+                break
+
+        # test
+        steps_expected = sum(
+            sc[1] if isinstance(sc, tuple) else sc.total_steps + 1 for sc in schedulers
+        )
+        self.assertEqual(len(values_actual), steps_expected)
+        self.assertEqual(len(values_expected), len(values_actual))
+        np.testing.assert_array_equal(values_expected, values_actual)
 
 
 class TestExploration(unittest.TestCase):
