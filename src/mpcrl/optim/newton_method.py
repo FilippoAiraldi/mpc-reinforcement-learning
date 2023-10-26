@@ -1,12 +1,11 @@
-from typing import Any, Optional, Union
+from typing import Any, Literal, Optional, Union
 
 import numpy as np
 import numpy.typing as npt
 from scipy.linalg import cho_solve
 
-from mpcrl.core.learning_rate import LearningRate, LrType
 from mpcrl.core.schedulers import Scheduler
-from mpcrl.optim.gradient_based_optimizer import GradientBasedOptimizer
+from mpcrl.optim.gradient_based_optimizer import GradientBasedOptimizer, LrType
 from mpcrl.util.math import cholesky_added_multiple_identities
 
 
@@ -18,34 +17,26 @@ class NetwonMethod(GradientBasedOptimizer):
 
     def __init__(
         self,
-        learning_rate: Union[LrType, Scheduler[LrType], LearningRate[LrType]],
+        learning_rate: Union[LrType, Scheduler[LrType]],
         weight_decay: float = 0.0,
-        max_percentage_update: float = float("+inf"),
         cho_before_update: bool = False,
         cho_maxiter: int = 1000,
         cho_solve_kwargs: Optional[dict[str, Any]] = None,
+        hook: Literal["on_update", "on_episode_end", "on_timestep_end"] = "on_update",
+        max_percentage_update: float = float("+inf"),
     ) -> None:
         """Instantiates the optimizer.
 
         Parameters
         ----------
-        learning_rate : float/array, scheduler or LearningRate
+        learning_rate : float/array, scheduler
             The learning rate of the optimizer. A float/array can be passed in case the
             learning rate must stay constant; otherwise, a scheduler can be passed which
-            will be stepped `on_update` by default. Otherwise, a `LearningRate` object
-            can be passed, allowing to specify both the scheduling and stepping
-            strategies of this fundamental hyper-parameter.
+            will be stepped `on_update` by default (see `hook` argument).
         weight_decay : float, optional
             A positive float that specifies the decay of the learnable parameters in the
             form of an L2 regularization term. By default, it is set to `0.0`, so no
             decay/regularization takes place.
-        max_percentage_update : float, optional
-            A positive float that specifies the maximum percentage change the learnable
-            parameters can experience in each update. For example,
-            `max_percentage_update=0.5` means that the parameters can be updated by up
-            to 50% of their current value. By default, it is set to `+inf`. If
-            specified, the update becomes constrained and has to be solved as a QP,
-            which is inevitably slower than its unconstrained counterpart.
         cho_before_update : bool, optional
             Whether to perform a Cholesky's factorization of the hessian in preparation
             of each update. If `False`, the QP update's objective is
@@ -66,10 +57,26 @@ class NetwonMethod(GradientBasedOptimizer):
             The optional kwargs to be passed to `scipy.linalg.cho_solve` to solve linear
             systems with the hessian's Cholesky decomposition. If `None`, it is
             equivalent to `cho_solve_kwargs = {'check_finite': False }`.
+        hook : {'on_update', 'on_episode_end', 'on_timestep_end'}, optional
+            Specifies when to step the optimizer's learning rate's scheduler to decay
+            its value (see `step` method also). This allows to vary the rate over the
+            learning iterations. The options are:
+             - `on_update` steps the learning rate after each agent's update
+             - `on_episode_end` steps the learning rate after each episode's end
+             - `on_timestep_end` steps the learning rate after each env's timestep.
+
+            By default, 'on_update' is selected.
+        max_percentage_update : float, optional
+            A positive float that specifies the maximum percentage change the learnable
+            parameters can experience in each update. For example,
+            `max_percentage_update=0.5` means that the parameters can be updated by up
+            to 50% of their current value. By default, it is set to `+inf`. If
+            specified, the update becomes constrained and has to be solved as a QP,
+            which is inevitably slower than its unconstrained counterpart.
         """
         if cho_before_update:
             self._hessian_sparsity = "diag"
-        super().__init__(learning_rate, max_percentage_update)
+        super().__init__(learning_rate, hook, max_percentage_update)
         self.weight_decay = weight_decay
         self.cho_before_update = cho_before_update
         self.cho_maxiter = cho_maxiter
@@ -81,7 +88,7 @@ class NetwonMethod(GradientBasedOptimizer):
         self, gradient: npt.NDArray[np.floating], hessian: npt.NDArray[np.floating]
     ) -> tuple[npt.NDArray[np.floating], Optional[str]]:
         theta = self.learnable_parameters.value
-        lr = self.learning_rate.value
+        lr = self.lr_scheduler.value
         w = self.weight_decay
         cho_kw = self.cho_solve_kwargs
         L = cholesky_added_multiple_identities(hessian, maxiter=self.cho_maxiter)

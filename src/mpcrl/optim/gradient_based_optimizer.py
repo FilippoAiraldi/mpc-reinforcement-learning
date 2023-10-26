@@ -1,12 +1,13 @@
-from typing import Literal, Optional, Union
+from typing import Literal, Optional, TypeVar, Union
 
 import casadi as cs
 import numpy as np
 import numpy.typing as npt
 
-from mpcrl.core.learning_rate import LearningRate, LrType
 from mpcrl.core.parameters import LearnableParametersDict, SymType
-from mpcrl.core.schedulers import Scheduler
+from mpcrl.core.schedulers import NoScheduling, Scheduler
+
+LrType = TypeVar("LrType", npt.NDArray[np.floating], float)
 
 
 class GradientBasedOptimizer:
@@ -21,29 +22,38 @@ class GradientBasedOptimizer:
 
     def __init__(
         self,
-        learning_rate: Union[LrType, Scheduler[LrType], LearningRate[LrType]],
+        learning_rate: Union[LrType, Scheduler[LrType]],
+        hook: Literal["on_update", "on_episode_end", "on_timestep_end"] = "on_update",
         max_percentage_update: float = float("+inf"),
     ) -> None:
         """Instantiates the optimizer.
 
         Parameters
         ----------
-        learning_rate : float/array, scheduler or LearningRate
+        learning_rate : float/array, scheduler
             The learning rate of the optimizer. A float/array can be passed in case the
             learning rate must stay constant; otherwise, a scheduler can be passed which
-            will be stepped `on_update` by default. Otherwise, a `LearningRate` object
-            can be passed, allowing to specify both the scheduling and stepping
-            strategies of this fundamental hyper-parameter.
+            will be stepped `on_update` by default (see `hook` argument).
+        hook : {'on_update', 'on_episode_end', 'on_timestep_end'}, optional
+            Specifies when to step the optimizer's learning rate's scheduler to decay
+            its value (see `step` method also). This allows to vary the rate over the
+            learning iterations. The options are:
+             - `on_update` steps the learning rate after each agent's update
+             - `on_episode_end` steps the learning rate after each episode's end
+             - `on_timestep_end` steps the learning rate after each env's timestep.
+
+            By default, 'on_update' is selected.
         max_percentage_update : float, optional
             A positive float that specifies the maximum percentage change the learnable
             parameters can experience in each update. For example,
             `max_percentage_update=0.5` means that the parameters can be updated by up
             to 50% of their current value. By default, it is set to `+inf`.
         """
-        if not isinstance(learning_rate, LearningRate):
-            learning_rate = LearningRate(learning_rate, "on_update")
-        self.learning_rate: LearningRate[LrType] = learning_rate
+        if not isinstance(learning_rate, Scheduler):
+            learning_rate = NoScheduling[LrType](learning_rate)
+        self.lr_scheduler: Scheduler[LrType] = learning_rate
         self.max_percentage_update = max_percentage_update
+        self._hook = hook
         self.learnable_parameters: LearnableParametersDict[SymType] = None
         self._update_solver: cs.Function = None
 
@@ -58,6 +68,23 @@ class GradientBasedOptimizer:
         """
         self.learnable_parameters = pars
         self._update_solver = self._init_update_solver()
+
+    @property
+    def learning_rate(self) -> LrType:
+        """Gets the current value of the learning rate."""
+        return self.lr_scheduler.value
+
+    @property
+    def hook(self) -> Optional[str]:
+        """Specifies to which callback to hook, i.e., when to step the learning rate's
+        scheduler to decay its value (see `step` method also). Can be `None` in case no
+        hook is needed."""
+        # return hook only if the learning rate scheduler requires to be stepped
+        return None if isinstance(self.lr_scheduler, NoScheduling) else self._hook
+
+    def step(self, *_, **__) -> None:
+        """Steps/decays the learning rate according to its scheduler."""
+        self.lr_scheduler.step()
 
     def _get_update_bounds(
         self, theta: np.ndarray, eps: float = 0.1
@@ -152,3 +179,12 @@ class GradientBasedOptimizer:
             f"`{self.__class__.__name__}` optimizer does not implement "
             "`_second_order_update`"
         )
+
+    def __str__(self) -> str:
+        return self.__class__.__name__
+
+    def __repr__(self) -> str:
+        cn = self.__class__.__name__
+        hookstr = "None" if self.hook is None else f"'{self.hook}'"
+        mp = self.max_percentage_update
+        return f"{cn}(lr={self.lr_scheduler},hook={hookstr},max%={mp})"

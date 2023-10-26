@@ -1,13 +1,12 @@
-from typing import Optional, Union
+from typing import Literal, Optional, Union
 
 import casadi as cs
 import numpy as np
 import numpy.typing as npt
 
-from mpcrl.core.learning_rate import LearningRate, LrType
 from mpcrl.core.parameters import LearnableParametersDict, SymType
 from mpcrl.core.schedulers import Scheduler
-from mpcrl.optim.gradient_based_optimizer import GradientBasedOptimizer
+from mpcrl.optim.gradient_based_optimizer import GradientBasedOptimizer, LrType
 
 
 class Adam(GradientBasedOptimizer):
@@ -34,24 +33,23 @@ class Adam(GradientBasedOptimizer):
 
     def __init__(
         self,
-        learning_rate: Union[LrType, Scheduler[LrType], LearningRate[LrType]],
+        learning_rate: Union[LrType, Scheduler[LrType]],
         betas: tuple[float, float] = (0.9, 0.999),
         eps: float = 1e-8,
         weight_decay: float = 0.0,
         decoupled_weight_decay: bool = False,
         amsgrad: bool = False,
+        hook: Literal["on_update", "on_episode_end", "on_timestep_end"] = "on_update",
         max_percentage_update: float = float("+inf"),
     ) -> None:
         """Instantiates the optimizer.
 
         Parameters
         ----------
-        learning_rate : float/array, scheduler or LearningRate
+        learning_rate : float/array, scheduler
             The learning rate of the optimizer. A float/array can be passed in case the
             learning rate must stay constant; otherwise, a scheduler can be passed which
-            will be stepped `on_update` by default. Otherwise, a `LearningRate` object
-            can be passed, allowing to specify both the scheduling and stepping
-            strategies of this fundamental hyper-parameter.
+            will be stepped `on_update` by default (see `hook` argument).
         betas : tuple of 2 floats, optional
             Coefficients used for computing running averages of gradient and its square.
             By default, they are set to `(0.9, 0.999)`.
@@ -67,6 +65,15 @@ class Adam(GradientBasedOptimizer):
             is `False`.
         amsgrad : bool, optional
             If `True`, uses the AMSGrad variant. By default, it is `False`.
+        hook : {'on_update', 'on_episode_end', 'on_timestep_end'}, optional
+            Specifies when to step the optimizer's learning rate's scheduler to decay
+            its value (see `step` method also). This allows to vary the rate over the
+            learning iterations. The options are:
+             - `on_update` steps the learning rate after each agent's update
+             - `on_episode_end` steps the learning rate after each episode's end
+             - `on_timestep_end` steps the learning rate after each env's timestep.
+
+            By default, 'on_update' is selected.
         max_percentage_update : float, optional
             A positive float that specifies the maximum percentage change the learnable
             parameters can experience in each update. For example,
@@ -75,7 +82,7 @@ class Adam(GradientBasedOptimizer):
             specified, the update becomes constrained and has to be solved as a QP,
             which is inevitably slower than its unconstrained counterpart.
         """
-        super().__init__(learning_rate, max_percentage_update)
+        super().__init__(learning_rate, hook, max_percentage_update)
         self.weight_decay = weight_decay
         self.beta1, self.beta2 = betas
         self.eps = eps
@@ -98,7 +105,7 @@ class Adam(GradientBasedOptimizer):
 
         # compute candidate update
         weight_decay = self.weight_decay
-        lr = self.learning_rate.value
+        lr = self.lr_scheduler.value
         if weight_decay > 0.0:
             if self.decoupled_weight_decay:  # i.e., AdamW
                 theta = theta * (1 - weight_decay * lr)

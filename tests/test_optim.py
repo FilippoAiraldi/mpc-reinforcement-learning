@@ -1,12 +1,13 @@
 import unittest
 from itertools import product
+from unittest.mock import Mock
 
 import casadi as cs
 import numpy as np
 import torch
 from parameterized import parameterized
 
-from mpcrl import LearnableParameter, LearnableParametersDict, LearningRate
+from mpcrl import LearnableParameter, LearnableParametersDict
 from mpcrl import optim as O
 from mpcrl import schedulers as S
 from mpcrl.optim.gradient_based_optimizer import GradientBasedOptimizer
@@ -31,20 +32,29 @@ class DummyOptimizer(GradientBasedOptimizer):
 
 
 class TestGradientBasedOptimizer(unittest.TestCase):
-    def test_init(self):
-        opt = DummyOptimizer(learning_rate=0.1, max_percentage_update=0.5)
-        self.assertIsInstance(opt.learning_rate, LearningRate)
-        self.assertEqual(opt.learning_rate.value, 0.1)
-        self.assertEqual(opt.max_percentage_update, 0.5)
+    def test_init_and_step(self):
+        lr = object()
+        perc = object()
+        opt = DummyOptimizer(learning_rate=lr, max_percentage_update=perc)
+        self.assertIsInstance(opt.lr_scheduler, S.Scheduler)
+        self.assertIs(opt.lr_scheduler.value, lr)
+        self.assertIsNone(opt.hook)
+        self.assertIs(opt.max_percentage_update, perc)
         self.assertIsNone(opt.learnable_parameters)
         self.assertIsNone(opt._update_solver)
 
     def test_init__with_scheduler(self):
+        hook = object()
         learning_rate = S.ExponentialScheduler(0.56, 0.99)
-        opt = DummyOptimizer(learning_rate)
-        self.assertIsInstance(opt.learning_rate, LearningRate)
-        self.assertIsInstance(opt.learning_rate.scheduler, S.Scheduler)
-        self.assertEqual(opt.learning_rate.value, 0.56)
+        learning_rate.step = Mock()
+
+        opt = DummyOptimizer(learning_rate, hook=hook)
+        opt.step()
+
+        self.assertIsInstance(opt.lr_scheduler, S.Scheduler)
+        self.assertEqual(opt.lr_scheduler.value, 0.56)
+        self.assertIs(opt.hook, hook)
+        learning_rate.step.assert_called_once_with()
 
     def test_set_learnable_parameters(self):
         opt = DummyOptimizer(0.1)

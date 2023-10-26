@@ -3,8 +3,7 @@ from typing import Any, Generic, TypeVar
 
 from mpcrl.agents.agent import SymType
 from mpcrl.agents.learning_agent import LearningAgent
-from mpcrl.core.learning_rate import LrType
-from mpcrl.optim.gradient_based_optimizer import GradientBasedOptimizer
+from mpcrl.optim.gradient_based_optimizer import GradientBasedOptimizer, LrType
 
 ExpType = TypeVar("ExpType")
 
@@ -39,7 +38,7 @@ class RlLearningAgent(
 
     def establish_callback_hooks(self) -> None:
         super().establish_callback_hooks()
-        lr = self.optimizer.learning_rate
-        lr_hook = lr.hook
-        if lr_hook is not None:
-            self.hook_callback(repr(lr), lr_hook, lr.step)
+        optim = self.optimizer
+        optimizer_hook = optim.hook
+        if optimizer_hook is not None:
+            self.hook_callback(repr(optim), optimizer_hook, optim.step)
