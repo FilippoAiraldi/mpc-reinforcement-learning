@@ -11,9 +11,9 @@ from csnlp.wrappers import Mpc
 from gymnasium import Env
 from typing_extensions import TypeAlias
 
-from mpcrl.core.callbacks import AgentCallbackMixin
-from mpcrl.core.exploration import ExplorationStrategy, NoExploration
-from mpcrl.util.named import Named
+from ..core.callbacks import AgentCallbackMixin
+from ..core.exploration import ExplorationStrategy, NoExploration
+from ..util.named import Named
 
 SymType = TypeVar("SymType", cs.SX, cs.MX)
 ActType: TypeAlias = Union[npt.ArrayLike, dict[str, npt.ArrayLike]]

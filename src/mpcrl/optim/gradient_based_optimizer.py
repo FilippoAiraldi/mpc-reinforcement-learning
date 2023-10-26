@@ -4,8 +4,8 @@ import casadi as cs
 import numpy as np
 import numpy.typing as npt
 
-from mpcrl.core.parameters import LearnableParametersDict, SymType
-from mpcrl.core.schedulers import NoScheduling, Scheduler
+from ..core.parameters import LearnableParametersDict, SymType
+from ..core.schedulers import NoScheduling, Scheduler
 
 LrType = TypeVar("LrType", npt.NDArray[np.floating], float)
 

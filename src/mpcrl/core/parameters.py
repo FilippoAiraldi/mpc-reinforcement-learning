@@ -9,7 +9,7 @@ import numpy.typing as npt
 from csnlp.core.cache import invalidate_cache
 from csnlp.util.io import SupportsDeepcopyAndPickle
 
-from mpcrl.util.math import summarize_array
+from ..util.math import summarize_array
 
 SymType = TypeVar("SymType")  # most likely, T is cs.SX or MX
 
