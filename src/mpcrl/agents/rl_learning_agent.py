@@ -1,9 +1,9 @@
 from abc import ABC
 from typing import Any, Generic, TypeVar
 
-from mpcrl.agents.agent import SymType
-from mpcrl.agents.learning_agent import LearningAgent
-from mpcrl.optim.gradient_based_optimizer import GradientBasedOptimizer, LrType
+from ..optim.gradient_based_optimizer import GradientBasedOptimizer, LrType
+from .agent import SymType
+from .learning_agent import LearningAgent
 
 ExpType = TypeVar("ExpType")
 

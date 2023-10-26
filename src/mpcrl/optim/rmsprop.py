@@ -4,9 +4,9 @@ import casadi as cs
 import numpy as np
 import numpy.typing as npt
 
-from mpcrl.core.parameters import LearnableParametersDict, SymType
-from mpcrl.core.schedulers import Scheduler
-from mpcrl.optim.gradient_based_optimizer import GradientBasedOptimizer, LrType
+from ..core.parameters import LearnableParametersDict, SymType
+from ..core.schedulers import Scheduler
+from .gradient_based_optimizer import GradientBasedOptimizer, LrType
 
 
 class RMSprop(GradientBasedOptimizer[SymType, LrType]):

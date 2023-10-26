@@ -4,8 +4,8 @@ import casadi as cs
 import numpy as np
 import numpy.typing as npt
 
-from mpcrl.core.schedulers import Scheduler
-from mpcrl.optim.gradient_based_optimizer import GradientBasedOptimizer, LrType, SymType
+from ..core.schedulers import Scheduler
+from .gradient_based_optimizer import GradientBasedOptimizer, LrType, SymType
 
 
 class GradientDescent(GradientBasedOptimizer[SymType, LrType]):

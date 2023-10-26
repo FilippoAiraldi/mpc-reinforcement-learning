@@ -9,13 +9,13 @@ from csnlp.wrappers import Mpc, NlpSensitivity
 from gymnasium import Env
 from typing_extensions import TypeAlias
 
-from mpcrl.agents.agent import ActType, ObsType, SymType
-from mpcrl.agents.rl_learning_agent import LrType, RlLearningAgent
-from mpcrl.core.experience import ExperienceReplay
-from mpcrl.core.exploration import ExplorationStrategy
-from mpcrl.core.parameters import LearnableParametersDict
-from mpcrl.core.update import UpdateStrategy
-from mpcrl.optim.gradient_based_optimizer import GradientBasedOptimizer
+from ..core.experience import ExperienceReplay
+from ..core.exploration import ExplorationStrategy
+from ..core.parameters import LearnableParametersDict
+from ..core.update import UpdateStrategy
+from ..optim.gradient_based_optimizer import GradientBasedOptimizer
+from .agent import ActType, ObsType, SymType
+from .rl_learning_agent import LrType, RlLearningAgent
 
 ExpType: TypeAlias = tuple[
     npt.NDArray[np.floating],  # gradient of Bellman residuals w.r.t. theta

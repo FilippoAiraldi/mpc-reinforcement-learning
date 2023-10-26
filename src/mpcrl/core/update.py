@@ -1,7 +1,7 @@
 from collections.abc import Iterator
 from typing import Literal
 
-from mpcrl.util.iters import bool_cycle, chain, repeat
+from ..util.iters import bool_cycle, chain, repeat
 
 
 class UpdateStrategy:

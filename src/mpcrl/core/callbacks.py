@@ -4,10 +4,7 @@ import numpy as np
 import numpy.typing as npt
 from gymnasium import Env
 
-from mpcrl.core.errors import (
-    raise_or_warn_on_mpc_failure,
-    raise_or_warn_on_update_failure,
-)
+from .errors import raise_or_warn_on_mpc_failure, raise_or_warn_on_update_failure
 
 ObsType = TypeVar("ObsType")
 ActType = TypeVar("ActType")

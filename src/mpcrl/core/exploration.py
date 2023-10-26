@@ -5,7 +5,7 @@ from typing import Any, Literal, Optional, Union
 import numpy as np
 import numpy.typing as npt
 
-from mpcrl.core.schedulers import NoScheduling, Scheduler
+from .schedulers import NoScheduling, Scheduler
 
 
 class ExplorationStrategy(ABC):

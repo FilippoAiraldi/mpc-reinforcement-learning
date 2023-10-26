@@ -4,9 +4,9 @@ import numpy as np
 import numpy.typing as npt
 from scipy.linalg import cho_solve
 
-from mpcrl.core.schedulers import Scheduler
-from mpcrl.optim.gradient_based_optimizer import GradientBasedOptimizer, LrType, SymType
-from mpcrl.util.math import cholesky_added_multiple_identities
+from ..core.schedulers import Scheduler
+from ..util.math import cholesky_added_multiple_identities
+from .gradient_based_optimizer import GradientBasedOptimizer, LrType, SymType
 
 
 class NetwonMethod(GradientBasedOptimizer[SymType, LrType]):

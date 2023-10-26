@@ -6,12 +6,12 @@ import numpy as np
 import numpy.typing as npt
 from gymnasium import Env
 
-from mpcrl.agents.agent import ActType, Agent, ObsType, SymType, _update_dicts
-from mpcrl.core.callbacks import LearningAgentCallbackMixin
-from mpcrl.core.experience import ExperienceReplay
-from mpcrl.core.exploration import ExplorationStrategy
-from mpcrl.core.parameters import LearnableParametersDict
-from mpcrl.core.update import UpdateStrategy
+from ..core.callbacks import LearningAgentCallbackMixin
+from ..core.experience import ExperienceReplay
+from ..core.exploration import ExplorationStrategy
+from ..core.parameters import LearnableParametersDict
+from ..core.update import UpdateStrategy
+from .agent import ActType, Agent, ObsType, SymType, _update_dicts
 
 ExpType = TypeVar("ExpType")
 
