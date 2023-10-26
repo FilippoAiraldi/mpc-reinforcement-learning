@@ -70,11 +70,6 @@ class GradientBasedOptimizer(Generic[SymType, LrType]):
         self._update_solver = self._init_update_solver()
 
     @property
-    def learning_rate(self) -> LrType:
-        """Gets the current value of the learning rate."""
-        return self.lr_scheduler.value
-
-    @property
     def hook(self) -> Optional[str]:
         """Specifies to which callback to hook, i.e., when to step the learning rate's
         scheduler to decay its value (see `step` method also). Can be `None` in case no
