@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
+from collections.abc import Iterable
 from itertools import accumulate, repeat
 from operator import mul
-from typing import Generic, TypeVar
+from typing import Generic, TypeVar, Union
 
 import numpy as np
 
@@ -11,7 +12,13 @@ ScType.__doc__ = "A type that supports basic algebraic operations."
 
 class Scheduler(ABC, Generic[ScType]):
     """Schedulers are helpful classes to update or decay different quantities, such as
-    learning rates and/or exploration probability."""
+    learning rates and/or exploration probability.
+
+    Note
+    ----
+    If the scheduler has a final iteration, it is expected to raise a `StopIteration`
+    exception when the last iteration is reached.
+    """
 
     def __init__(self, init_value: ScType) -> None:
         """Builds the scheduler.
@@ -143,3 +150,52 @@ class LogLinearScheduler(ExponentialScheduler[ScType]):
             f"{self.__class__.__name__}(x={self.value},x0={self.init_value},"
             f"xf={self.final_value},N={self.total_steps})"
         )
+
+
+class Chain(Scheduler[ScType]):
+    """Chains multiple schedulers together."""
+
+    def __init__(
+        self,
+        schedulers: Iterable[Union[Scheduler[ScType], tuple[Scheduler[ScType], int]]],
+    ) -> None:
+        """Builds the chain of schedulers.
+
+        Parameters
+        ----------
+        schedulers : iterable of schedulers or (scheduler, int)
+            An iterable of schedulers to chain together. If a tuple is passed, the first
+            element is expected to be a scheduler, and the second one an integer
+            indicating the number of steps to run that scheduler for. This is useful in
+            case the scheduler has no fixed number of steps, such as `LinearScheduler`.
+        """
+        self.schedulers = iter(schedulers)
+        self._next_scheduler()
+        super().__init__(self._current_scheduler.value)
+
+    def step(self) -> None:
+        if self._current_steps is not None:
+            self._current_scheduler.step()
+            self._current_steps -= 1
+            if self._current_steps == 0:
+                self._next_scheduler()
+        else:
+            try:
+                self._current_scheduler.step()
+            except StopIteration:
+                self._next_scheduler()
+        self.value = self._current_scheduler.value
+
+    def _next_scheduler(self) -> None:
+        """Fetches the next scheduler in the chain. If the chain is over, raises
+        `StopIteration`, which is in line with the behaviour of other schedulers."""
+        scheduler = next(self.schedulers)
+        if isinstance(scheduler, tuple):
+            self._current_scheduler, self._current_steps = scheduler
+        else:
+            self._current_scheduler = scheduler
+            self._current_steps = None
+
+    def __repr__(self) -> str:
+        s = self._current_scheduler
+        return f"{self.__class__.__name__}(x={self.value},current={s})"
