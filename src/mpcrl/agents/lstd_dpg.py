@@ -272,6 +272,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
     def _init_sensitivity(self, linsolver: str) -> Callable[[cs.DM, int], np.ndarray]:
         """Internal utility to compute the derivatives w.r.t. the learnable parameters
         and other functions in order to estimate the policy gradient."""
+        assert self.optimizer._order == 1, "Expected 1st-order optimizer."
         nlp = self._V.nlp
         y = nlp.primal_dual
         theta = cs.vvcat(self._learnable_pars.sym.values())
