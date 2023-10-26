@@ -161,7 +161,7 @@ class LstdQLearningAgent(
             hessians.append(H)
         gradient = np.mean(gradients, 0)
         hessian = np.mean(hessians, 0) if self.hessian_type != "none" else None
-        return self._do_gradient_update(gradient, hessian)
+        return self.optimizer.update(gradient, hessian)
 
     def train_one_episode(
         self,
@@ -205,36 +205,39 @@ class LstdQLearningAgent(
 
     def _init_sensitivity(
         self, hessian_type: Literal["none", "approx", "full"]
-    ) -> Callable[[cs.DM], tuple[np.ndarray, np.ndarray]]:
+    ) -> Union[
+        Callable[[cs.DM], np.ndarray], Callable[[cs.DM], tuple[np.ndarray, np.ndarray]]
+    ]:
         """Internal utility to compute the derivative of Q(s,a) w.r.t. the learnable
         parameters, a.k.a., theta."""
+        assert hessian_type in ("none", "approx", "full"), "Invalid hessian type."
+        order = self.optimizer._order
         theta = cs.vvcat(self._learnable_pars.sym.values())
         nlp = self._Q.nlp
         nlp_ = NlpSensitivity(nlp, theta)
-        Lt = nlp_.jacobians["L-p"]  # a.k.a., dQdtheta
-        Ltt = nlp_.hessians["L-pp"]  # a.k.a., approximated d2Qdtheta2
-        if hessian_type == "none":
-            d2Qdtheta2 = cs.DM.nan()
-        elif hessian_type == "approx":
-            d2Qdtheta2 = Ltt
-        elif hessian_type == "full":
-            dydtheta, _ = nlp_.parametric_sensitivity(second_order=False)
-            d2Qdtheta2 = dydtheta.T @ nlp_.jacobians["K-p"] + Ltt
-        else:
-            raise ValueError(f"Invalid type of hessian; got {hessian_type}.")
-
-        # convert to function (much faster runtime)
         x_lam_p = cs.vertcat(nlp.primal_dual, nlp.p)
+        dQ = nlp_.jacobians["L-p"]  # a.k.a., dQdtheta
+
+        if hessian_type == "none":
+            assert order == 1, "Expected 1st-order optimizer with `hessian_type=none`."
+            sensitivity = cs.Function(
+                "S", (x_lam_p,), (dQ,), ("x_lam_p",), ("dQ",), {"cse": True}
+            )
+            return lambda v: np.asarray(sensitivity(v).elements())
+
+        assert (
+            order == 2
+        ), "Expected 2nd-order optimizer with `hessian_type=approx` or `full`."
+        if hessian_type == "approx":
+            ddQ = nlp_.hessians["L-pp"]
+        else:
+            dydtheta, _ = nlp_.parametric_sensitivity(second_order=False)
+            ddQ = dydtheta.T @ nlp_.jacobians["K-p"] + nlp_.hessians["L-pp"]
+
         sensitivity = cs.Function(
-            "Q_sensitivity",
-            (x_lam_p,),
-            (Lt, d2Qdtheta2),
-            ("x_lam_p",),
-            ("dQ", "d2Q"),
-            {"cse": True},
+            "S", (x_lam_p,), (dQ, ddQ), ("x_lam_p",), ("dQ", "ddQ"), {"cse": True}
         )
 
-        # wrap to conveniently return numpy arrays
         def func(sol_values: cs.DM) -> tuple[np.ndarray, np.ndarray]:
             dQ, ddQ = sensitivity(sol_values)
             return np.asarray(dQ.elements()), ddQ.toarray()
@@ -249,15 +252,15 @@ class LstdQLearningAgent(
         it. Returns whether it was successful or not."""
         if solQ.success and solV.success:
             sol_values = solQ.all_vals
-            dQ, ddQ = self._sensitivity(sol_values)
             td_error = cost + self.discount_factor * solV.f - solQ.f
-            g = -td_error * dQ
-            H = (
-                (np.multiply.outer(dQ, dQ) - td_error * ddQ)
-                if self.hessian_type != "none"
-                else np.nan
-            )
-            self.store_experience((g, H))
+            if self.hessian_type == "none":
+                dQ = self._sensitivity(sol_values)
+                hessian = np.nan
+            else:
+                dQ, ddQ = self._sensitivity(sol_values)
+                hessian = np.multiply.outer(dQ, dQ) - td_error * ddQ
+            gradient = -td_error * dQ
+            self.store_experience((gradient, hessian))
             success = True
         else:
             td_error = np.nan
