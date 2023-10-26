@@ -1,7 +1,5 @@
 from abc import ABC
-from typing import Any, Generic, Optional, TypeVar
-
-import numpy as np
+from typing import Any, Generic, TypeVar
 
 from mpcrl.agents.agent import SymType
 from mpcrl.agents.learning_agent import LearningAgent
@@ -45,13 +43,3 @@ class RlLearningAgent(
         lr_hook = lr.hook
         if lr_hook is not None:
             self.hook_callback(repr(lr), lr_hook, lr.step)
-
-    def _do_gradient_update(
-        self, gradient: np.ndarray, hessian: Optional[np.ndarray] = None
-    ) -> Optional[str]:
-        """Internal utility to call the optimizer and perform the gradient update."""
-        return (
-            self.optimizer.update(gradient)
-            if hessian is None
-            else self.optimizer.update(gradient, hessian)
-        )
