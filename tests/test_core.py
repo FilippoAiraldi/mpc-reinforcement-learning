@@ -15,7 +15,6 @@ from mpcrl import (
     ExperienceReplay,
     LearnableParameter,
     LearnableParametersDict,
-    LearningRate,
     MpcSolverError,
     MpcSolverWarning,
     UpdateError,
@@ -522,29 +521,6 @@ class TestParameters(unittest.TestCase):
             np.testing.assert_equal(df, cs.evalf(cs.jacobian(f, p2.sym["v"])[0]))
         else:
             self.assertFalse(hasattr(p2, "sym"))
-
-
-class TestLearningRate(unittest.TestCase):
-    def test_init_and_properties(self):
-        value = object()
-        scheduler = S.NoScheduling(value)
-        scheduler.step = Mock()
-        lr = LearningRate(scheduler)
-        lr.step()
-        self.assertIs(value, lr.value)
-        scheduler.step.assert_called_once_with()
-
-    def test_str_and_repr(self):
-        lr = LearningRate(5.0)
-        do_test_str_and_repr(self, lr)
-
-    def test_deepcopy(self):
-        s = S.ExponentialScheduler(0.5, 0.99)
-        lr = LearningRate(s)
-        lr_copy = deepcopy(lr)
-        self.assertEqual(lr._hook, lr_copy._hook)
-        self.assertEqual(lr.value, lr_copy.value)
-        do_test_similar_schedulers(self, lr.scheduler, lr_copy.scheduler)
 
 
 class TestUpdateStrategy(unittest.TestCase):

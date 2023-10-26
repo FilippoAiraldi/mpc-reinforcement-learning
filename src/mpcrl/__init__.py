@@ -4,7 +4,6 @@ __all__ = [
     "LearnableParameter",
     "LearnableParametersDict",
     "LearningAgent",
-    "LearningRate",
     "LstdDpgAgent",
     "LstdQLearningAgent",
     "MpcSolverError",
@@ -29,7 +28,6 @@ from .agents.rl_learning_agent import RlLearningAgent
 from .core import exploration, schedulers
 from .core.errors import MpcSolverError, MpcSolverWarning, UpdateError, UpdateWarning
 from .core.experience import ExperienceReplay
-from .core.learning_rate import LearningRate
 from .core.parameters import LearnableParameter, LearnableParametersDict
 from .core.update import UpdateStrategy
 from .wrappers import agents as wrappers_agents
