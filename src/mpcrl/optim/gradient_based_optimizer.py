@@ -1,4 +1,4 @@
-from typing import Optional, Union
+from typing import Literal, Optional, Union
 
 import casadi as cs
 import numpy as np
@@ -12,9 +12,12 @@ from mpcrl.core.schedulers import Scheduler
 class GradientBasedOptimizer:
     """Base class for first- and second-order gradient-based optimization algorithms."""
 
-    _hessian_sparsity = "dense"
-    """This is the default sparsity of the hessian, which is dense. It can be overridden
-    by each subclass, in case a particular structure is known, e.g., diagonal."""
+    _order: Literal[1, 2]
+    """Order of the optimizer: 1 for first-order, 2 for second-order."""
+
+    _hessian_sparsity: Literal["dense", "diag"]
+    """Sparsity of the hessian. It can be overridden by each subclass, in case a
+    particular structure is known, e.g., diagonal."""
 
     def __init__(
         self,
@@ -109,11 +112,12 @@ class GradientBasedOptimizer:
 
         Parameters
         ----------
-        gradient : array
+        gradient : 1D array
             The gradient of the learnable parameters.
-        hessian : array, optional
+        hessian : None, or 2D array
             The hessian of the learnable parameters. When the optimizer is firt-order,
-            must be `None`.
+            it is expected to be `None` (as it is unused). When the optimizer is
+            second-order, it is expected to be a 2D array.
 
         Returns
         -------
@@ -121,7 +125,7 @@ class GradientBasedOptimizer:
             An optional string containing the status of the update, e.g., the status of
             the QP solver, if used.
         """
-        if hessian is None:
+        if self._order == 1:
             theta_new, status = self._first_order_update(gradient)
         else:
             theta_new, status = self._second_order_update(gradient, hessian)
@@ -141,9 +145,7 @@ class GradientBasedOptimizer:
         )
 
     def _second_order_update(
-        self,
-        gradient: npt.NDArray[np.floating],
-        hessian: Optional[npt.NDArray[np.floating]] = None,
+        self, gradient: npt.NDArray[np.floating], hessian: npt.NDArray[np.floating]
     ) -> tuple[npt.NDArray[np.floating], Optional[str]]:
         """Internally runs a second order update."""
         raise NotImplementedError(

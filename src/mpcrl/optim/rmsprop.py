@@ -22,6 +22,7 @@ class RMSprop(GradientBasedOptimizer):
         https://pytorch.org/docs/stable/generated/torch.optim.RMSprop.html
     """
 
+    _order = 1
     _hessian_sparsity = "diag"
     """In RMSprop, hessian is at most diagonal, i.e., in case we have constraints."""
 

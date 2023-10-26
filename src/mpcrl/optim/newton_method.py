@@ -13,6 +13,9 @@ from mpcrl.util.math import cholesky_added_multiple_identities
 class NetwonMethod(GradientBasedOptimizer):
     """Netwon Method."""
 
+    _order = 2
+    _hessian_sparsity = "dense"
+
     def __init__(
         self,
         learning_rate: Union[LrType, Scheduler[LrType], LearningRate[LrType]],
