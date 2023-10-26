@@ -192,7 +192,7 @@ class LstdQLearningAgent(
             new_action, solV = self.state_value(new_state, False)
             if not self._try_store_experience(cost, solQ, solV):
                 self.on_mpc_failure(
-                    episode, timestep, f"{solQ.status}/{solV.status}", raises
+                    episode, timestep, f"{solQ.status} (Q); {solV.status} (V)", raises
                 )
 
             # increase counters
@@ -231,7 +231,7 @@ class LstdQLearningAgent(
             (Lt, d2Qdtheta2),
             ("x_lam_p",),
             ("dQ", "d2Q"),
-            {"post_expand": True, "cse": True},
+            {"cse": True},
         )
 
         # wrap to conveniently return numpy arrays
