@@ -9,7 +9,7 @@ from mpcrl.core.schedulers import Scheduler
 from mpcrl.optim.gradient_based_optimizer import GradientBasedOptimizer, LrType
 
 
-class Adam(GradientBasedOptimizer):
+class Adam(GradientBasedOptimizer[SymType, LrType]):
     """Adam and AdamW optimizers, based on [1,2] and [3,4], respectively. AMSGrad is
     also supported [5].
 
