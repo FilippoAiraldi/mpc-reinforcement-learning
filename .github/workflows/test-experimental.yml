@@ -31,7 +31,7 @@ jobs:
           python -m pip install --upgrade setuptools
           git clone -b experimental --single-branch https://github.com/FilippoAiraldi/casadi-nlp.git
           python -m pip install ./casadi-nlp
-          python -m pip install -r requirements-dev.txt
+          python -m pip install -r requirements.txt
           python -m pip install -e .
           python -m pip install -r requirements-tests.txt
 
