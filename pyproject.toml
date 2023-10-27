@@ -4,7 +4,6 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mpcrl"
-version = "1.1.8rc5"
 authors = [
   { name="Filippo Airaldi", email="filippoairaldi@gmail.com" },
 ]
@@ -13,12 +12,16 @@ readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }
 classifiers = [
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3 :: Only",
 	"Programming Language :: Python :: 3.9",
 	"Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
-    "Topic :: Scientific/Engineering :: Mathematics"
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dependencies = [
     "typing_extensions >= 4.5.0",
@@ -27,15 +30,63 @@ dependencies = [
     "scipy >= 1.11.0",
     "gymnasium >= 0.28.1",
 ]
+keywords = [
+    "reinforcement-learning",
+    "model-predictive-control",
+    "optimization",
+    "casadi",
+]
+dynamic = ["version"]
 
 [project.urls]
 "Homepage" = "https://github.com/FilippoAiraldi/mpc-reinforcement-learning"
 "Bug Tracker" = "https://github.com/FilippoAiraldi/mpc-reinforcement-learning/issues"
 
 [tool.setuptools]
-license-files = [
-	"LICENSE",
-]
+license-files = ["LICENSE"]
+
+[tool.setuptools.dynamic]
+version = {attr = "mpcrl.__version__"}
+
+[tool.black]
+target-version = ["py39", "py310", "py311"]
+color = true
 
 [tool.isort]
 profile = "black"
+py_version = 39
+
+[tool.mypy]
+python_version = "3.9"
+plugins = ["numpy.typing.mypy_plugin"]
+exclude = ["tests"]
+
+[[tool.mypy.overrides]]
+module = [
+    "casadi.*",
+    "csnlp.*",
+    "matplotlib.*",
+    "parameterized.*",
+    "scipy.*",
+    "mpcrl.*",
+]
+ignore_missing_imports = true
+
+[tool.coverage.run]
+branch = true
+omit = [
+    "tests/*",
+    "examples/*",
+    "*/csnlp/*",
+]
+
+[tool.coverage.report]
+exclude_also = [
+    "def __repr__",
+    "def __str__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "@(abc\\.)?abstractmethod",
+]
+sort = "miss"
