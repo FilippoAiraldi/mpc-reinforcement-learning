@@ -228,11 +228,13 @@ class LstdQLearningAgent(
         assert (
             order == 2
         ), "Expected 2nd-order optimizer with `hessian_type=approx` or `full`."
-        if hessian_type == "approx":
-            ddQ = nlp_.hessians["L-pp"]
-        else:
-            dydtheta, _ = nlp_.parametric_sensitivity(second_order=False)
-            ddQ = dydtheta.T @ nlp_.jacobians["K-p"] + nlp_.hessians["L-pp"]
+        ddQ = nlp_.hessians["L-pp"]
+        if hessian_type == "full":
+            # dydtheta, _ = nlp_.parametric_sensitivity()
+            Kp = nlp_.jacobians["K-p"]
+            Ky = nlp_.jacobians["K-y"].T
+            dydtheta = -cs.solve(Ky, Kp)
+            ddQ += dydtheta.T @ Kp
 
         sensitivity = cs.Function(
             "S", (x_lam_p,), (dQ, ddQ), ("x_lam_p",), ("dQ", "ddQ"), {"cse": True}
