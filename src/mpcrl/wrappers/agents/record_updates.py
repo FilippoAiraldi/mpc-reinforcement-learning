@@ -1,8 +1,8 @@
 import numpy as np
 import numpy.typing as npt
 
-from mpcrl.agents.learning_agent import ExpType, LearningAgent
-from mpcrl.wrappers.agents.wrapper import LearningWrapper, SymType
+from ...agents.learning_agent import ExpType, LearningAgent
+from .wrapper import LearningWrapper, SymType
 
 
 class RecordUpdates(LearningWrapper[SymType, ExpType]):
