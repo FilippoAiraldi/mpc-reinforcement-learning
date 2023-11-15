@@ -259,6 +259,6 @@ class LearningAgentCallbackMixin(AgentCallbackMixin):
         self._run_hooks("on_training_end", env, returns)
 
     def on_update(self) -> None:
-        """Callaback called after each `agent.update`. Use this callback for, e.g.,
+        """Callback called after each `agent.update`. Use this callback for, e.g.,
         decaying exploration probabilities or learning rates."""
         self._run_hooks("on_update")

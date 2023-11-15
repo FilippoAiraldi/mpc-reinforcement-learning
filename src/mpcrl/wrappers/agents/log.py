@@ -9,15 +9,15 @@ import numpy as np
 import numpy.typing as npt
 from gymnasium import Env
 
-from mpcrl.agents.agent import Agent
-from mpcrl.agents.learning_agent import LearningAgent
-from mpcrl.core.callbacks import (
+from ...agents.agent import Agent
+from ...agents.learning_agent import LearningAgent
+from ...core.callbacks import (
     AgentCallbackMixin,
     LearningAgentCallbackMixin,
     _failure_msg,
 )
-from mpcrl.util.iters import bool_cycle
-from mpcrl.wrappers.agents.wrapper import SymType, Wrapper
+from ...util.iters import bool_cycle
+from .wrapper import SymType, Wrapper
 
 ObsType = TypeVar("ObsType")
 ActType = TypeVar("ActType")
