@@ -83,11 +83,12 @@ class DummyLearningAgent(LearningAgent):
         return
 
 
-AGENT = DummyLearningAgent(
-    mpc=get_mpc(3, False),
-    learnable_parameters=LearnableParametersDict(),
-    update_strategy=1,
-)
+def mk_agent() -> DummyLearningAgent:
+    return DummyLearningAgent(
+        mpc=get_mpc(3, False),
+        learnable_parameters=LearnableParametersDict(),
+        update_strategy=1,
+    )
 
 
 class SimpleEnv(gym.Env[object, object]):
@@ -133,36 +134,66 @@ class SimpleEnv(gym.Env[object, object]):
 
 class TestWrapperAndLearningWrapper(unittest.TestCase):
     def test_attr__raises__when_accessing_private_attrs(self):
-        wrapped = wrappers_agents.LearningWrapper(AGENT)
+        wrapped = wrappers_agents.LearningWrapper(mk_agent())
         with self.assertRaisesRegex(
             AttributeError, "Accessing private attribute '_x' is prohibited."
         ):
             wrapped._x
 
     def test_unwrapped__unwraps_nlp_correctly(self):
-        wrapped = wrappers_agents.LearningWrapper(AGENT)
-        self.assertIs(AGENT, wrapped.unwrapped)
+        agent = mk_agent()
+        wrapped = wrappers_agents.LearningWrapper(agent)
+        self.assertIs(agent, wrapped.unwrapped)
 
     def test_str_and_repr(self):
-        wrapped = wrappers_agents.LearningWrapper(AGENT)
+        agent = mk_agent()
+        wrapped = wrappers_agents.LearningWrapper(agent)
         S = wrapped.__str__()
         self.assertIn(wrappers_agents.LearningWrapper.__name__, S)
-        self.assertIn(AGENT.__str__(), S)
+        self.assertIn(agent.__str__(), S)
         S = wrapped.__repr__()
         self.assertIn(wrappers_agents.LearningWrapper.__name__, S)
-        self.assertIn(AGENT.__repr__(), S)
+        self.assertIn(agent.__repr__(), S)
 
     def test_is_wrapped(self):
-        self.assertFalse(AGENT.is_wrapped())
+        agent = mk_agent()
+        self.assertFalse(agent.is_wrapped())
 
-        wrapped = wrappers_agents.LearningWrapper(AGENT)
+        wrapped = wrappers_agents.LearningWrapper(agent)
         self.assertTrue(wrapped.is_wrapped(wrappers_agents.LearningWrapper))
         self.assertFalse(wrapped.is_wrapped(cs.SX))
+
+    def test_detach_wrapper(self):
+        agent = mk_agent()
+        wrapped_intermediate = wrappers_agents.RecordUpdates(agent)
+        original_hooks = agent._hooks.copy()
+        wrapped = wrappers_agents.Log(
+            wrapped_intermediate,
+            level=logging.DEBUG,
+            log_frequencies={"on_timestep_end": 1000},
+        )
+        with self.assertRaises(AssertionError):
+            self.assertDictEqual(agent._hooks, original_hooks)
+        wrapped.detach_wrapper()
+        self.assertDictEqual(agent._hooks, original_hooks)
+
+    def test_detach_wrappers(self):
+        agent = mk_agent()
+        original_hooks = agent._hooks.copy()
+        wrapped = wrappers_agents.Log(
+            wrappers_agents.RecordUpdates(agent),
+            level=logging.DEBUG,
+            log_frequencies={"on_timestep_end": 1000},
+        )
+        with self.assertRaises(AssertionError):
+            self.assertDictEqual(agent._hooks, original_hooks)
+        wrapped.detach_wrappers()
+        self.assertDictEqual(agent._hooks, original_hooks)
 
 
 class TestLog(unittest.TestCase):
     def setUp(self):
-        self.agent = AGENT.copy()
+        self.agent = mk_agent()
         self.env = SimpleEnv()
         self.name = "test_logger"
         self.log = None
@@ -297,7 +328,7 @@ class TestRecordUpdates(unittest.TestCase):
         parsdict = LearnableParametersDict(
             [LearnableParameter(f"p{i}", 1, pars[0, i]) for i in range(n_params)]
         )
-        agent = AGENT.copy()
+        agent = mk_agent()
         agent._learnable_pars = parsdict
         on_update_original = agent.on_update
         pars_iter = iter(pars[1:])
