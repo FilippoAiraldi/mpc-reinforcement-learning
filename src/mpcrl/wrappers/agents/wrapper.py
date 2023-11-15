@@ -1,4 +1,4 @@
-from typing import Any, Generic
+from typing import Any, Generic, Union
 
 from csnlp.util.io import SupportsDeepcopyAndPickle
 
@@ -22,11 +22,12 @@ class Wrapper(SupportsDeepcopyAndPickle, CallbackMixin, Generic[SymType]):
         """
         SupportsDeepcopyAndPickle.__init__(self)
         CallbackMixin.__init__(self)
+        del self._hooks  # only keep one dict of hooks, i.e., the agent's one
         self.agent = agent
         self.establish_callback_hooks()
 
     @property
-    def unwrapped(self) -> Agent[SymType]:
+    def unwrapped(self) -> Union[Agent[SymType], LearningAgent[SymType, ExpType]]:
         """'Returns the original agent of the wrapper."""
         return self.agent.unwrapped
 
