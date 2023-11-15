@@ -1,4 +1,4 @@
-from typing import Any, Generic, Union
+from typing import Any, Callable, Generic, Union
 
 from csnlp.util.io import SupportsDeepcopyAndPickle
 
@@ -24,6 +24,7 @@ class Wrapper(SupportsDeepcopyAndPickle, CallbackMixin, Generic[SymType]):
         CallbackMixin.__init__(self)
         del self._hooks  # only keep one dict of hooks, i.e., the agent's one
         self.agent = agent
+        self._hooked_callbacks: dict[str, list[str]] = {}
         self.establish_callback_hooks()
 
     @property
@@ -48,9 +49,56 @@ class Wrapper(SupportsDeepcopyAndPickle, CallbackMixin, Generic[SymType]):
             return True
         return self.agent.is_wrapped(wrapper_type)
 
-    def hook_callback(self, *args, **kwargs) -> None:
+    def hook_callback(
+        self, attachername: str, callbackname: str, func: Callable[..., None]
+    ) -> None:
         """See `LearningAgent.hook_callback`."""
-        self.agent.hook_callback(*args, **kwargs)
+        # store the callback id for later removal via `detach_wrapper(s)`
+        self._hooked_callbacks.setdefault(callbackname, []).append(attachername)
+        self.unwrapped.hook_callback(attachername, callbackname, func)
+
+    def detach_wrapper(
+        self,
+    ) -> Union[Agent[SymType], LearningAgent[SymType, ExpType], "Wrapper[SymType]"]:
+        """Detaches the wrapper from the agent, returning the wrapped agent. De facto,
+        this method detaches all the hooks attached by this wrapper.
+
+        Returns
+        -------
+        Agent or Wrapper
+            Returns the wrapped agent (or other wrapper) instance. This instance has no
+            more active hooks attached by this wrapper.
+        """
+        hooks = self.unwrapped._hooks
+        hooked_callbacks = self._hooked_callbacks
+
+        # for each callback type, remove the hooks attached by this wrapper
+        for callbackname, attachernames in hooked_callbacks.items():
+            hook_group = hooks[callbackname]
+            for attachername in attachernames:
+                hook_group.pop(attachername)
+
+            # if the callback has no more hooks, remove it
+            if not hook_group:
+                hooks.pop(callbackname)
+
+        # clear hooked callbacks tracking
+        hooked_callbacks.clear()
+        return self.agent
+
+    def detach_wrappers(self) -> Union[Agent[SymType], LearningAgent[SymType, ExpType]]:
+        """Similar to `detach_wrapper`, but detaches all wrappers around the agent.
+
+        Returns
+        -------
+        Agent
+            Returns the wrapped agent instance. This instance has no more active hooks
+            attached by all the wrappers around it.
+        """
+        agent_ = self
+        while hasattr(agent_, "detach_wrapper") and callable(agent_.detach_wrapper):
+            agent_ = agent_.detach_wrapper()
+        return agent_
 
     def __getattr__(self, name: str) -> Any:
         """Reroutes attributes to the wrapped agent instance."""

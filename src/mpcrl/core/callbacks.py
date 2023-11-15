@@ -62,7 +62,7 @@ class CallbackMixin:
     def _run_hooks(self, method_name: str, *args: Any) -> None:
         """Runs the internal hooks attached to the given method."""
         if hooks := self._hooks.get(method_name):
-            for _, hook in hooks:
+            for hook in hooks.values():
                 hook(*args)
 
     def establish_callback_hooks(self) -> None:
@@ -85,9 +85,18 @@ class CallbackMixin:
             function to be called when the callback is invoked. Must accept the same
             input arguments as the callback it is hooked to. Moreover, the return value
             is discarded.
+
+        Raises
+        ------
+        ValueError
+            If an hook with name `attachername` is already attached to this callback.
         """
-        hook_list = self._hooks.setdefault(callbackname, [])
-        hook_list.append((attachername, func))
+        hook_dict = self._hooks.setdefault(callbackname, {})
+        if attachername in hook_dict:
+            raise ValueError(
+                f"Hook '{attachername}' already attached to callback '{callbackname}'."
+            )
+        hook_dict[attachername] = func
 
 
 class AgentCallbackMixin(CallbackMixin):
