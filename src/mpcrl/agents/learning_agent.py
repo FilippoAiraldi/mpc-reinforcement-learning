@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from collections.abc import Collection, Sequence
+from collections.abc import Collection
 from typing import Any, Callable, Generic, Optional, TypeVar, Union
 
 import numpy as np
@@ -11,6 +11,7 @@ from ..core.experience import ExperienceReplay
 from ..core.exploration import ExplorationStrategy
 from ..core.parameters import LearnableParametersDict
 from ..core.update import UpdateStrategy
+from ..util.seeding import RngType, mk_seed
 from .agent import ActType, Agent, ObsType, SymType, _update_dicts
 
 ExpType = TypeVar("ExpType")
@@ -91,9 +92,7 @@ class LearningAgent(
         """Gets the parameters of the MPC that can be learnt by the agent."""
         return self._learnable_pars
 
-    def reset(
-        self, seed: Union[None, int, Sequence[int], np.random.SeedSequence] = None
-    ) -> None:
+    def reset(self, seed: RngType = None) -> None:
         """Resets agent's internal variables, exploration and experience's RNG"""
         super().reset(seed)
         self.experience.reset(seed)
@@ -116,7 +115,7 @@ class LearningAgent(
         self,
         env: Env[ObsType, ActType],
         episodes: int,
-        seed: Union[None, int, Sequence[int]] = None,
+        seed: RngType = None,
         raises: bool = True,
         env_reset_options: Optional[dict[str, Any]] = None,
     ) -> npt.NDArray[np.floating]:
@@ -128,7 +127,7 @@ class LearningAgent(
             A gym environment where to train the agent in.
         episodes : int
             Number of training episodes.
-        seed : None, int or sequence of ints, optional
+        seed : None, int, array_like[ints], SeedSequence, BitGenerator, Generator
             Agent's and each env's RNG seed.
         raises : bool, optional
             If `True`, when any of the MPC solver runs fails, or when an update fails,
@@ -150,15 +149,14 @@ class LearningAgent(
         UpdateError or UpdateWarning
             Raises the error or the warning (depending on `raises`) if the update fails.
         """
+        rng = np.random.default_rng(seed)
+        self.reset(rng)
         self._updates_enabled = True
         self._raises = raises
         returns = np.zeros(episodes, float)
-        self.on_training_start(env)
-        seeds = map(int, np.random.SeedSequence(seed).generate_state(episodes))
 
-        for episode, current_seed in zip(range(episodes), seeds):
-            self.reset(current_seed)
-            state, _ = env.reset(seed=current_seed, options=env_reset_options)
+        for episode in range(episodes):
+            state, _ = env.reset(seed=mk_seed(rng), options=env_reset_options)
             self.on_episode_start(env, episode, state)
             r = self.train_one_episode(env, episode, state, raises)
             self.on_episode_end(env, episode, r)

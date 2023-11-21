@@ -1,4 +1,4 @@
-from collections.abc import Collection, Iterable, Iterator, Sequence
+from collections.abc import Collection, Iterable, Iterator
 from typing import Any, Generic, Literal, Optional, TypeVar, Union
 
 import casadi as cs
@@ -14,6 +14,7 @@ from typing_extensions import TypeAlias
 from ..core.callbacks import AgentCallbackMixin
 from ..core.exploration import ExplorationStrategy, NoExploration
 from ..util.named import Named
+from ..util.seeding import RngType, mk_seed
 
 SymType = TypeVar("SymType", cs.SX, cs.MX)
 ActType: TypeAlias = Union[npt.ArrayLike, dict[str, npt.ArrayLike]]
@@ -137,9 +138,7 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
         """Gets the exploration strategy used within this agent."""
         return self._exploration
 
-    def reset(
-        self, seed: Union[None, int, Sequence[int], np.random.SeedSequence] = None
-    ) -> None:
+    def reset(self, seed: RngType = None) -> None:
         """Resets the agent's internal variables and exploration's RNG."""
         self._last_solution = None
         self._last_action = None
@@ -323,7 +322,7 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
         env: Env[ObsType, ActType],
         episodes: int,
         deterministic: bool = True,
-        seed: Union[None, int, Sequence[int]] = None,
+        seed: RngType = None,
         raises: bool = True,
         env_reset_options: Optional[dict[str, Any]] = None,
     ) -> npt.NDArray[np.floating]:
@@ -341,7 +340,7 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
             Number of evaluation episodes.
         deterministic : bool, optional
             Whether the agent should act deterministically; by default, `True`.
-        seed : None, int or sequence of ints, optional
+        seed : None, int, array_like[ints], SeedSequence, BitGenerator, Generator
             Agent's and each env's RNG seed.
         raises : bool, optional
             If `True`, when any of the MPC solver runs fails, or when an update fails,
@@ -359,13 +358,13 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
         ------
             Raises if the MPC optimization solver fails and `warns_on_exception=False`.
         """
+        rng = np.random.default_rng(seed)
+        self.reset(rng)
         returns = np.zeros(episodes)
         self.on_validation_start(env)
-        seeds = map(int, np.random.SeedSequence(seed).generate_state(episodes))
 
-        for episode, current_seed in zip(range(episodes), seeds):
-            self.reset(current_seed)
-            state, _ = env.reset(seed=current_seed, options=env_reset_options)
+        for episode in range(episodes):
+            state, _ = env.reset(seed=mk_seed(rng), options=env_reset_options)
             truncated, terminated, timestep = False, False, 0
             self.on_episode_start(env, episode, state)
 
