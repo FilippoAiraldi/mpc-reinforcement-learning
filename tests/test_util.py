@@ -4,7 +4,7 @@ import casadi as cs
 import numpy as np
 from parameterized import parameterized, parameterized_class
 
-from mpcrl.util import control, iters, math, named
+from mpcrl.util import control, iters, math, named, seeding
 
 
 class DummyAgent(named.Named):
@@ -140,6 +140,12 @@ class TestIters(unittest.TestCase):
         cycle = [next(cycle) for _ in range(T)]
         self.assertEqual(cycle[0], self.starts_with or frequency == 1)
         self.assertEqual(T // frequency, sum(cycle))
+
+
+class TestSeeding(unittest.TestCase):
+    def test_mk_seed(self):
+        rng = np.random.default_rng()
+        self.assertTrue(0 <= seeding.mk_seed(rng) < 2**32)
 
 
 if __name__ == "__main__":
