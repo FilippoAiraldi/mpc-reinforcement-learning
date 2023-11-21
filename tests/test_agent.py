@@ -22,6 +22,7 @@ from mpcrl import (
 )
 from mpcrl import exploration as E
 from mpcrl import schedulers as S
+from mpcrl.util.seeding import mk_seed
 
 OPTS = {
     "expand": True,
@@ -377,9 +378,9 @@ class TestAgent(unittest.TestCase):
             )
 
         np.testing.assert_allclose(returns, rewards.reshape(-1, episode_length).sum(1))
-        seeds = np.random.SeedSequence(seed).generate_state(episodes)
+        rng = np.random.default_rng(seed)
         env.reset.assert_has_calls(
-            [call(seed=seeds[i], options=reset_options) for i in range(episodes)]
+            [call(seed=mk_seed(rng), options=reset_options) for i in range(episodes)]
         )
         for mcall, u1, u2 in zip(env.step.mock_calls, actions1, actions2):
             self.assertEqual(len(mcall.args), 1)

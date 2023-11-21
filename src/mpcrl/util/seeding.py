@@ -14,7 +14,7 @@ RngType: TypeAlias = Union[
 ]
 
 
-MAX_SEED = np.iinfo(np.uint32).max  # 2**32 - 1
+MAX_SEED = np.iinfo(np.uint32).max + 1
 
 
 def mk_seed(rng: np.random.Generator) -> int:
@@ -28,6 +28,6 @@ def mk_seed(rng: np.random.Generator) -> int:
     Returns
     -------
     int
-        A random integer in the range [0, 2**32 - 1]
+        A random integer in the range [0, 2**32)
     """
     return int(rng.integers(MAX_SEED))
