@@ -228,6 +228,17 @@ class TestExamples(unittest.TestCase):
             [np.reshape(agent.updates_history[n], -1) for n in parnames]
         )
 
+        # from scipy.io import savemat
+        # DATA.update({
+        #     "ql_J": J,
+        #     "ql_X": X,
+        #     "ql_U": U,
+        #     "ql_R": R,
+        #     "ql_TD": TD,
+        #     "ql_pars": PARS,
+        # })
+        # savemat(f"tests/data_test_examples_{platform}.mat", DATA)
+
         np.testing.assert_allclose(J, DATA["ql_J"], rtol=1e0, atol=1e0)
         np.testing.assert_allclose(X, DATA["ql_X"], rtol=1e0, atol=1e0)
         np.testing.assert_allclose(U, DATA["ql_U"], rtol=1e0, atol=1e0)
@@ -287,6 +298,18 @@ class TestExamples(unittest.TestCase):
         PARS = np.concatenate(
             [np.reshape(agent.updates_history[n], -1) for n in parnames]
         )
+
+        # from scipy.io import savemat
+        # DATA.update({
+        #     "dpg_J": J,
+        #     "dpg_X": X,
+        #     "dpg_U": U,
+        #     "dpg_R": R,
+        #     "dpg_Jest": Jest,
+        #     "dpg_Gest": Gest,
+        #     "dpg_pars": PARS,
+        # })
+        # savemat(f"tests/data_test_examples_{platform}.mat", DATA)
 
         np.testing.assert_allclose(J, DATA["dpg_J"], rtol=1e0, atol=1e0)
         np.testing.assert_allclose(X, DATA["dpg_X"], rtol=1e0, atol=1e0)
