@@ -1,4 +1,4 @@
-__version__ = "1.1.9rc2"
+__version__ = "1.1.9rc3"
 
 __all__ = [
     "Agent",
