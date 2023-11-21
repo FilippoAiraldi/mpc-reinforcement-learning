@@ -1,10 +1,10 @@
 from abc import ABC, abstractmethod
-from collections.abc import Sequence
 from typing import Any, Literal, Optional, Union
 
 import numpy as np
 import numpy.typing as npt
 
+from ..util.seeding import RngType
 from .schedulers import NoScheduling, Scheduler
 
 
@@ -67,7 +67,7 @@ class GreedyExploration(ExplorationStrategy):
         self,
         strength: Union[Scheduler[npt.NDArray[np.floating]], npt.NDArray[np.floating]],
         hook: Literal["on_update", "on_episode_end", "on_timestep_end"] = "on_update",
-        seed: Union[None, int, Sequence[int], np.random.SeedSequence] = None,
+        seed: RngType = None,
     ) -> None:
         """Initializes the greedy exploration strategy.
 
@@ -88,7 +88,7 @@ class GreedyExploration(ExplorationStrategy):
              - `on_timestep_end` steps the exploration after each env's timestep.
 
             By default, 'on_update' is selected.
-        seed : None, int, sequence of ints or SeedSequence, optional
+        seed : None, int, array_like[ints], SeedSequence, BitGenerator, Generator
             Number to seed the RNG engine used for randomizing the exploration. By
             default, `None`.
         """
@@ -112,9 +112,7 @@ class GreedyExploration(ExplorationStrategy):
         """Gets the current strength of the exploration strategy."""
         return self.strength_scheduler.value
 
-    def reset(
-        self, seed: Union[None, int, Sequence[int], np.random.SeedSequence] = None
-    ) -> None:
+    def reset(self, seed: RngType = None) -> None:
         """Resets the exploration RNG."""
         self.np_random = np.random.default_rng(seed)
 
@@ -166,7 +164,7 @@ class EpsilonGreedyExploration(GreedyExploration):
         epsilon: Union[Scheduler[float], float],
         strength: Union[Scheduler[npt.NDArray[np.floating]], npt.NDArray[np.floating]],
         hook: Literal["on_update", "on_episode_end", "on_timestep_end"] = "on_update",
-        seed: Union[None, int, Sequence[int], np.random.SeedSequence] = None,
+        seed: RngType = None,
     ) -> None:
         """Initializes the epsilon-greedy exploration strategy.
 
@@ -189,7 +187,7 @@ class EpsilonGreedyExploration(GreedyExploration):
              - `on_timestep_end` steps the exploration after each env's timestep.
 
             By default, 'on_update' is selected.
-        seed : None, int, sequence of ints or SeedSequence, optional
+        seed : None, int, array_like[ints], SeedSequence, BitGenerator, Generator
             Number to seed the RNG engine used for randomizing the exploration. By
             default, `None`.
         """
