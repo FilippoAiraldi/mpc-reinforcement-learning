@@ -188,15 +188,19 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
         Solution
             The solution of the MPC.
         """
-        # convert state keys into initial state keys (with "_0")
-        # convert action dict to vector if not None
+        # convert state keys into initial state keys (i.e., with "_0")
         if isinstance(state, dict):
             x0_dict = {f"{k}_0": v for k, v in state.items()}
         else:
-            mpcstates = mpc.states
-            cumsizes = np.cumsum([s.shape[0] for s in mpcstates.values()][:-1])
-            states = np.split(state, cumsizes)
-            x0_dict = {f"{k}_0": v for k, v in zip(mpcstates.keys(), states)}
+            mpcstates = mpc.initial_states
+            if len(mpcstates) == 1:
+                states = (state,)
+            else:
+                cumsizes = np.cumsum([s.shape[0] for s in mpcstates.values()][:-1])
+                states = np.split(state, cumsizes)
+            x0_dict = dict(zip(mpcstates.keys(), states))
+
+        # convert action dict to vector if not None
         if action is None:
             u0_vec = None
         elif isinstance(action, dict):
