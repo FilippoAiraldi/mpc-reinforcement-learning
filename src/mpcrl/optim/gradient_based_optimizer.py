@@ -4,13 +4,13 @@ import casadi as cs
 import numpy as np
 import numpy.typing as npt
 
-from ..core.parameters import LearnableParametersDict, SymType
 from ..core.schedulers import NoScheduling, Scheduler
+from .base_optimizer import BaseOptimizer, SymType
 
 LrType = TypeVar("LrType", npt.NDArray[np.floating], float)
 
 
-class GradientBasedOptimizer(Generic[SymType, LrType]):
+class GradientBasedOptimizer(BaseOptimizer[SymType], Generic[SymType, LrType]):
     """Base class for first- and second-order gradient-based optimization algorithms."""
 
     _order: Literal[1, 2]
@@ -49,25 +49,12 @@ class GradientBasedOptimizer(Generic[SymType, LrType]):
             `max_percentage_update=0.5` means that the parameters can be updated by up
             to 50% of their current value. By default, it is set to `+inf`.
         """
+        super().__init__(max_percentage_update)
         if not isinstance(learning_rate, Scheduler):
             learning_rate = NoScheduling[LrType](learning_rate)
         self.lr_scheduler: Scheduler[LrType] = learning_rate
-        self.max_percentage_update = max_percentage_update
         self._hook = hook
-        self.learnable_parameters: LearnableParametersDict[SymType] = None
-        self._update_solver: cs.Function = None
-
-    def set_learnable_parameters(self, pars: LearnableParametersDict[SymType]) -> None:
-        """Makes the optimization class aware of the dictionary of the learnable
-        parameters.
-
-        Parmeters
-        ---------
-        pars : LearnableParametersDict
-            The dictionary of the learnable parameters.
-        """
-        self.learnable_parameters = pars
-        self._update_solver = self._init_update_solver()
+        self._update_solver: cs.Function
 
     @property
     def hook(self) -> Optional[str]:
@@ -80,21 +67,6 @@ class GradientBasedOptimizer(Generic[SymType, LrType]):
     def step(self, *_, **__) -> None:
         """Steps/decays the learning rate according to its scheduler."""
         self.lr_scheduler.step()
-
-    def _get_update_bounds(
-        self, theta: np.ndarray, eps: float = 0.1
-    ) -> tuple[np.ndarray, np.ndarray]:
-        """Internal utility to retrieve the current bounds on the learnable parameters.
-        Only useful if the update problem is not constrained, i.e., there are either
-        some lb or ub, or a maximum percentage update."""
-        lb = self.learnable_parameters.lb - theta
-        ub = self.learnable_parameters.ub - theta
-        perc = self.max_percentage_update
-        if perc != float("+inf"):
-            max_update_delta = np.maximum(np.abs(perc * theta), eps)
-            lb = np.maximum(lb, -max_update_delta)
-            ub = np.minimum(ub, +max_update_delta)
-        return lb, ub
 
     def _init_update_solver(self) -> Optional[cs.Function]:
         """Internal utility to initialize, if the learnable parameters are constrained,
@@ -174,9 +146,6 @@ class GradientBasedOptimizer(Generic[SymType, LrType]):
             f"`{self.__class__.__name__}` optimizer does not implement "
             "`_second_order_update`"
         )
-
-    def __str__(self) -> str:
-        return self.__class__.__name__
 
     def __repr__(self) -> str:
         cn = self.__class__.__name__
