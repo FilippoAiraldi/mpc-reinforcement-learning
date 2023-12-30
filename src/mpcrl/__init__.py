@@ -3,6 +3,7 @@ __version__ = "1.1.9"
 __all__ = [
     "Agent",
     "ExperienceReplay",
+    "GlobOptLearningAgent",
     "LearnableParameter",
     "LearnableParametersDict",
     "LearningAgent",
@@ -23,6 +24,7 @@ __all__ = [
 
 from . import optim
 from .agents.agent import Agent
+from .agents.globopt_learning_agent import GlobOptLearningAgent
 from .agents.learning_agent import LearningAgent
 from .agents.lstd_dpg import LstdDpgAgent
 from .agents.lstd_q_learning import LstdQLearningAgent
