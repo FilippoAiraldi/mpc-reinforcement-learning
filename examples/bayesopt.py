@@ -86,7 +86,7 @@ class CstrEnv(gym.Env[npt.NDArray[np.floating], float]):
     inflow_bound = (5, 35)
     x0 = np.asarray([1.0, 1.0, 100.0, 100.0])  # initial state
 
-    def __init__(self, constraint_violation_penalty: float = 1e3) -> None:
+    def __init__(self, constraint_violation_penalty: float = 2e1) -> None:
         """Creates a CSTR environment.
 
         Parameters
@@ -330,17 +330,20 @@ class BoTorchOptimizer(GradientFreeOptimizer):
 
         # fit the GP
         values = self.learnable_parameters.value
-        bounds = np.stack([values + bnd for bnd in self._get_update_bounds(values)])
-        normalize = Normalize(train_inputs.shape[-1], bounds=torch.from_numpy(bounds))
+        bounds = torch.from_numpy(
+            np.stack([values + bnd for bnd in self._get_update_bounds(values)])
+        )
+        normalize = Normalize(train_inputs.shape[-1], bounds=bounds)
         gp = SingleTaskGP(train_inputs, train_targets, input_transform=normalize)
         fit_gpytorch_mll(ExactMarginalLogLikelihood(gp.likelihood, gp))
 
         # maximize the acquisition function to get the next guess
         acqfun = ExpectedImprovement(gp, train_targets.amin(), maximize=False)
-        X_opt, _ = optimize_acqf(
+        acqfun_optimizer = optimize_acqf(
             acqfun, bounds, 1, 32, 128, {"seed": self._seed + iteration}
-        )
-        return X_opt.numpy().squeeze(), None
+        )[0].numpy()
+        self._train_inputs = np.append(self._train_inputs, acqfun_optimizer, axis=0)
+        return acqfun_optimizer.reshape(-1), None
 
     def tell(self, values: npt.NDArray[np.floating], objective: float) -> None:
         # grab the current iteration and check that the tell method is called in the
@@ -376,26 +379,33 @@ agent = GlobOptLearningAgent(
 agent = Log(RecordUpdates(agent), level=DEBUG, log_frequencies={"on_episode_end": 1})
 
 # finally, launch the training
-n_episodes = 40
-agent.train(env=env, episodes=n_episodes, seed=69, raises=False)
+episodes = 50
+agent.train(env=env, episodes=episodes, seed=69, raises=False)
 
 # plot the result
 X = np.asarray(env.observations)  # n_ep x T + 1 x ns
-U = np.asarray(env.actions)  # n_ep x T
+U = np.squeeze(env.actions, (2, 3))  # n_ep x T
 R = np.asarray(env.rewards)  # n_ep x T
 
-_, axs = plt.subplots(1, 3, constrained_layout=True)
+fig, axs = plt.subplots(1, 3, constrained_layout=True)
 time = np.linspace(0, 0.2, T_max + 1)
-linewidths = np.linspace(0.25, 2.5, n_episodes)
+linewidths = np.linspace(0.25, 2.5, episodes)
 
 axs[0].hlines(
     env.reactor_temperature_bound, time[0], time[-1], colors="k", linestyles="--"
 )
 axs[1].hlines(env.inflow_bound, time[0], time[-1], colors="k", linestyles="--")
-for i in range(n_episodes):
+for i in range(episodes):
     axs[0].plot(time, X[i, :, 2], color="C0", lw=linewidths[i])
     axs[1].plot(time[:-1], U[i], color="C0", lw=linewidths[i])
-axs[2].plot(np.arange(1, n_episodes + 1), R.sum(axis=1), "o")
+
+episodes = np.arange(1, episodes + 1)
+returns = R.sum(axis=1)
+idx_max = np.argmax(returns)
+axs[2].semilogy(episodes, np.maximum.accumulate(returns), color="C1")
+axs[2].semilogy(episodes, returns, "o", color="C0")
+axs[2].semilogy(episodes[idx_max], returns[idx_max], "*", markersize=10, color="C2")
+
 axs[0].set_xlabel(r"Time (h)")
 axs[0].set_ylabel(r"$T_R$ (°C)")
 axs[1].set_xlabel(r"Time (h)")
@@ -403,4 +413,5 @@ axs[1].set_ylabel(r"F ($h^{-1}$)")
 axs[2].set_xlabel(r"Learning iteration")
 axs[2].set_ylabel(r"$n_B$ (mol)")
 
+# fig.savefig("examples/bayesopt.pdf")
 plt.show()
