@@ -19,7 +19,9 @@ class GlobOptLearningAgent(LearningAgent[SymType, None], ABC, Generic[SymType]):
     ask-tell interface, i..e., it must implement the `ask` and `tell` methods.
     """
 
-    def __init__(self, optimizer: GradientFreeOptimizer, **kwargs: Any) -> None:
+    def __init__(
+        self, optimizer: GradientFreeOptimizer[SymType], **kwargs: Any
+    ) -> None:
         """Instantiates the RL learning agent.
 
         Parameters

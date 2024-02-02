@@ -15,7 +15,10 @@ class RlLearningAgent(
     learn/improve the MPC policy."""
 
     def __init__(
-        self, discount_factor: float, optimizer: GradientBasedOptimizer, **kwargs: Any
+        self,
+        discount_factor: float,
+        optimizer: GradientBasedOptimizer[SymType],
+        **kwargs: Any,
     ) -> None:
         """Instantiates the RL learning agent.
 
