@@ -9,8 +9,8 @@ import numpy as np
 import numpy.typing as npt
 from gymnasium import Env
 
-from ...agents.agent import Agent
-from ...agents.learning_agent import LearningAgent
+from ...agents.common.agent import Agent
+from ...agents.common.learning_agent import LearningAgent
 from ...core.callbacks import (
     AgentCallbackMixin,
     LearningAgentCallbackMixin,

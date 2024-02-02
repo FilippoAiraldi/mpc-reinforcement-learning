@@ -1,7 +1,7 @@
 from abc import ABC
 from typing import Any, Generic, TypeVar
 
-from ..optim.gradient_based_optimizer import GradientBasedOptimizer, LrType
+from ...optim.gradient_based_optimizer import GradientBasedOptimizer, LrType
 from .agent import SymType
 from .learning_agent import LearningAgent
 

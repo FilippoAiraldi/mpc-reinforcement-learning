@@ -23,12 +23,12 @@ __all__ = [
 ]
 
 from . import optim
-from .agents.agent import Agent
-from .agents.globopt_learning_agent import GlobOptLearningAgent
-from .agents.learning_agent import LearningAgent
+from .agents.common.agent import Agent
+from .agents.common.globopt_learning_agent import GlobOptLearningAgent
+from .agents.common.learning_agent import LearningAgent
+from .agents.common.rl_learning_agent import RlLearningAgent
 from .agents.lstd_dpg import LstdDpgAgent
 from .agents.lstd_q_learning import LstdQLearningAgent
-from .agents.rl_learning_agent import RlLearningAgent
 from .core import exploration, schedulers
 from .core.errors import MpcSolverError, MpcSolverWarning, UpdateError, UpdateWarning
 from .core.experience import ExperienceReplay

@@ -2,8 +2,8 @@ from typing import Any, Callable, Generic, Union
 
 from csnlp.util.io import SupportsDeepcopyAndPickle
 
-from ...agents.agent import Agent, SymType
-from ...agents.learning_agent import ExpType, LearningAgent
+from ...agents.common.agent import Agent, SymType
+from ...agents.common.learning_agent import ExpType, LearningAgent
 from ...core.callbacks import CallbackMixin
 
 

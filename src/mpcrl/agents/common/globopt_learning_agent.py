@@ -3,10 +3,10 @@ from typing import Any, Generic, Optional
 
 from gymnasium import Env
 
-from mpcrl.agents.agent import ActType, ObsType
+from mpcrl.agents.common.agent import ActType, ObsType
 
-from ..core.update import UpdateStrategy
-from ..optim.gradient_free_optimizer import GradientFreeOptimizer
+from ...core.update import UpdateStrategy
+from ...optim.gradient_free_optimizer import GradientFreeOptimizer
 from .agent import SymType
 from .learning_agent import LearningAgent
 
