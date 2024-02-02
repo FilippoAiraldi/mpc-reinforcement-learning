@@ -17,7 +17,7 @@ class RlLearningAgent(
     def __init__(
         self,
         discount_factor: float,
-        optimizer: GradientBasedOptimizer[SymType],
+        optimizer: GradientBasedOptimizer[SymType, LrType],
         **kwargs: Any,
     ) -> None:
         """Instantiates the RL learning agent.

@@ -119,7 +119,7 @@ class LearningAgent(
         raises: bool = True,
         env_reset_options: Optional[dict[str, Any]] = None,
     ) -> npt.NDArray[np.floating]:
-        """Train the agent on an environment.
+        """On-policy training of the agent on an environment.
 
         Parameters
         ----------
@@ -155,6 +155,7 @@ class LearningAgent(
         self._raises = raises
         returns = np.zeros(episodes, float)
 
+        self.on_training_start(env)
         for episode in range(episodes):
             state, _ = env.reset(seed=mk_seed(rng), options=env_reset_options)
             self.on_episode_start(env, episode, state)
@@ -173,7 +174,7 @@ class LearningAgent(
         init_state: ObsType,
         raises: bool = True,
     ) -> float:
-        """Train the agent on an environment for one episode.
+        """On-policy training of the agent on an environment for one episode.
 
         Parameters
         ----------
