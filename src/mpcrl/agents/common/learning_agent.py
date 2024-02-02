@@ -6,12 +6,12 @@ import numpy as np
 import numpy.typing as npt
 from gymnasium import Env
 
-from ..core.callbacks import LearningAgentCallbackMixin
-from ..core.experience import ExperienceReplay
-from ..core.exploration import ExplorationStrategy
-from ..core.parameters import LearnableParametersDict
-from ..core.update import UpdateStrategy
-from ..util.seeding import RngType, mk_seed
+from ...core.callbacks import LearningAgentCallbackMixin
+from ...core.experience import ExperienceReplay
+from ...core.exploration import ExplorationStrategy
+from ...core.parameters import LearnableParametersDict
+from ...core.update import UpdateStrategy
+from ...util.seeding import RngType, mk_seed
 from .agent import ActType, Agent, ObsType, SymType, _update_dicts
 
 ExpType = TypeVar("ExpType")

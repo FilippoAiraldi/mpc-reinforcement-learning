@@ -15,8 +15,8 @@ from ..core.parameters import LearnableParametersDict
 from ..core.update import UpdateStrategy
 from ..optim.gradient_based_optimizer import GradientBasedOptimizer
 from ..util.math import monomials_basis_function
-from .agent import ActType, ObsType, SymType
-from .rl_learning_agent import LrType, RlLearningAgent
+from .common.agent import ActType, ObsType, SymType
+from .common.rl_learning_agent import LrType, RlLearningAgent
 
 ExpType: TypeAlias = tuple[
     npt.NDArray[np.floating],  # rollout's costs

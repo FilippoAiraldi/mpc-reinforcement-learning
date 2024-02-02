@@ -1,5 +1,6 @@
 __all__ = [
     "Adam",
+    "GradientBasedOptimizer",
     "GradientDescent",
     "GradientFreeOptimizer",
     "GD",
@@ -9,6 +10,7 @@ __all__ = [
 ]
 
 from .adam import Adam
+from .gradient_based_optimizer import GradientBasedOptimizer
 from .gradient_descent import GradientDescent
 from .gradient_free_optimizer import GradientFreeOptimizer
 from .newton_method import NetwonMethod

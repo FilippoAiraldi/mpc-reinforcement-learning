@@ -1,7 +1,7 @@
 import numpy as np
 import numpy.typing as npt
 
-from ...agents.learning_agent import ExpType, LearningAgent
+from ...agents.common.learning_agent import ExpType, LearningAgent
 from .wrapper import LearningWrapper, SymType
 
 
