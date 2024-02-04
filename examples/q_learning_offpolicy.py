@@ -244,3 +244,5 @@ axs[1, 0].set_ylabel("$f$")
 axs[1, 1].set_ylabel("$V_0$")
 axs[2, 0].set_ylabel("$A$")
 axs[2, 1].set_ylabel("$B$")
+
+plt.show()

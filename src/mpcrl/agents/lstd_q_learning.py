@@ -221,7 +221,7 @@ class LstdQLearningAgent(
                 self.on_mpc_failure(
                     episode, timestep, f"{solQ.status} (Q); {solV.status} (V)", raises
                 )
-            self.on_timestep_end(None, episode, timestep)
+            self.on_timestep_end("off-policy", episode, timestep)
 
     def _init_sensitivity(
         self, hessian_type: Literal["none", "approx", "full"]
