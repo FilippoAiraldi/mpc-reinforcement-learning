@@ -1,4 +1,4 @@
-from collections.abc import Collection
+from collections.abc import Collection, Iterable
 from typing import Callable, Generic, Literal, Optional, SupportsFloat, Union
 
 import casadi as cs
@@ -202,6 +202,26 @@ class LstdQLearningAgent(
             timestep += 1
             self.on_timestep_end(env, episode, timestep)
         return rewards
+
+    def train_one_rollout(
+        self,
+        rollout: Iterable[tuple[ObsType, ActType, float, ObsType]],
+        episode: int,
+        raises: bool = True,
+    ) -> None:
+        # in the case of off-policy q-learning, rollouts are made of
+        # State-Action-Reward-next State (SARS) tuples
+        for timestep, (state, action, cost, new_state) in enumerate(rollout, start=1):
+            # compute Q(s,a)
+            solQ = self.action_value(state, action)
+
+            # compute V(s+) and store transition
+            _, solV = self.state_value(new_state, False)
+            if not self._try_store_experience(cost, solQ, solV):
+                self.on_mpc_failure(
+                    episode, timestep, f"{solQ.status} (Q); {solV.status} (V)", raises
+                )
+            self.on_timestep_end(None, episode, timestep)
 
     def _init_sensitivity(
         self, hessian_type: Literal["none", "approx", "full"]
