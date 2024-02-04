@@ -19,6 +19,9 @@ from gymnasium.wrappers import TimeLimit, TransformReward
 from parameterized import parameterized
 from q_learning import LinearMpc as QLearningLinearMpc
 from q_learning import LtiSystem as QLearningLtiSystem
+from q_learning_offpolicy import LinearMpc as QLearningOffPolicyLinearMpc
+from q_learning_offpolicy import LtiSystem as QLearningOffPolicyLtiSystem
+from q_learning_offpolicy import get_rollout_generator
 from scipy.io import loadmat
 
 from mpcrl import (
@@ -216,6 +219,68 @@ class TestExamples(unittest.TestCase):
         np.testing.assert_allclose(X, DATA["bo_X"], rtol=1e-2, atol=1e-2)
         np.testing.assert_allclose(U, DATA["bo_U"], rtol=1e-2, atol=1e-2)
         np.testing.assert_allclose(R, DATA["bo_R"], rtol=1e-2, atol=1e-2)
+
+    @parameterized.expand([(False,), (True,)])
+    def test_q_learning_offpolicy__with_copy_and_pickle(self, use_copy: bool):
+        mpc = QLearningOffPolicyLinearMpc()
+        learnable_pars = LearnableParametersDict[cs.SX](
+            (
+                LearnableParameter(
+                    name=name, shape=val.shape, value=val, sym=mpc.parameters[name]
+                )
+                for name, val in mpc.learnable_pars_init.items()
+            )
+        )
+        agent = Log(
+            RecordUpdates(
+                LstdQLearningAgent(
+                    mpc=mpc,
+                    learnable_parameters=learnable_pars,
+                    discount_factor=mpc.discount_factor,
+                    update_strategy=1,
+                    optimizer=NetwonMethod(learning_rate=5e-2),
+                    hessian_type="approx",
+                    record_td_errors=True,
+                    remove_bounds_on_initial_action=True,
+                )
+            ),
+            level=logging.DEBUG,
+            log_frequencies={"on_episode_end": 1},
+        )
+
+        seed = 69
+        env_factory = lambda: MonitorEpisodes(
+            TimeLimit(QLearningOffPolicyLtiSystem(), 100)
+        )
+        generate_rollout = get_rollout_generator(env_factory, seed)
+
+        agent_copy = agent.copy()
+        if use_copy:
+            agent = agent_copy
+        J = agent.train_offpolicy(
+            episode_rollouts=(generate_rollout(n) for n in range(6)),
+            seed=seed,
+            eval_frequency=2,
+            eval_env_factory=env_factory,
+            eval_kwargs={
+                "episodes": 2,
+            },
+        )
+        agent = pickle.loads(pickle.dumps(agent))
+
+        parnames = ["V0", "x_lb", "x_ub", "b", "f", "A", "B"]
+        PARS = np.concatenate(
+            [np.reshape(agent.updates_history[n], -1) for n in parnames]
+        )
+        TD = np.squeeze(agent.td_errors)
+
+        # from scipy.io import savemat
+        # DATA.update({"ql_offpol_J": J, "ql_offpol_TD": TD, "ql_offpol_pars": PARS})
+        # savemat(f"tests/data_test_examples_{platform}.mat", DATA)
+
+        np.testing.assert_allclose(J, DATA["ql_offpol_J"], rtol=1e0, atol=1e0)
+        np.testing.assert_allclose(TD, DATA["ql_offpol_TD"], rtol=1e1, atol=1e1)
+        np.testing.assert_allclose(PARS, DATA["ql_offpol_pars"], rtol=1e0, atol=1e0)
 
 
 if __name__ == "__main__":

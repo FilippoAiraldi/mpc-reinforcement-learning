@@ -7,7 +7,7 @@ References
 """
 
 import logging
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from typing import Any, Optional
 
 import casadi as cs
@@ -154,6 +154,29 @@ class LinearMpc(Mpc[cs.SX]):
         self.init_solver(opts, solver="ipopt")
 
 
+def get_rollout_generator(
+    rollout_env_factory: Callable[[], gym.Env[np.ndarray, float]],
+    rollout_seed: int,
+) -> Callable[[int], Iterable[tuple[np.ndarray, float, float, np.ndarray]]]:
+    """Returns a function used to generates rollouts from a nominal agent."""
+    nominal_agent = Agent(LinearMpc(), LinearMpc.learnable_pars_init.copy())
+
+    def _generate_rollout(n):
+        # run the nominal agent on the environment once
+        env = rollout_env_factory()
+        nominal_agent.evaluate(env, episodes=1, seed=rollout_seed + n)
+
+        # transform the collected env data into a SARS sequence
+        S, A, R = (
+            env.observations[0].squeeze(),
+            env.actions[0].squeeze(),
+            env.rewards[0],
+        )
+        return ((s, a, r, s_next) for (s, s_next), a, r in zip(pairwise(S), A, R))
+
+    return _generate_rollout
+
+
 if __name__ == "__main__":
     # now, let's create the instances of such classes
     mpc = LinearMpc()
@@ -185,20 +208,7 @@ if __name__ == "__main__":
     # q-learning agent.
     seed = 69
     env_factory = lambda: MonitorEpisodes(TimeLimit(LtiSystem(), 100))
-    nominal_agent = Agent(LinearMpc(), LinearMpc.learnable_pars_init.copy())
-
-    def generate_rollout(n: int) -> Iterable[tuple[npt.NDArray[np.floating], ...]]:
-        # run the nominal agent on the environment once
-        env = env_factory()
-        nominal_agent.evaluate(env, episodes=1, seed=seed + n)
-
-        # transform the collected env data into a SARS sequence
-        S, A, R = (
-            env.observations[0].squeeze(),
-            env.actions[0].squeeze(),
-            env.rewards[0],
-        )
-        return ((s, a, r, s_next) for (s, s_next), a, r in zip(pairwise(S), A, R))
+    generate_rollout = get_rollout_generator(env_factory, seed)
 
     # finally, we can launch the training
     n_rollouts = 100
