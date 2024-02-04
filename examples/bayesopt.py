@@ -14,7 +14,6 @@ from typing import Any, Optional
 
 import casadi as cs
 import gymnasium as gym
-import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
 import torch
@@ -390,6 +389,8 @@ if __name__ == "__main__":
     agent.train(env=env, episodes=episodes, seed=69, raises=False)
 
     # plot the result
+    import matplotlib.pyplot as plt
+
     X = np.asarray(env.observations)  # n_ep x T + 1 x ns
     U = np.squeeze(env.actions, (2, 3))  # n_ep x T
     R = np.asarray(env.rewards)  # n_ep x T
