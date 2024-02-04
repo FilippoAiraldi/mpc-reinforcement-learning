@@ -33,7 +33,6 @@ from mpcrl import (
     LearnableParametersDict,
     LstdDpgAgent,
     LstdQLearningAgent,
-    MpcSolverWarning,
     UpdateStrategy,
 )
 from mpcrl import exploration as E
@@ -587,7 +586,7 @@ class TestExamples(unittest.TestCase):
         if use_copy:
             agent = agent_copy
 
-        with catch_warnings(action="ignore", category=MpcSolverWarning):
+        with catch_warnings():
             J = agent.train(env=env, episodes=5, seed=69, raises=False)
         agent = pickle.loads(pickle.dumps(agent))
 
