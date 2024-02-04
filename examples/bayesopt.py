@@ -37,9 +37,6 @@ from mpcrl.optim import GradientFreeOptimizer
 from mpcrl.wrappers.agents import Log, RecordUpdates
 from mpcrl.wrappers.envs import MonitorEpisodes
 
-torch.set_default_device("cpu")
-torch.set_default_dtype(torch.float64)
-
 
 class CstrEnv(gym.Env[npt.NDArray[np.floating], float]):
     """
@@ -224,7 +221,7 @@ class NoisyFilterObservation(ObservationWrapper):
         return measurable
 
 
-def get_mpc(env: CstrEnv, horizon: int = 10) -> Mpc[cs.SX]:
+def get_cstr_mpc(env: CstrEnv, horizon: int = 10) -> Mpc[cs.SX]:
     """Returns an MPC controller for the given CSTR env."""
     mpc = Mpc[cs.SX](Nlp[cs.SX]("SX"), horizon)
 
@@ -355,63 +352,73 @@ class BoTorchOptimizer(GradientFreeOptimizer):
         self._train_targets = np.append(self._train_targets, objective)
 
 
-# create the environment, and wrap it appropriately
-T_max = 40
-env = MonitorEpisodes(TimeLimit(CstrEnv(), max_episode_steps=T_max))
-env = TransformReward(env, neg)
-env = NoisyFilterObservation(env, [1, 2])
+if __name__ == "__main__":
+    torch.set_default_device("cpu")
+    torch.set_default_dtype(torch.float64)
+    torch.manual_seed(0)
 
-# create the mpc and the dict of learnable parameters - the initial values we give here
-# do not really matter since BO will have a couple of initial random evaluations anyway
-mpc = get_mpc(env)
-pars = mpc.parameters
-learnable_pars = LearnableParametersDict[cs.SX](
-    (
-        LearnableParameter(n, pars[n].shape, (ub + lb) / 2, lb, ub, pars[n])
-        for n, lb, ub in [("narx_weights", -2, 2), ("backoff", 0, 5)]
+    # create the environment, and wrap it appropriately
+    T_max = 40
+    env = MonitorEpisodes(TimeLimit(CstrEnv(), max_episode_steps=T_max))
+    env = TransformReward(env, neg)
+    env = NoisyFilterObservation(env, [1, 2])
+
+    # create the mpc and the dict of learnable parameters - the initial values we give
+    # here do not really matter since BO will have a couple of initial random
+    # evaluations anyway
+    mpc = get_cstr_mpc(env)
+    pars = mpc.parameters
+    learnable_pars = LearnableParametersDict[cs.SX](
+        (
+            LearnableParameter(n, pars[n].shape, (ub + lb) / 2, lb, ub, pars[n])
+            for n, lb, ub in [("narx_weights", -2, 2), ("backoff", 0, 5)]
+        )
     )
-)
 
-# create the agent, and wrap it appropriately
-agent = GlobOptLearningAgent(
-    mpc=mpc, learnable_parameters=learnable_pars, optimizer=BoTorchOptimizer(seed=42)
-)
-agent = Log(RecordUpdates(agent), level=DEBUG, log_frequencies={"on_episode_end": 1})
+    # create the agent, and wrap it appropriately
+    agent = GlobOptLearningAgent(
+        mpc=mpc,
+        learnable_parameters=learnable_pars,
+        optimizer=BoTorchOptimizer(seed=42),
+    )
+    agent = Log(
+        RecordUpdates(agent), level=DEBUG, log_frequencies={"on_episode_end": 1}
+    )
 
-# finally, launch the training
-episodes = 50
-agent.train(env=env, episodes=episodes, seed=69, raises=False)
+    # finally, launch the training
+    episodes = 50
+    agent.train(env=env, episodes=episodes, seed=69, raises=False)
 
-# plot the result
-X = np.asarray(env.observations)  # n_ep x T + 1 x ns
-U = np.squeeze(env.actions, (2, 3))  # n_ep x T
-R = np.asarray(env.rewards)  # n_ep x T
+    # plot the result
+    X = np.asarray(env.observations)  # n_ep x T + 1 x ns
+    U = np.squeeze(env.actions, (2, 3))  # n_ep x T
+    R = np.asarray(env.rewards)  # n_ep x T
 
-fig, axs = plt.subplots(1, 3, constrained_layout=True)
-time = np.linspace(0, 0.2, T_max + 1)
-linewidths = np.linspace(0.25, 2.5, episodes)
+    fig, axs = plt.subplots(1, 3, constrained_layout=True)
+    time = np.linspace(0, 0.2, T_max + 1)
+    linewidths = np.linspace(0.25, 2.5, episodes)
 
-axs[0].hlines(
-    env.reactor_temperature_bound, time[0], time[-1], colors="k", linestyles="--"
-)
-axs[1].hlines(env.inflow_bound, time[0], time[-1], colors="k", linestyles="--")
-for i in range(episodes):
-    axs[0].plot(time, X[i, :, 2], color="C0", lw=linewidths[i])
-    axs[1].plot(time[:-1], U[i], color="C0", lw=linewidths[i])
+    axs[0].hlines(
+        env.reactor_temperature_bound, time[0], time[-1], colors="k", linestyles="--"
+    )
+    axs[1].hlines(env.inflow_bound, time[0], time[-1], colors="k", linestyles="--")
+    for i in range(episodes):
+        axs[0].plot(time, X[i, :, 2], color="C0", lw=linewidths[i])
+        axs[1].plot(time[:-1], U[i], color="C0", lw=linewidths[i])
 
-episodes = np.arange(1, episodes + 1)
-returns = R.sum(axis=1)
-idx_max = np.argmax(returns)
-axs[2].semilogy(episodes, np.maximum.accumulate(returns), color="C1")
-axs[2].semilogy(episodes, returns, "o", color="C0")
-axs[2].semilogy(episodes[idx_max], returns[idx_max], "*", markersize=10, color="C2")
+    episodes = np.arange(1, episodes + 1)
+    returns = R.sum(axis=1)
+    idx_max = np.argmax(returns)
+    axs[2].semilogy(episodes, np.maximum.accumulate(returns), color="C1")
+    axs[2].semilogy(episodes, returns, "o", color="C0")
+    axs[2].semilogy(episodes[idx_max], returns[idx_max], "*", markersize=10, color="C2")
 
-axs[0].set_xlabel(r"Time (h)")
-axs[0].set_ylabel(r"$T_R$ (°C)")
-axs[1].set_xlabel(r"Time (h)")
-axs[1].set_ylabel(r"F ($h^{-1}$)")
-axs[2].set_xlabel(r"Learning iteration")
-axs[2].set_ylabel(r"$n_B$ (mol)")
+    axs[0].set_xlabel(r"Time (h)")
+    axs[0].set_ylabel(r"$T_R$ (°C)")
+    axs[1].set_xlabel(r"Time (h)")
+    axs[1].set_ylabel(r"F ($h^{-1}$)")
+    axs[2].set_xlabel(r"Learning iteration")
+    axs[2].set_ylabel(r"$n_B$ (mol)")
 
-# fig.savefig("examples/bayesopt.pdf")
-plt.show()
+    # fig.savefig("examples/bayesopt.pdf")
+    plt.show()

@@ -153,73 +153,73 @@ class LinearMpc(Mpc[cs.SX]):
         self.init_solver(opts, solver="ipopt")
 
 
-# now, let's create the instances of such classes and start the training
-mpc = LinearMpc()
-learnable_pars = LearnableParametersDict[cs.SX](
-    (
-        LearnableParameter(name, val.shape, val, sym=mpc.parameters[name])
-        for name, val in mpc.learnable_pars_init.items()
-    )
-)
-
-env = MonitorEpisodes(TimeLimit(LtiSystem(), max_episode_steps=int(5e3)))
-agent = Log(  # type: ignore[var-annotated]
-    RecordUpdates(
-        LstdQLearningAgent(
-            mpc=mpc,
-            learnable_parameters=learnable_pars,
-            discount_factor=mpc.discount_factor,
-            update_strategy=1,
-            optimizer=NetwonMethod(learning_rate=5e-2),
-            hessian_type="approx",
-            record_td_errors=True,
-            remove_bounds_on_initial_action=True,
+if __name__ == "__main__":
+    # now, let's create the instances of such classes and start the training
+    mpc = LinearMpc()
+    learnable_pars = LearnableParametersDict[cs.SX](
+        (
+            LearnableParameter(name, val.shape, val, sym=mpc.parameters[name])
+            for name, val in mpc.learnable_pars_init.items()
         )
-    ),
-    level=logging.DEBUG,
-    log_frequencies={"on_timestep_end": 1000},
-)
-agent.train(env=env, episodes=1, seed=69)
+    )
 
+    env = MonitorEpisodes(TimeLimit(LtiSystem(), max_episode_steps=int(5e3)))
+    agent = Log(  # type: ignore[var-annotated]
+        RecordUpdates(
+            LstdQLearningAgent(
+                mpc=mpc,
+                learnable_parameters=learnable_pars,
+                discount_factor=mpc.discount_factor,
+                update_strategy=1,
+                optimizer=NetwonMethod(learning_rate=5e-2),
+                hessian_type="approx",
+                record_td_errors=True,
+                remove_bounds_on_initial_action=True,
+            )
+        ),
+        level=logging.DEBUG,
+        log_frequencies={"on_timestep_end": 1000},
+    )
+    agent.train(env=env, episodes=1, seed=69)
 
-# plot the results
-X = env.observations[0].squeeze().T
-U = env.actions[0].squeeze()
-R = env.rewards[0]
-_, axs = plt.subplots(3, 1, constrained_layout=True, sharex=True)
-axs[0].plot(X[0])
-axs[1].plot(X[1])
-axs[2].plot(U)
-for i in range(2):
-    axs[0].axhline(env.x_bnd[i][0], color="r")
-    axs[1].axhline(env.x_bnd[i][1], color="r")
-    axs[2].axhline(env.a_bnd[i], color="r")
-axs[0].set_ylabel("$s_1$")
-axs[1].set_ylabel("$s_2$")
-axs[2].set_ylabel("$a$")
+    # plot the results
+    X = env.observations[0].squeeze().T
+    U = env.actions[0].squeeze()
+    R = env.rewards[0]
+    _, axs = plt.subplots(3, 1, constrained_layout=True, sharex=True)
+    axs[0].plot(X[0])
+    axs[1].plot(X[1])
+    axs[2].plot(U)
+    for i in range(2):
+        axs[0].axhline(env.x_bnd[i][0], color="r")
+        axs[1].axhline(env.x_bnd[i][1], color="r")
+        axs[2].axhline(env.a_bnd[i], color="r")
+    axs[0].set_ylabel("$s_1$")
+    axs[1].set_ylabel("$s_2$")
+    axs[2].set_ylabel("$a$")
 
-_, axs = plt.subplots(2, 1, constrained_layout=True, sharex=True)
-axs[0].plot(agent.td_errors, "o", markersize=1)
-axs[1].semilogy(R, "o", markersize=1)
-axs[0].set_ylabel(r"$\tau$")
-axs[1].set_ylabel("$L$")
+    _, axs = plt.subplots(2, 1, constrained_layout=True, sharex=True)
+    axs[0].plot(agent.td_errors, "o", markersize=1)
+    axs[1].semilogy(R, "o", markersize=1)
+    axs[0].set_ylabel(r"$\tau$")
+    axs[1].set_ylabel("$L$")
 
-_, axs = plt.subplots(3, 2, constrained_layout=True, sharex=True)
-axs[0, 0].plot(np.asarray(agent.updates_history["b"]))
-axs[0, 1].plot(
-    np.stack(
-        [np.asarray(agent.updates_history[n])[:, 0] for n in ("x_lb", "x_ub")], -1
-    ),
-)
-axs[1, 0].plot(np.asarray(agent.updates_history["f"]))
-axs[1, 1].plot(np.asarray(agent.updates_history["V0"]))
-axs[2, 0].plot(np.asarray(agent.updates_history["A"]).reshape(-1, 4))
-axs[2, 1].plot(np.asarray(agent.updates_history["B"]).squeeze())
-axs[0, 0].set_ylabel("$b$")
-axs[0, 1].set_ylabel("$x_1$")
-axs[1, 0].set_ylabel("$f$")
-axs[1, 1].set_ylabel("$V_0$")
-axs[2, 0].set_ylabel("$A$")
-axs[2, 1].set_ylabel("$B$")
+    _, axs = plt.subplots(3, 2, constrained_layout=True, sharex=True)
+    axs[0, 0].plot(np.asarray(agent.updates_history["b"]))
+    axs[0, 1].plot(
+        np.stack(
+            [np.asarray(agent.updates_history[n])[:, 0] for n in ("x_lb", "x_ub")], -1
+        ),
+    )
+    axs[1, 0].plot(np.asarray(agent.updates_history["f"]))
+    axs[1, 1].plot(np.asarray(agent.updates_history["V0"]))
+    axs[2, 0].plot(np.asarray(agent.updates_history["A"]).reshape(-1, 4))
+    axs[2, 1].plot(np.asarray(agent.updates_history["B"]).squeeze())
+    axs[0, 0].set_ylabel("$b$")
+    axs[0, 1].set_ylabel("$x_1$")
+    axs[1, 0].set_ylabel("$f$")
+    axs[1, 1].set_ylabel("$V_0$")
+    axs[2, 0].set_ylabel("$A$")
+    axs[2, 1].set_ylabel("$B$")
 
-plt.show()
+    plt.show()
