@@ -12,7 +12,6 @@ from typing import Any, Optional
 
 import casadi as cs
 import gymnasium as gym
-import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
 from csnlp import Nlp
@@ -214,6 +213,8 @@ if __name__ == "__main__":
     )
 
     # plot the results
+    import matplotlib.pyplot as plt
+
     _, axs = plt.subplots(2, 1, constrained_layout=True)
     eval_returns_avg = eval_returns.mean(1)
     eval_returns_std = eval_returns.std(1)

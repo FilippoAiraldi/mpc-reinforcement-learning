@@ -11,7 +11,6 @@ from typing import Any, Optional
 
 import casadi as cs
 import gymnasium as gym
-import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
 from csnlp import Nlp
@@ -183,6 +182,8 @@ if __name__ == "__main__":
     agent.train(env=env, episodes=1, seed=69)
 
     # plot the results
+    import matplotlib.pyplot as plt
+
     X = env.observations[0].squeeze().T
     U = env.actions[0].squeeze()
     R = env.rewards[0]
