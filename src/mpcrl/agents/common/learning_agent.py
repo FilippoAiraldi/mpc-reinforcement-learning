@@ -273,16 +273,19 @@ class LearningAgent(
             returns = []
             if eval_kwargs is None:
                 eval_kwargs = {}
+        else:
+            returns = np.empty(())
         rng = np.random.default_rng(seed)
         self.reset(rng)
         self._updates_enabled = True
         self._raises = raises
+        env_proxy = "off-policy"
 
-        self.on_training_start(None)
+        self.on_training_start(env_proxy)
         for episode, rollout in enumerate(episode_rollouts):
-            self.on_episode_start(None, episode, None)
+            self.on_episode_start(env_proxy, episode, float("nan"))
             self.train_one_rollout(rollout, episode, raises)
-            self.on_episode_end(None, episode, float("nan"))
+            self.on_episode_end(env_proxy, episode, float("nan"))
             if eval_frequency is not None and (episode + 1) % eval_frequency == 0:
                 r = self.evaluate(
                     eval_env_factory(), seed=mk_seed(rng), raises=raises, **eval_kwargs
@@ -290,9 +293,10 @@ class LearningAgent(
                 returns.append(r)
                 self._updates_enabled = True  # updates must be re-enabled after eval
 
-        self.on_training_end(None, returns)
+        returns = np.asarray(returns, float)
+        self.on_training_end(env_proxy, returns)
         if eval_frequency is not None:
-            return np.asarray(returns, float)
+            return returns
 
     def train_one_rollout(
         self, rollout: Iterable[Any], episode: int, raises: bool = True
