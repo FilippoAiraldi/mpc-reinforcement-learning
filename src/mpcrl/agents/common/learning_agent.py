@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from collections.abc import Collection
+from collections.abc import Collection, Iterable
 from typing import Any, Callable, Generic, Optional, TypeVar, Union
 
 import numpy as np
@@ -24,6 +24,14 @@ class LearningAgent(
     `update`, which is called to update the learnable parameters of the MPC according to
     the underlying learning methodology (e.g., Bayesian Optimization, RL, etc.) is
     abstract and must be implemented by inheriting classes.
+
+    Aside of `update`, this class implements also the basic structure for both on-policy
+    and off-policy learning, which require further ad-hoc implementations. For on-policy
+    learning, the `train` method should be run, which requires the implementation of
+    `train_one_episode`. For off-policy learning, run `train_offpolicy` and implement
+    `train_one_rollout` instead. At least one of the two implementations is required in
+    the inheriting class, depending on the learning algorithm. Some algorithms might
+    support both.
 
     Note: this class makes no assumptions on the learning methodology used to update the
     MPC's learnable parameters."""
@@ -166,7 +174,6 @@ class LearningAgent(
         self.on_training_end(env, returns)
         return returns
 
-    @abstractmethod
     def train_one_episode(
         self,
         env: Env[ObsType, ActType],
@@ -201,6 +208,119 @@ class LearningAgent(
         UpdateError or UpdateWarning
             Raises the error or the warning (depending on `raises`) if the update fails.
         """
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not implement `train_one_episode` for "
+            "on-policy learning."
+        )
+
+    def train_offpolicy(
+        self,
+        episode_rollouts: Iterable[Iterable[Any]],
+        seed: RngType = None,
+        raises: bool = True,
+        eval_frequency: Optional[int] = None,
+        eval_env_factory: Callable[[], Optional[Env[ObsType, ActType]]] = None,
+        eval_kwargs: Optional[dict[str, Any]] = None,
+    ) -> Optional[npt.NDArray[np.floating]]:
+        """Off-policy training of the agent on an environment.
+
+        Parameters
+        ----------
+        episode_rollouts : iterable of iterables of any
+            An iterable, i.e., sequence, of episodical rollouts generated off-policy.
+            Each rollout is itself a sequence of transitions, e.g., SARSA tuples. In
+            general, these can be of different types, depending on the specific learning
+            algorithm.
+        seed : None, int, array_like[ints], SeedSequence, BitGenerator, Generator
+            Agent's (and each evaluation env's, if applicable) RNG seed.
+        raises : bool, optional
+            If `True`, when any of the MPC solver runs fails, or when an update fails,
+            the corresponding error is raised; otherwise, only a warning is raised.
+        eval_frequency : int, optional
+            Frequency of evaluation of the agent's performance during off-policy
+            training. If `None`, no evaluation is performed. If an integer is passed,
+            then also `eval_env_factory` must be given as argument.
+        eval_env_factory : callable, optional
+            A callable that returns a new environment instance to be used for
+            evaluation, if `eval_frequency` is given. Otherwise, it is unused.
+        eval_kwargs : dict, optional
+            Additional keyword arguments to be passed to the agent's `evaluate` method.
+            Must contain the `episode` key (which is a required argument to `evaluate`),
+            and must not contain the `env`, `seed` or `raises` key, as these are already
+            handled by this method automatically.
+
+        Returns
+        -------
+        2d-array of doubles or None
+            The cumulative returns for each evaluation episode, if evaluation is
+            enabled; otherwise, `None`.
+
+        Raises
+        ------
+        ValueError
+            Raises if `eval_frequency` is given but `eval_env_factory` is not callable.
+        MpcSolverError or MpcSolverWarning
+            Raises the error or the warning (depending on `raises`) if any of the MPC
+            solvers fail.
+        UpdateError or UpdateWarning
+            Raises the error or the warning (depending on `raises`) if the update fails.
+        """
+        if eval_frequency is not None:
+            if not callable(eval_env_factory):
+                raise ValueError(
+                    "If `eval_frequency` is given, `eval_env_factory` must be callable."
+                )
+            returns = []
+            if eval_kwargs is None:
+                eval_kwargs = {}
+        rng = np.random.default_rng(seed)
+        self.reset(rng)
+        self._updates_enabled = True
+        self._raises = raises
+
+        self.on_training_start(None)
+        for episode, rollout in enumerate(episode_rollouts):
+            self.on_episode_start(None, episode, None)
+            self.train_one_rollout(rollout, episode, raises)
+            self.on_episode_end(None, episode, float("nan"))
+            if eval_frequency is not None and (episode + 1) % eval_frequency == 0:
+                r = self.evaluate(
+                    eval_env_factory(), seed=mk_seed(rng), raises=raises, **eval_kwargs
+                )
+                returns.append(r)
+                self._updates_enabled = True  # updates must be re-enabled after eval
+
+        self.on_training_end(None, returns)
+        if eval_frequency is not None:
+            return np.asarray(returns, float)
+
+    def train_one_rollout(
+        self, rollout: Iterable[Any], episode: int, raises: bool = True
+    ) -> None:
+        """Train the agent in an off-policy manner on the given rollout.
+
+        Parameters
+        ----------
+        rollout : iterable of any
+            Rollout, i.e., a sequence of transitions generated off-policy, e.g., SARSA
+            tuples. In general, these can be of different types, depending on the
+            specific learning algorithm.
+        raises : bool, optional
+            If `True`, when any of the MPC solver runs fails, or when an update fails,
+            the corresponding error is raised; otherwise, only a warning is raised.
+
+        Raises
+        ------
+        MpcSolverError or MpcSolverWarning
+            Raises the error or the warning (depending on `raises`) if any of the MPC
+            solvers fail.
+        UpdateError or UpdateWarning
+            Raises the error or the warning (depending on `raises`) if the update fails.
+        """
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not implement `train_offpolicy` for "
+            "off-policy learning."
+        )
 
     @abstractmethod
     def update(self) -> Optional[str]:
