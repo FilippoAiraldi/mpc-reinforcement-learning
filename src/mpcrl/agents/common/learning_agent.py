@@ -221,6 +221,7 @@ class LearningAgent(
         eval_frequency: Optional[int] = None,
         eval_env_factory: Callable[[], Optional[Env[ObsType, ActType]]] = None,
         eval_kwargs: Optional[dict[str, Any]] = None,
+        eval_at_start: bool = True,
     ) -> Optional[npt.NDArray[np.floating]]:
         """Off-policy training of the agent on an environment.
 
@@ -248,6 +249,8 @@ class LearningAgent(
             Must contain the `episode` key (which is a required argument to `evaluate`),
             and must not contain the `env`, `seed` or `raises` key, as these are already
             handled by this method automatically.
+        eval_at_start : bool, optional
+            If `True`, an evaluation round is also performed before the training starts.
 
         Returns
         -------
@@ -273,24 +276,28 @@ class LearningAgent(
             returns = []
             if eval_kwargs is None:
                 eval_kwargs = {}
+            do_eval = lambda: self.evaluate(
+                eval_env_factory(), seed=rng, raises=raises, **eval_kwargs
+            )
         else:
             returns = np.empty(())
+
         rng = np.random.default_rng(seed)
         self.reset(rng)
-        self._updates_enabled = True
         self._raises = raises
         env_proxy = "off-policy"
 
+        if eval_frequency is not None and eval_at_start:
+            returns.append(do_eval())
+
+        self._updates_enabled = True
         self.on_training_start(env_proxy)
         for episode, rollout in enumerate(episode_rollouts):
             self.on_episode_start(env_proxy, episode, float("nan"))
             self.train_one_rollout(rollout, episode, raises)
             self.on_episode_end(env_proxy, episode, float("nan"))
             if eval_frequency is not None and (episode + 1) % eval_frequency == 0:
-                r = self.evaluate(
-                    eval_env_factory(), seed=mk_seed(rng), raises=raises, **eval_kwargs
-                )
-                returns.append(r)
+                returns.append(do_eval())
                 self._updates_enabled = True  # updates must be re-enabled after eval
 
         returns = np.asarray(returns, float)

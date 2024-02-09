@@ -265,6 +265,7 @@ class TestExamples(unittest.TestCase):
             eval_kwargs={
                 "episodes": 2,
             },
+            eval_at_start=False,
         )
         agent = pickle.loads(pickle.dumps(agent))
 
