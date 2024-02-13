@@ -283,7 +283,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         nlp_ = NlpSensitivity(nlp, theta)
         Kt = nlp_.jacobians["K-p"]
         Ky = nlp_.jacobians["K-y"]
-        dydu0 = cs.evalf(cs.jacobian(y, u0))
+        dydu0 = cs.jacobian_sparsity(u0, y).T
 
         # instantiate linear solver (must be MX, so SX has to be converted)
         if nlp.sym_type is cs.SX:
