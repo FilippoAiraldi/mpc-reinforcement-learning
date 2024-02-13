@@ -234,35 +234,48 @@ class LstdQLearningAgent(
         order = self.optimizer._order
         theta = cs.vvcat(self._learnable_pars.sym.values())
         nlp = self._Q.nlp
-        nlp_ = NlpSensitivity(nlp, theta)
         x_lam_p = cs.vertcat(nlp.primal_dual, nlp.p)
-        dQ = nlp_.jacobians["L-p"]  # a.k.a., dQdtheta
+
+        # compute first order sensitivity
+        snlp = NlpSensitivity(self._Q.nlp, theta)
+        gradient = snlp.jacobians["L-p"]  # exact gradient, i.e., dQ/dtheta
 
         if hessian_type == "none":
             assert order == 1, "Expected 1st-order optimizer with `hessian_type=none`."
+
             sensitivity = cs.Function(
-                "S", (x_lam_p,), (dQ,), ("x_lam_p",), ("dQ",), {"cse": True}
+                "S", (x_lam_p,), (gradient,), ("x_lam_p",), ("dQ",), {"cse": True}
             )
-            return lambda v: np.asarray(sensitivity(v).elements())
 
-        assert (
-            order == 2
-        ), "Expected 2nd-order optimizer with `hessian_type=approx` or `full`."
-        ddQ = nlp_.hessians["L-pp"]
-        if hessian_type == "full":
-            # dydtheta, _ = nlp_.parametric_sensitivity()
-            Kp = nlp_.jacobians["K-p"]
-            Ky = nlp_.jacobians["K-y"].T
-            dydtheta = -cs.solve(Ky, Kp)
-            ddQ += dydtheta.T @ Kp
+            def func(sol_values: cs.DM) -> np.ndarray:
+                return np.asarray(sensitivity(sol_values).elements())
 
-        sensitivity = cs.Function(
-            "S", (x_lam_p,), (dQ, ddQ), ("x_lam_p",), ("dQ", "ddQ"), {"cse": True}
-        )
+        else:
+            assert (
+                order == 2
+            ), "Expected 2nd-order optimizer with `hessian_type=approx` or `full`."
 
-        def func(sol_values: cs.DM) -> tuple[np.ndarray, np.ndarray]:
-            dQ, ddQ = sensitivity(sol_values)
-            return np.asarray(dQ.elements()), ddQ.toarray()
+            # compute second order sensitivity
+            hessian = snlp.hessians["L-pp"]  # approximate hessian
+            if hessian_type == "full":
+                Kp = snlp.jacobians["K-p"]
+                Ky = snlp.jacobians["K-y"]
+                dydtheta = -cs.solve(Ky, Kp)
+                Lpy = cs.jacobian(gradient, nlp.primal_dual)
+                hessian += Lpy @ dydtheta  # not sure if Lpy or Kp.T
+
+            sensitivity = cs.Function(
+                "S",
+                (x_lam_p,),
+                (gradient, hessian),
+                ("x_lam_p",),
+                ("dQ", "ddQ"),
+                {"cse": True},
+            )
+
+            def func(sol_values: cs.DM) -> tuple[np.ndarray, np.ndarray]:
+                dQ, ddQ = sensitivity(sol_values)
+                return np.asarray(dQ.elements()), ddQ.toarray()
 
         return func
 
