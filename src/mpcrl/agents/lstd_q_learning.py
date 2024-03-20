@@ -13,6 +13,7 @@ from ..core.experience import ExperienceReplay
 from ..core.exploration import ExplorationStrategy
 from ..core.parameters import LearnableParametersDict
 from ..core.update import UpdateStrategy
+from ..core.warmstart import WarmStartStrategy
 from ..optim.gradient_based_optimizer import GradientBasedOptimizer
 from .common.agent import ActType, ObsType, SymType
 from .common.rl_learning_agent import LrType, RlLearningAgent
@@ -55,7 +56,9 @@ class LstdQLearningAgent(
         ] = None,
         exploration: Optional[ExplorationStrategy] = None,
         experience: Union[None, int, ExperienceReplay[ExpType]] = None,
-        warmstart: Literal["last", "last-successful"] = "last-successful",
+        warmstart: Union[
+            Literal["last", "last-successful"], WarmStartStrategy
+        ] = "last-successful",
         hessian_type: Literal["none", "approx", "full"] = "approx",
         record_td_errors: bool = False,
         use_last_action_on_fail: bool = False,
@@ -106,10 +109,15 @@ class LstdQLearningAgent(
             In the case of LSTD Q-learning, each memory item consists of the action
             value function's gradient and hessian computed at each (succesful) env's
             step.
-        warmstart: "last" or "last-successful", optional
+        warmstart: "last" or "last-successful" or WarmStartStrategy, optional
             The warmstart strategy for the MPC's NLP. If `last-successful`, the last
             successful solution is used to warm start the solver for the next iteration.
             If `last`, the last solution is used, regardless of success or failure.
+            Furthermoer, a `WarmStartStrategy` object can be passed to specify a
+            strategy for generating multiple warmstart points for the NLP. This is
+            useful to generate multiple initial conditions for very non-convex problems.
+            Can only be used with an MPC that has an underlying multistart NLP problem
+            (see `csnlp.MultistartNlp`).
         hessian_type : 'none', 'approx' or 'full', optional
             The type of hessian to use in this (potentially) second-order algorithm.
             If 'none', no second order information is used. If `approx`, an easier

@@ -13,6 +13,7 @@ from ..core.experience import ExperienceReplay
 from ..core.exploration import ExplorationStrategy
 from ..core.parameters import LearnableParametersDict
 from ..core.update import UpdateStrategy
+from ..core.warmstart import WarmStartStrategy
 from ..optim.gradient_based_optimizer import GradientBasedOptimizer
 from ..util.math import monomials_basis_function
 from .common.agent import ActType, ObsType, SymType
@@ -62,7 +63,9 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         ] = None,
         exploration: Optional[ExplorationStrategy] = None,
         experience: Union[None, int, ExperienceReplay[ExpType]] = None,
-        warmstart: Literal["last", "last-successful"] = "last-successful",
+        warmstart: Union[
+            Literal["last", "last-successful"], WarmStartStrategy
+        ] = "last-successful",
         rollout_length: Optional[int] = None,
         record_policy_performance: bool = False,
         record_policy_gradient: bool = False,
@@ -125,10 +128,15 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
             A positive float that specifies the decay of the learnable parameters in the
             form of an L2 regularization term. By default, it is set to `0.0`, so no
             decay/regularization takes place.
-        warmstart: "last" or "last-successful", optional
+        warmstart: "last" or "last-successful" or WarmStartStrategy, optional
             The warmstart strategy for the MPC's NLP. If `last-successful`, the last
             successful solution is used to warm start the solver for the next iteration.
             If `last`, the last solution is used, regardless of success or failure.
+            Furthermoer, a `WarmStartStrategy` object can be passed to specify a
+            strategy for generating multiple warmstart points for the NLP. This is
+            useful to generate multiple initial conditions for very non-convex problems.
+            Can only be used with an MPC that has an underlying multistart NLP problem
+            (see `csnlp.MultistartNlp`).
         rollout_length : int, optional
             Time-step length of a closed-loop simulation, which defines a complete
             trajectory of the states, and is saved in the experience as a single item
