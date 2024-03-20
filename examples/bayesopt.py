@@ -23,7 +23,13 @@ from botorch.models import SingleTaskGP
 from botorch.models.transforms import Normalize
 from botorch.optim import optimize_acqf
 from botorch.utils import standardize
-from csnlp import Nlp
+from csnlp.multistart import (
+    ParallelMultistartNlp,
+    RandomStartPoint,
+    RandomStartPoints,
+    StructuredStartPoint,
+    StructuredStartPoints,
+)
 from csnlp.wrappers import Mpc
 from gpytorch.mlls import ExactMarginalLogLikelihood
 from gymnasium import ObservationWrapper
@@ -31,7 +37,12 @@ from gymnasium.spaces import Box
 from gymnasium.wrappers import TimeLimit, TransformReward
 from scipy.stats.qmc import LatinHypercube
 
-from mpcrl import GlobOptLearningAgent, LearnableParameter, LearnableParametersDict
+from mpcrl import (
+    GlobOptLearningAgent,
+    LearnableParameter,
+    LearnableParametersDict,
+    WarmStartStrategy,
+)
 from mpcrl.optim import GradientFreeOptimizer
 from mpcrl.wrappers.agents import Log, RecordUpdates
 from mpcrl.wrappers.envs import MonitorEpisodes
@@ -51,13 +62,18 @@ class CstrEnv(gym.Env[npt.NDArray[np.floating], float]):
 
     ## Observation Space
 
+    The state space is an array of shape `(4,)`, containing the concentrations of
+    reagents A and B (mol/L), and the temperatures of the reactor and the coolant (°C).
+    The first two states must be positive, while the latter two (the temperatures)
+    should be bounded (but not forced) below `100` and `150`, respectively.
+
     The observation (a.k.a., measurable states) space is an array of shape `(2,)`,
     containing the concentration of reagent B and the temperature of the reactor. The
     former is unconstrained, while the latter should be bounded (but not forced) in the
     range `[`100`, 150]` (See Rewards section).
 
     The internal, non-observable states are the concentrations of reagent A and B, and
-    the temperatures of the reactor and the coolant.
+    the temperatures of the reactor and the coolant, for a total of 4 states.
 
     ## Rewards
 
@@ -93,7 +109,7 @@ class CstrEnv(gym.Env[npt.NDArray[np.floating], float]):
         super().__init__()
         self.constraint_violation_penalty = constraint_violation_penalty
         self.observation_space = Box(
-            np.array([0, 0, -np.inf, -np.inf]), np.inf, (self.ns,), np.float64
+            np.array([0, 0, -273.15, -273.15]), np.inf, (self.ns,), np.float64
         )
         self.action_space = Box(*self.inflow_bound, (self.na,), np.float64)
 
@@ -222,7 +238,8 @@ class NoisyFilterObservation(ObservationWrapper):
 
 def get_cstr_mpc(env: CstrEnv, horizon: int = 10) -> Mpc[cs.SX]:
     """Returns an MPC controller for the given CSTR env."""
-    mpc = Mpc[cs.SX](Nlp[cs.SX]("SX"), horizon)
+    nlp = ParallelMultistartNlp[cs.SX]("SX", starts=10, n_jobs=1)
+    mpc = Mpc[cs.SX](nlp, horizon)
 
     # variables (state, action)
     y_space, u_space = env.observation_space, env.action_space
@@ -231,8 +248,8 @@ def get_cstr_mpc(env: CstrEnv, horizon: int = 10) -> Mpc[cs.SX]:
     u, _ = mpc.action("u", nu, u_space.low[:, None], u_space.high[:, None])
 
     # set the dynamics based on the NARX model - but first scale to [0, 1]
-    lb = np.concatenate([[0.0, 100.0], env.action_space.low])
-    ub = np.concatenate([[1.0, 150.0], env.action_space.high])
+    lb = np.concatenate([[0.0, 100.0], u_space.low])
+    ub = np.concatenate([[1.0, 150.0], u_space.high])
     n_weights = 1 + 2 * (ny + nu)
     narx_weights = (
         mpc.parameter("narx_weights", (n_weights * ny, 1)).reshape((-1, ny)).T
@@ -374,10 +391,41 @@ if __name__ == "__main__":
         )
     )
 
+    # since the MPC is highly nonlinear due to the NARX model, set up a warmstart
+    # strategy in order to automatically try different initial conditions for the solver
+    ns, na, N = mpc.ns, mpc.na, mpc.prediction_horizon
+    warmstart = WarmStartStrategy(
+        structured_points=StructuredStartPoints(
+            {
+                "y": StructuredStartPoint(
+                    np.full((ns, N + 1), [[0.0], [50.0]]),
+                    np.full((ns, N + 1), [[1.0], [150.0]]),
+                ),
+                "u": StructuredStartPoint(
+                    np.full((na, N), env.action_space.low),
+                    np.full((na, N), env.action_space.high),
+                ),
+            },
+            multistarts=0,  # will be overwritten automatically
+        ),
+        random_points=RandomStartPoints(
+            {
+                "y": RandomStartPoint("normal", scale=[[0.2], [30]], size=(ns, N + 1)),
+                "u": RandomStartPoint("normal", scale=5.0, size=(na, N)),
+            },
+            multistarts=0,  # will be overwritten automatically
+            biases={
+                "y": [[CstrEnv.x0[1]], [CstrEnv.x0[2]]],
+                "u": sum(CstrEnv.inflow_bound) / 2,
+            },
+        ),
+    )
+
     # create the agent, and wrap it appropriately
     agent = GlobOptLearningAgent(
         mpc=mpc,
         learnable_parameters=learnable_pars,
+        warmstart=warmstart,
         optimizer=BoTorchOptimizer(seed=42),
     )
     agent = Log(
