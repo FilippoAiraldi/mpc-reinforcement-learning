@@ -14,12 +14,22 @@ class MonitorEpisodes(
     Wrapper[ObsType, ActType, ObsType, ActType], utils.RecordConstructorArgs
 ):
     """This wrapper keeps track of
-        - observations
-        - actions
-        - costs/rewards
-        - episode length
-        - episode execution time
-    that the environment is subject to during the learning process.
+        - observations (``observations``)
+        - actions (``actions``)
+        - costs/rewards (``rewards``)
+        - episode length (``episode_lengths``)
+        - episode execution time (``exec_times``)
+    that the environment is subject to during the learning process. Note that these are
+    effectly saved in each corresponding field only when the episode is done (terminated
+    or truncated).
+
+    After the completion of an episode, these fields will look like this::
+
+        >>> env.observations = <deque of each episode's observations>
+        ... env.actions = <deque of each episode's actions>
+        ... env.rewards = <deque of each episode's rewards>
+        ... env.episode_lengths = <deque of each episode's episode length>
+        ... env.exec_times = <deque of each episode's execution time>
     """
 
     def __init__(
