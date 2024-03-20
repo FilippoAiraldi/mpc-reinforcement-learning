@@ -15,6 +15,7 @@ __all__ = [
     "UpdateError",
     "UpdateStrategy",
     "UpdateWarning",
+    "WarmStartStrategy",
     "exploration",
     "optim",
     "schedulers",
@@ -34,5 +35,6 @@ from .core.errors import MpcSolverError, MpcSolverWarning, UpdateError, UpdateWa
 from .core.experience import ExperienceReplay
 from .core.parameters import LearnableParameter, LearnableParametersDict
 from .core.update import UpdateStrategy
+from .core.warmstart import WarmStartStrategy
 from .wrappers import agents as wrappers_agents
 from .wrappers import envs as wrappers_envs

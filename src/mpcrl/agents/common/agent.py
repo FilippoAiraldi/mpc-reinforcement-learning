@@ -1,4 +1,5 @@
 from collections.abc import Collection, Iterable, Iterator
+from itertools import chain
 from typing import Any, Generic, Literal, Optional, TypeVar, Union
 
 import casadi as cs
@@ -13,6 +14,7 @@ from typing_extensions import TypeAlias
 
 from ...core.callbacks import AgentCallbackMixin
 from ...core.exploration import ExplorationStrategy, NoExploration
+from ...core.warmstart import WarmStartStrategy
 from ...util.named import Named
 from ...util.seeding import RngType, mk_seed
 
@@ -46,7 +48,9 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
         fixed_parameters: Union[
             None, dict[str, npt.ArrayLike], Collection[dict[str, npt.ArrayLike]]
         ] = None,
-        warmstart: Literal["last", "last-successful"] = "last-successful",
+        warmstart: Union[
+            Literal["last", "last-successful"], WarmStartStrategy
+        ] = "last-successful",
         use_last_action_on_fail: bool = False,
         remove_bounds_on_initial_action: bool = False,
         name: Optional[str] = None,
@@ -68,10 +72,15 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
             are the names of the MPC parameters and the values are their corresponding
             values. Use this to specify fixed parameters, that is, non-learnable. If
             `None`, then no fixed parameter is assumed.
-        warmstart: "last" or "last-successful", optional
+        warmstart: "last" or "last-successful" or WarmStartStrategy, optional
             The warmstart strategy for the MPC's NLP. If `last-successful`, the last
             successful solution is used to warm start the solver for the next iteration.
             If `last`, the last solution is used, regardless of success or failure.
+            Furthermoer, a `WarmStartStrategy` object can be passed to specify a
+            strategy for generating multiple warmstart points for the NLP. This is
+            useful to generate multiple initial conditions for very non-convex problems.
+            Can only be used with an MPC that has an underlying multistart NLP problem
+            (see `csnlp.MultistartNlp`).
         use_last_action_on_fail : bool, optional
             In case the MPC solver fails
              * if `False`, the action from the last solver's iteration is returned
@@ -102,7 +111,9 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
         AgentCallbackMixin.__init__(self)
         self._fixed_pars = fixed_parameters
         self._exploration: ExplorationStrategy = NoExploration()
-        self._store_last_successful = warmstart == "last-successful"
+        if isinstance(warmstart, str):
+            warmstart = WarmStartStrategy(warmstart)
+        self._warmstart = warmstart
         self._last_action_on_fail = use_last_action_on_fail
         self._last_solution: Optional[Solution[SymType]] = None
         self._last_action: Optional[cs.DM] = None
@@ -142,10 +153,16 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
         """Gets the exploration strategy used within this agent."""
         return self._exploration
 
+    @property
+    def warmstart(self) -> WarmStartStrategy:
+        """Gets the warm start strategy used within this agent."""
+        return self._warmstart
+
     def reset(self, seed: RngType = None) -> None:
         """Resets the agent's internal variables and exploration's RNG."""
         self._last_solution = None
         self._last_action = None
+        self.warmstart.reset(seed)
         if hasattr(self.exploration, "reset"):
             self.exploration.reset(seed)
 
@@ -232,9 +249,17 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
         if vals0 is None and self._last_solution is not None:
             vals0 = self._last_solution.vals
 
+        # if available, use the warmstart strategy to generate multiple initial
+        # warm-start points for the NLP - remember to include `vals0`
+        if mpc.is_multi and self._warmstart.can_generate:
+            starts = mpc.nlp.starts - 1
+            n = starts // 2
+            vals0_iter = self._warmstart.generate(n, starts - n, vals0)
+            vals0 = chain([vals0], vals0_iter)
+
         # solve and store solution
         sol = mpc(pars, vals0)
-        if store_solution and (not self._store_last_successful or sol.success):
+        if store_solution and (self._warmstart.store_always or sol.success):
             self._last_solution = sol
         return sol
 
