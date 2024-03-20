@@ -106,10 +106,10 @@ class LstdQLearningAgent(
             In the case of LSTD Q-learning, each memory item consists of the action
             value function's gradient and hessian computed at each (succesful) env's
             step.
-        warmstart: 'last' or 'last-successful', optional
-            The warmstart strategy for the MPC's NLP. If 'last-successful', the last
+        warmstart: "last" or "last-successful", optional
+            The warmstart strategy for the MPC's NLP. If `last-successful`, the last
             successful solution is used to warm start the solver for the next iteration.
-            If 'last', the last solution is used, regardless of success or failure.
+            If `last`, the last solution is used, regardless of success or failure.
         hessian_type : 'none', 'approx' or 'full', optional
             The type of hessian to use in this (potentially) second-order algorithm.
             If 'none', no second order information is used. If `approx`, an easier
@@ -121,9 +121,13 @@ class LstdQLearningAgent(
             If `True`, the TD errors are recorded in the field `td_errors`, which
             otherwise is `None`. By default, does not record them.
         use_last_action_on_fail : bool, optional
-            When `True`, if the MPC solver fails in solving the state value function
-            `V(s)`, the last successful action is returned. When `False`, the action
-            from the last MPC iteration is returned instead. By default, `False`.
+            In case the MPC solver fails
+             * if `False`, the action from the last solver's iteration is returned
+               anyway (though suboptimal)
+             * if `True`, the action from the last successful call to the MPC is
+               returned instead (if the MPC has been solved at least once successfully).
+
+            By default, `False`.
         remove_bounds_on_initial_action : bool, optional
             When `True`, the upper and lower bounds on the initial action are removed in
             the action-value function approximator Q(s,a) since the first action is
