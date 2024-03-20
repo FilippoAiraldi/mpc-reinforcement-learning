@@ -125,10 +125,10 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
             A positive float that specifies the decay of the learnable parameters in the
             form of an L2 regularization term. By default, it is set to `0.0`, so no
             decay/regularization takes place.
-        warmstart: 'last' or 'last-successful', optional
-            The warmstart strategy for the MPC's NLP. If 'last-successful', the last
+        warmstart: "last" or "last-successful", optional
+            The warmstart strategy for the MPC's NLP. If `last-successful`, the last
             successful solution is used to warm start the solver for the next iteration.
-            If 'last', the last solution is used, regardless of success or failure.
+            If `last`, the last solution is used, regardless of success or failure.
         rollout_length : int, optional
             Time-step length of a closed-loop simulation, which defines a complete
             trajectory of the states, and is saved in the experience as a single item
@@ -163,9 +163,13 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
             Ridge regression regularization used during the computations of the LSTD
             weights via least-squares. By default, `1e-6`.
         use_last_action_on_fail : bool, optional
-            When `True`, if the MPC solver fails in solving the state value function
-            `V(s)`, the last successful action is returned. When `False`, the action
-            from the last MPC iteration is returned instead. By default, `False`.
+            In case the MPC solver fails
+             * if `False`, the action from the last solver's iteration is returned
+               anyway (though suboptimal)
+             * if `True`, the action from the last successful call to the MPC is
+               returned instead (if the MPC has been solved at least once successfully).
+
+            By default, `False`.
         name : str, optional
             Name of the agent. If `None`, one is automatically created from a counter of
             the class' instancies.

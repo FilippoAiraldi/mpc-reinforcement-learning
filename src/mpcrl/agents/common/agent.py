@@ -68,14 +68,18 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
             are the names of the MPC parameters and the values are their corresponding
             values. Use this to specify fixed parameters, that is, non-learnable. If
             `None`, then no fixed parameter is assumed.
-        warmstart: 'last' or 'last-successful', optional
-            The warmstart strategy for the MPC's NLP. If 'last-successful', the last
+        warmstart: "last" or "last-successful", optional
+            The warmstart strategy for the MPC's NLP. If `last-successful`, the last
             successful solution is used to warm start the solver for the next iteration.
-            If 'last', the last solution is used, regardless of success or failure.
+            If `last`, the last solution is used, regardless of success or failure.
         use_last_action_on_fail : bool, optional
-            When `True`, if the MPC solver fails in solving the state value function
-            `V(s)`, the last successful action is returned. When `False`, the action
-            from the last MPC iteration is returned instead. By default, `False`.
+            In case the MPC solver fails
+             * if `False`, the action from the last solver's iteration is returned
+               anyway (though suboptimal)
+             * if `True`, the action from the last successful call to the MPC is
+               returned instead (if the MPC has been solved at least once successfully).
+
+            By default, `False`.
         remove_bounds_on_initial_action : bool, optional
             When `True`, the upper and lower bounds on the initial action are removed in
             the action-value function approximator Q(s,a) since the first action is
