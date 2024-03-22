@@ -19,6 +19,7 @@ class WarmStartStrategy:
         warmstart: Literal["last", "last-successful"] = "last-successful",
         structured_points: Optional[StructuredStartPoints] = None,
         random_points: Optional[RandomStartPoints] = None,
+        update_biases_for_random_points: bool = True,
         seed: RngType = None,
     ) -> None:
         """Instantiates a warm start strategy for solving the MPC's NLP.
@@ -40,12 +41,17 @@ class WarmStartStrategy:
             correct value of requested random initial conditions, and its `biases` will
             be updated with the last successful solution.
             If `None`, no random point is generated.
+        update_biases_for_random_points : bool, optional
+            If `True`, the random points are biased around the bias-values updated with
+            the latest successful MPC solution. If `False`, the biases in
+            `random_points` are not updated.
         seed : None, int, array of ints, SeedSequence, BitGenerator, Generator
             Seed for the random number generator. By default, `None`.
         """
         self.store_always = warmstart == "last"
         self.structured_points = structured_points
         self.random_points = random_points
+        self.update_biases_for_random_points = update_biases_for_random_points
         self.reset(seed)
 
     @property
@@ -72,8 +78,10 @@ class WarmStartStrategy:
         n_rand : int
             The number of random initial conditions to generate.
         biases : dict of (str, array_like), optional
-            Optional biases to add to the generated random points under the same name
-            (not used for structured points).
+            Optional biases that can be used to update the random points' original
+            biases. If `None` or `update_biases_for_random_points=False`, the original
+            biases are kept constant. These do not affect the generation of structure
+            points in any way.
 
         Yields
         ------
@@ -89,7 +97,7 @@ class WarmStartStrategy:
         if self.random_points is not None:
             self.random_points.multistarts = n_rand
             self.random_points.np_random = self.np_random
-            if biases is not None:
+            if self.update_biases_for_random_points and biases is not None:
                 self.random_points.biases.update(biases)
             to_be_chained.append(self.random_points)
 
