@@ -250,12 +250,12 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
             vals0 = self._last_solution.vals
 
         # if available, use the warmstart strategy to generate multiple initial
-        # warm-start points for the NLP - remember to include `vals0`
+        # warm-start points for the NLP - remember to include `vals0` among these
         if mpc.is_multi and self._warmstart.can_generate:
             starts = mpc.nlp.starts - 1
             n = starts // 2
             vals0_iter = self._warmstart.generate(n, starts - n, vals0)
-            vals0 = chain([vals0], vals0_iter)
+            vals0 = chain((vals0,), vals0_iter)
 
         # solve and store solution
         sol = mpc(pars, vals0)
