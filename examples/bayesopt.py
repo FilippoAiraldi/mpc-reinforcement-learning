@@ -272,8 +272,9 @@ def get_cstr_mpc(env: CstrEnv, horizon: int = 10) -> Mpc[cs.SX]:
 
     # objective production of moles of B with penalties for violations
     mpc.minimize(
-        env.VR * env.tf * cs.sum2(y[0, :-1] * u)
-        + env.constraint_violation_penalty * cs.sum2(slack_lb + slack_ub)
+        env.get_wrapper_attr("VR") * env.get_wrapper_attr("tf") * cs.sum2(y[0, :-1] * u)
+        + env.get_wrapper_attr("constraint_violation_penalty")
+        * cs.sum2(slack_lb + slack_ub)
     )
 
     # solver
