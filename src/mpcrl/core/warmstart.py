@@ -61,7 +61,8 @@ class WarmStartStrategy:
 
     def reset(self, seed: RngType = None) -> None:
         """Resets the sampling RNG."""
-        self.np_random = np.random.default_rng(seed)
+        if self.random_points is not None:
+            self.random_points.np_random = np.random.default_rng(seed)
 
     def generate(
         self,
@@ -96,7 +97,6 @@ class WarmStartStrategy:
 
         if self.random_points is not None:
             self.random_points.multistarts = n_rand
-            self.random_points.np_random = self.np_random
             if self.update_biases_for_random_points and biases is not None:
                 self.random_points.biases.update(biases)
             to_be_chained.append(self.random_points)
