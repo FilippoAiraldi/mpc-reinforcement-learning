@@ -9,6 +9,7 @@ from unittest.mock import Mock
 
 import casadi as cs
 import numpy as np
+from csnlp.multistart import RandomStartPoints, StructuredStartPoints
 from parameterized import parameterized
 
 from mpcrl import (
@@ -20,6 +21,7 @@ from mpcrl import (
     UpdateError,
     UpdateStrategy,
     UpdateWarning,
+    WarmStartStrategy,
 )
 from mpcrl import exploration as E
 from mpcrl import schedulers as S
@@ -560,6 +562,42 @@ class TestUpdateStrategy(unittest.TestCase):
             [next(strategy._update_cycle) for _ in range(50)],
             [next(strategy_copy._update_cycle) for _ in range(50)],
         )
+
+
+class TestWarmStartStrategy(unittest.TestCase):
+    @parameterized.expand(product((False, True), (False, True)))
+    def test_can_generate(self, struct_points: bool, rand_points: bool):
+        wss = WarmStartStrategy(
+            structured_points=StructuredStartPoints({}, 0) if struct_points else None,
+            random_points=RandomStartPoints({}, 0) if rand_points else None,
+        )
+        self.assertEqual(wss.can_generate, struct_points or rand_points)
+
+    def test_reset(self):
+        wss = WarmStartStrategy()
+        random_points = Mock()
+        wss.random_points = random_points
+        wss.reset(42)
+        self.assertIsInstance(random_points.np_random, np.random.Generator)
+
+    def test_generate(self):
+        struct_points = Mock()
+        rand_points = Mock()
+        struct_points.__iter__ = lambda self: iter((self,))
+        rand_points.__iter__ = lambda self: iter((self,))
+        wss = WarmStartStrategy(
+            structured_points=struct_points,
+            random_points=rand_points,
+            update_biases_for_random_points=True,
+        )
+        biases = object()
+        ns, nr = np.random.randint(3, 10, size=2)
+        out = list(wss.generate(ns, nr, biases=biases))
+        self.assertIs(out[0], struct_points)
+        self.assertIs(out[1], rand_points)
+        self.assertEqual(struct_points.multistarts, ns)
+        self.assertEqual(rand_points.multistarts, nr)
+        rand_points.biases.update.assert_called_once_with(biases)
 
 
 if __name__ == "__main__":
