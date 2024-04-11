@@ -5,7 +5,9 @@ import sys
 import unittest
 from operator import neg
 from sys import platform
-from warnings import catch_warnings
+from warnings import filterwarnings
+
+from csnlp.multistart import RandomStartPoint, RandomStartPoints
 
 sys.path.append(os.path.join(os.getcwd(), "examples"))
 
@@ -31,6 +33,7 @@ from mpcrl import (
     LstdDpgAgent,
     LstdQLearningAgent,
     UpdateStrategy,
+    WarmStartStrategy,
 )
 from mpcrl import exploration as E
 from mpcrl.optim import GradientDescent, NetwonMethod
@@ -39,7 +42,7 @@ from mpcrl.wrappers.envs import MonitorEpisodes
 
 torch.set_default_device("cpu")
 torch.set_default_dtype(torch.float64)
-
+filterwarnings("ignore", "Mpc failure", module="mpcrl")
 
 DATA = loadmat(f"tests/data_test_examples_{platform}.mat", squeeze_me=True)
 
@@ -182,34 +185,49 @@ class TestExamples(unittest.TestCase):
     @parameterized.expand([(False,), (True,)])
     def test_bayesopt__with_copy_and_pickle(self, use_copy: bool):
         torch.manual_seed(0)
-        env = MonitorEpisodes(TimeLimit(CstrEnv(), max_episode_steps=40))
+        env = MonitorEpisodes(TimeLimit(CstrEnv(4e3), max_episode_steps=10))
         env = TransformReward(env, neg)
         env = NoisyFilterObservation(env, [1, 2])
-        mpc = get_cstr_mpc(env)
+        mpc = get_cstr_mpc(env, horizon=7, multistarts=4, n_jobs=4)
         pars = mpc.parameters
+        Y = mpc.variables["y"].shape
+        U = mpc.variables["u"].shape
         learnable_pars = LearnableParametersDict[cs.SX](
             (
                 LearnableParameter(n, pars[n].shape, (ub + lb) / 2, lb, ub, pars[n])
                 for n, lb, ub in [("narx_weights", -2, 2), ("backoff", 0, 5)]
             )
         )
+        warmstart = WarmStartStrategy(
+            random_points=RandomStartPoints(
+                {
+                    "y": RandomStartPoint("normal", scale=[[1.0], [20.0]], size=Y),
+                    "u": RandomStartPoint("normal", scale=5.0, size=U),
+                },
+                biases={
+                    "y": CstrEnv.x0[[1, 2]].reshape(-1, 1),
+                    "u": sum(CstrEnv.inflow_bound) / 2,
+                },
+                multistarts=4,
+            ),
+        )
         agent = GlobOptLearningAgent(
             mpc=mpc,
             learnable_parameters=learnable_pars,
             optimizer=BoTorchOptimizer(initial_random=2, seed=42),
+            warmstart=warmstart,
         )
         agent = RecordUpdates(agent)
         agent_copy = agent.copy()
         if use_copy:
             agent = agent_copy
 
-        with catch_warnings():
-            J = agent.train(env=env, episodes=5, seed=69, raises=False)
+        J = agent.train(env=env, episodes=6, seed=69, raises=False)
         agent = pickle.loads(pickle.dumps(agent))
 
-        X = np.squeeze(env.observations)
-        U = np.squeeze(env.actions, (2, 3))
-        R = np.squeeze(env.rewards)
+        X = np.squeeze(env.get_wrapper_attr("observations"))
+        U = np.squeeze(env.get_wrapper_attr("actions"), (2, 3))
+        R = np.squeeze(env.get_wrapper_attr("rewards"))
 
         # from scipy.io import savemat
         # DATA.update({"bo_J": J, "bo_X": X, "bo_U": U, "bo_R": R})
