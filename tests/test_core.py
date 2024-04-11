@@ -566,12 +566,14 @@ class TestUpdateStrategy(unittest.TestCase):
 
 class TestWarmStartStrategy(unittest.TestCase):
     @parameterized.expand(product((False, True), (False, True)))
-    def test_can_generate(self, struct_points: bool, rand_points: bool):
+    def test_n_points(self, struct_points: bool, rand_points: bool):
+        ns = np.random.randint(3, 100) if struct_points else 0
+        nr = np.random.randint(3, 100) if rand_points else 0
         wss = WarmStartStrategy(
-            structured_points=StructuredStartPoints({}, 0) if struct_points else None,
-            random_points=RandomStartPoints({}, 0) if rand_points else None,
+            structured_points=StructuredStartPoints({}, ns) if struct_points else None,
+            random_points=RandomStartPoints({}, nr) if rand_points else None,
         )
-        self.assertEqual(wss.can_generate, struct_points or rand_points)
+        self.assertEqual(wss.n_points, ns + nr)
 
     def test_reset(self):
         wss = WarmStartStrategy()
@@ -591,12 +593,9 @@ class TestWarmStartStrategy(unittest.TestCase):
             update_biases_for_random_points=True,
         )
         biases = object()
-        ns, nr = np.random.randint(3, 10, size=2)
-        out = list(wss.generate(ns, nr, biases=biases))
+        out = list(wss.generate(biases=biases))
         self.assertIs(out[0], struct_points)
         self.assertIs(out[1], rand_points)
-        self.assertEqual(struct_points.multistarts, ns)
-        self.assertEqual(rand_points.multistarts, nr)
         rand_points.biases.update.assert_called_once_with(biases)
 
 
