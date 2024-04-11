@@ -32,15 +32,12 @@ class WarmStartStrategy:
             If `last`, the last solution is used, regardless of success or failure.
         structured_points : StructuredStartPoint, optional
             Class containing info on how to generate structured starting points for the
-            NLP. Note that its `multistarts` attribute will be overwritten with the
-            correct value of requested structured initial conditions.
-            If `None`, no structured point is generated.
+            NLP. If `None`, no structured point is generated.
         random_points : RandomStartPoints, optional
             Class containing info on how to generate random starting points for the NLP.
-            Note that its `multistarts` attribute will be overwritten with the
-            correct value of requested random initial conditions, and its `biases` will
-            be updated with the last successful solution.
-            If `None`, no random point is generated.
+            Its `biases` field will be automatically updated with the last successful
+            solution, unless disabled with `update_biases_for_random_points=False`). If
+            `None`, no random point is generated.
         update_biases_for_random_points : bool, optional
             If `True`, the random points are biased around the bias-values updated with
             the latest successful MPC solution. If `False`, the biases in
@@ -55,9 +52,11 @@ class WarmStartStrategy:
         self.reset(seed)
 
     @property
-    def can_generate(self) -> bool:
-        """Returns whether the warm start strategy can generate initial conditions."""
-        return self.structured_points is not None or self.random_points is not None
+    def n_points(self) -> int:
+        """Returns the number of both random and structured starting points."""
+        return (0 if self.random_points is None else self.random_points.multistarts) + (
+            0 if self.structured_points is None else self.structured_points.multistarts
+        )
 
     def reset(self, seed: RngType = None) -> None:
         """Resets the sampling RNG."""
@@ -65,19 +64,12 @@ class WarmStartStrategy:
             self.random_points.np_random = np.random.default_rng(seed)
 
     def generate(
-        self,
-        n_struct: int,
-        n_rand: int,
-        biases: Optional[dict[str, npt.ArrayLike]] = None,
+        self, biases: Optional[dict[str, npt.ArrayLike]] = None
     ) -> Generator[dict[str, npt.ArrayLike], None, None]:
         """Generates initial conditions for the MPC's NLP.
 
         Parameters
         ----------
-        n_struct : int
-            The number of structured initial conditions to generate.
-        n_rand : int
-            The number of random initial conditions to generate.
         biases : dict of (str, array_like), optional
             Optional biases that can be used to update the random points' original
             biases. If `None` or `update_biases_for_random_points=False`, the original
@@ -92,11 +84,9 @@ class WarmStartStrategy:
         to_be_chained = []
 
         if self.structured_points is not None:
-            self.structured_points.multistarts = n_struct
             to_be_chained.append(self.structured_points)
 
         if self.random_points is not None:
-            self.random_points.multistarts = n_rand
             if self.update_biases_for_random_points and biases is not None:
                 self.random_points.biases.update(biases)
             to_be_chained.append(self.random_points)
@@ -104,8 +94,8 @@ class WarmStartStrategy:
         return chain.from_iterable(to_be_chained)
 
     def __repr__(self) -> str:
-        nr = len(self.random_points) if self.random_points is not None else 0
-        ns = len(self.structured_points) if self.structured_points is not None else 0
+        nr = 0 if self.random_points is None else self.random_points.multistarts
+        ns = 0 if self.structured_points is None else self.structured_points.multistarts
         return (
             f"{self.__class__.__name__}(store_always={self.store_always},"
             f"random_points={nr},structured_points={ns})"

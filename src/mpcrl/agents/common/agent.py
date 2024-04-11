@@ -76,7 +76,7 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
             The warmstart strategy for the MPC's NLP. If `last-successful`, the last
             successful solution is used to warm start the solver for the next iteration.
             If `last`, the last solution is used, regardless of success or failure.
-            Furthermoer, a `WarmStartStrategy` object can be passed to specify a
+            Furthermore, a `WarmStartStrategy` object can be passed to specify a
             strategy for generating multiple warmstart points for the NLP. This is
             useful to generate multiple initial conditions for very non-convex problems.
             Can only be used with an MPC that has an underlying multistart NLP problem
@@ -102,17 +102,35 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
         Raises
         ------
         ValueError
-            Raises if the given mpc has no control action as optimization variable; or
-            if the required parameter and constraint names are already specified in the
-            mpc.
+            Raises if
+             * the given mpc has no control action as optimization variable
+             * the reserved parameter and constraint names are already in use
+             * a multistart MPC is given, but the warmstart strategy does not generate
+               the same number of starting points or at most one less
+             * a warmstart strategy is given, but the MPC does not have an underlying
+               multistart NLP problem, so it cannot handle multiple starting points.
         """
         Named.__init__(self, name)
         SupportsDeepcopyAndPickle.__init__(self)
         AgentCallbackMixin.__init__(self)
         self._fixed_pars = fixed_parameters
         self._exploration: ExplorationStrategy = NoExploration()
+
         if isinstance(warmstart, str):
             warmstart = WarmStartStrategy(warmstart)
+        if mpc.is_multi and mpc.nlp.starts - warmstart.n_points not in (0, 1):
+            raise ValueError(
+                "The number of starting points in the MPC's NLP must be equal to the "
+                "number of starting points in the warmstart strategy, or at most one "
+                f"greater. Got {mpc.nlp.starts} multistarts in the MPC and "
+                f"{warmstart.n_points} points in the warmstart strategy instead."
+            )
+        elif not mpc.is_multi and warmstart.n_points > 0:
+            raise ValueError(
+                "Got a warmstart strategy with more than 0 starting points, but the "
+                "given does not have an underlying multistart NLP problem."
+            )
+
         self._warmstart = warmstart
         self._last_action_on_fail = use_last_action_on_fail
         self._last_solution: Optional[Solution[SymType]] = None
@@ -249,13 +267,15 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
         if vals0 is None and self._last_solution is not None:
             vals0 = self._last_solution.vals
 
-        # if available, use the warmstart strategy to generate multiple initial
-        # warm-start points for the NLP - remember to include `vals0` among these
-        if mpc.is_multi and self._warmstart.can_generate:
-            starts = mpc.nlp.starts - 1
-            n = starts // 2
-            vals0_iter = self._warmstart.generate(n, starts - n, vals0)
-            vals0 = chain((vals0,), vals0_iter)
+        # if in the multistart case, use the warmstart strategy to generate multiple
+        # initial warm-start points for the NLP
+        if mpc.is_multi:
+            more_vals0s = self._warmstart.generate(vals0)
+            if mpc.nlp.starts > self._warmstart.n_points:
+                # the difference between these two has been checked to be at most one,
+                # meaning we can include `vals0` itself
+                more_vals0s = chain((vals0,), more_vals0s)
+            vals0 = more_vals0s
 
         # solve and store solution
         sol = mpc(pars, vals0)
