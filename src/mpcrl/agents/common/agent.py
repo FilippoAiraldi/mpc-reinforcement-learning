@@ -105,8 +105,8 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
             Raises if
              * the given mpc has no control action as optimization variable
              * the reserved parameter and constraint names are already in use
-             * a multistart MPC is given, but the warmstart strategy does not generate
-               the same number of starting points or at most one less
+             * a multistart MPC is given, but the warmstart strategy asks for an
+               incompatible number of starting points to be generated
              * a warmstart strategy is given, but the MPC does not have an underlying
                multistart NLP problem, so it cannot handle multiple starting points.
         """
@@ -118,14 +118,15 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
 
         if isinstance(warmstart, str):
             warmstart = WarmStartStrategy(warmstart)
-        if mpc.is_multi and mpc.nlp.starts - warmstart.n_points not in (0, 1):
+        ws_points = warmstart.n_points
+        if mpc.is_multi and ws_points != 0 and mpc.nlp.starts - ws_points not in (0, 1):
             raise ValueError(
-                "The number of starting points in the MPC's NLP must be equal to the "
-                "number of starting points in the warmstart strategy, or at most one "
-                f"greater. Got {mpc.nlp.starts} multistarts in the MPC and "
-                f"{warmstart.n_points} points in the warmstart strategy instead."
+                "A multistart MPC was given with {mpc.nlp.starts} multistarts, but the "
+                f"given warmstart strategy asks for {ws_points} starting points. "
+                "Expected either 0 warmstart points (i.e., it is disabled), or the same"
+                " number as MPC's multistarts, or at most one less."
             )
-        elif not mpc.is_multi and warmstart.n_points > 0:
+        elif not mpc.is_multi and ws_points > 0:
             raise ValueError(
                 "Got a warmstart strategy with more than 0 starting points, but the "
                 "given does not have an underlying multistart NLP problem."
@@ -216,7 +217,8 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
             keys are the names of the MPC variables, and values are the numerical
             initial values of each variable. Use this to warm-start the MPC. If `None`,
             and a previous solution (possibly, successful) is available, the MPC solver
-            is automatically warm-started.
+            is automatically warm-started. If an iterable is passed instead, the
+            warm-starting strategy is bypassed.
         store_solution : bool, optional
             By default, the mpc solution is stored accordingly to the `warmstart`
             strategy. If set to `False`, this flag allows to disable the behaviour for
@@ -267,9 +269,9 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
         if vals0 is None and self._last_solution is not None:
             vals0 = self._last_solution.vals
 
-        # if in the multistart case, use the warmstart strategy to generate multiple
-        # initial warm-start points for the NLP
-        if mpc.is_multi:
+        # use the warmstart strategy to generate multiple initial points for the NLP if
+        # the NLP supports multi and `vals0` is not already an iterable of dict
+        if mpc.is_multi and (vals0 is None or isinstance(vals0, dict)):
             more_vals0s = self._warmstart.generate(vals0)
             if mpc.nlp.starts > self._warmstart.n_points:
                 # the difference between these two has been checked to be at most one,
