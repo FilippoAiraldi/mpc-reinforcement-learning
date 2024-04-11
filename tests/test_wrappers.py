@@ -379,13 +379,19 @@ class TestMonitorEpisodesAndInfos(unittest.TestCase):
             terminated = truncated = False
             while not (terminated or truncated):
                 _, _, terminated, truncated, _ = env.step(object())
-        self.assertListEqual(list(env.reset_infos), env.INTERNAL_RESET_INFOS)
-        self.assertDictEqual(
-            env.finalized_reset_infos(), env.INTERNAL_FINALIZED_RESET_INFOS
+        self.assertListEqual(
+            list(env.reset_infos), env.get_wrapper_attr("INTERNAL_RESET_INFOS")
         )
-        self.assertListEqual(list(env.step_infos), env.INTERNAL_STEP_INFOS)
         self.assertDictEqual(
-            env.finalized_step_infos(), env.INTERNAL_FINALIZED_STEP_INFOS
+            env.finalized_reset_infos(),
+            env.get_wrapper_attr("INTERNAL_FINALIZED_RESET_INFOS"),
+        )
+        self.assertListEqual(
+            list(env.step_infos), env.get_wrapper_attr("INTERNAL_STEP_INFOS")
+        )
+        self.assertDictEqual(
+            env.finalized_step_infos(),
+            env.get_wrapper_attr("INTERNAL_FINALIZED_STEP_INFOS"),
         )
 
     def test_monitor_episodes__records_episodes_correctly(self):
