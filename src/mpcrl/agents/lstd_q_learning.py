@@ -118,7 +118,7 @@ class LstdQLearningAgent(
             useful to generate multiple initial conditions for very non-convex problems.
             Can only be used with an MPC that has an underlying multistart NLP problem
             (see `csnlp.MultistartNlp`).
-        hessian_type : 'none', 'approx' or 'full', optional
+        hessian_type : {'none', 'approx', 'full'}, optional
             The type of hessian to use in this (potentially) second-order algorithm.
             If 'none', no second order information is used. If `approx`, an easier
             approximation of it is used; otherwise, the full hessian is computed but
@@ -242,7 +242,6 @@ class LstdQLearningAgent(
     ]:
         """Internal utility to compute the derivative of Q(s,a) w.r.t. the learnable
         parameters, a.k.a., theta."""
-        assert hessian_type in ("none", "approx", "full"), "Invalid hessian type."
         order = self.optimizer._order
         theta = cs.vvcat(self._learnable_pars.sym.values())
         nlp = self._Q.nlp

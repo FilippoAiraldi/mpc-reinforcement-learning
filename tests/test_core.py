@@ -87,9 +87,8 @@ class TestExperienceReplay(unittest.TestCase):
         self.assertIsInstance(mem.np_random, np.random.Generator)
 
     def test_sample__raises__with_no_maxlen_and_percentage_size(self):
-        mem = ExperienceReplay[tuple[np.ndarray, float]](maxlen=None, sample_size=0.0)
-        with self.assertRaises(AssertionError):
-            list(mem.sample())
+        with self.assertRaises(TypeError):
+            ExperienceReplay[tuple[np.ndarray, float]](maxlen=None, sample_size=0.0)
 
     @parameterized.expand([(0,), (float(0),)])
     def test_sample__with_zero_samples__returns_no_samples(self, n: Union[int, float]):
