@@ -187,17 +187,17 @@ if __name__ == "__main__":
     # plot the results
     import matplotlib.pyplot as plt
 
-    X = env.observations[0].squeeze().T
-    U = env.actions[0].squeeze()
-    R = env.rewards[0]
+    X = env.get_wrapper_attr("observations")[0].squeeze().T
+    U = env.get_wrapper_attr("actions")[0].squeeze()
+    R = env.get_wrapper_attr("rewards")[0]
     _, axs = plt.subplots(3, 1, constrained_layout=True, sharex=True)
     axs[0].plot(X[0])
     axs[1].plot(X[1])
     axs[2].plot(U)
     for i in range(2):
-        axs[0].axhline(env.x_bnd[i][0], color="r")
-        axs[1].axhline(env.x_bnd[i][1], color="r")
-        axs[2].axhline(env.a_bnd[i], color="r")
+        axs[0].axhline(env.get_wrapper_attr("x_bnd")[i][0], color="r")
+        axs[1].axhline(env.get_wrapper_attr("x_bnd")[i][1], color="r")
+        axs[2].axhline(env.get_wrapper_attr("a_bnd")[i], color="r")
     axs[0].set_ylabel("$s_1$")
     axs[1].set_ylabel("$s_2$")
     axs[2].set_ylabel("$a$")
