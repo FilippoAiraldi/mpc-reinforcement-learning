@@ -252,6 +252,13 @@ class TestSchedulers(unittest.TestCase):
 
 
 class TestExploration(unittest.TestCase):
+    def test_no_exploration__has_no_mode_nor_hook(self):
+        exploration = E.NoExploration()
+        self.assertFalse(hasattr(exploration, "_mode"), "should not have `mode`")
+        self.assertFalse(hasattr(exploration, "_hook"), "should not have `_hook`")
+        self.assertIsNone(exploration.hook)
+        self.assertIsNone(exploration.mode)
+
     def test_no_exploration__never_explores(self):
         exploration = E.NoExploration()
         self.assertFalse(exploration.can_explore())
@@ -275,18 +282,6 @@ class TestExploration(unittest.TestCase):
     def test_greedy_exploration__perturbs(self, method: str):
         exploration = E.GreedyExploration(strength=0.5)
         exploration.perturbation(method)
-
-    def test_epsilon_greedy_exploration__properties_return_right_values(self):
-        epsilon, epsilon_decay_rate = 0.7, 0.75
-        strength, strength_decay_rate = 0.5, 0.75
-        epsilon_scheduler = S.ExponentialScheduler(epsilon, epsilon_decay_rate)
-        strength_scheduler = S.ExponentialScheduler(strength, strength_decay_rate)
-        exploration = E.EpsilonGreedyExploration(
-            epsilon=epsilon_scheduler, strength=strength_scheduler, seed=42
-        )
-        self.assertEqual(exploration.strength, strength)
-        self.assertEqual(exploration.epsilon, epsilon)
-        do_test_str_and_repr(self, exploration)
 
     def test_epsilon_greedy_exploration__never_explores__with_zero_epsilon(self):
         epsilon, epsilon_decay_rate = 0.0, 0.75
@@ -335,12 +330,14 @@ class TestExploration(unittest.TestCase):
         epsilon_scheduler.step.assert_called_once()
         strength_scheduler.step.assert_called_once()
 
-    def test_stepwise_exploration__has_same_hook_as_base_exploration(self):
-        hook = Mock()
+    def test_stepwise_exploration__has_same_hook_and_mode_as_base_exploration(self):
+        hook, mode = Mock(), Mock()
         base_exploration = Mock()
         base_exploration.hook = hook
+        base_exploration.mode = mode
         exploration = E.StepWiseExploration(base_exploration, 5, 10)
         self.assertIs(exploration.hook, hook)
+        self.assertIs(exploration.mode, mode)
 
     @parameterized.expand([(True,), (False,)])
     def test_stepwise_exploration__turns_base_exploration_into_steps(

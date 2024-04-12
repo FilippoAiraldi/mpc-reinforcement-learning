@@ -48,6 +48,7 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
         fixed_parameters: Union[
             None, dict[str, npt.ArrayLike], Collection[dict[str, npt.ArrayLike]]
         ] = None,
+        exploration: Optional[ExplorationStrategy] = None,
         warmstart: Union[
             Literal["last", "last-successful"], WarmStartStrategy
         ] = "last-successful",
@@ -72,6 +73,9 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
             are the names of the MPC parameters and the values are their corresponding
             values. Use this to specify fixed parameters, that is, non-learnable. If
             `None`, then no fixed parameter is assumed.
+        exploration : ExplorationStrategy, optional
+            Exploration strategy for inducing exploration in the MPC policy. By default
+            `None`, in which case `NoExploration` is used.
         warmstart: "last" or "last-successful" or WarmStartStrategy, optional
             The warmstart strategy for the MPC's NLP. If `last-successful`, the last
             successful solution is used to warm start the solver for the next iteration.
@@ -110,12 +114,6 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
              * a warmstart strategy is given, but the MPC does not have an underlying
                multistart NLP problem, so it cannot handle multiple starting points.
         """
-        Named.__init__(self, name)
-        SupportsDeepcopyAndPickle.__init__(self)
-        AgentCallbackMixin.__init__(self)
-        self._fixed_pars = fixed_parameters
-        self._exploration: ExplorationStrategy = NoExploration()
-
         if isinstance(warmstart, str):
             warmstart = WarmStartStrategy(warmstart)
         ws_points = warmstart.n_points
@@ -131,7 +129,13 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
                 "Got a warmstart strategy with more than 0 starting points, but the "
                 "given does not have an underlying multistart NLP problem."
             )
-
+        Named.__init__(self, name)
+        SupportsDeepcopyAndPickle.__init__(self)
+        AgentCallbackMixin.__init__(self)
+        self._fixed_pars = fixed_parameters
+        if exploration is None:
+            exploration = NoExploration()
+        self._exploration = exploration
         self._warmstart = warmstart
         self._last_action_on_fail = use_last_action_on_fail
         self._last_solution: Optional[Solution[SymType]] = None
@@ -182,8 +186,7 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
         self._last_solution = None
         self._last_action = None
         self.warmstart.reset(seed)
-        if hasattr(self.exploration, "reset"):
-            self.exploration.reset(seed)
+        self.exploration.reset(seed)
 
     def solve_mpc(
         self,
@@ -210,8 +213,8 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
             Same for `state`, for the action. Only valid if evaluating the action value
             function `Q(s,a)`. For this reason, it can be `None` for `V(s)`.
         perturbation : array_like, optional
-            The cost perturbation used to induce exploration in `V(s)`. Can be `None`
-            for `Q(s,a)`.
+            The gradient-based cost perturbation used to induce exploration in `V(s)`.
+            Should be `None` for `Q(s,a)`, or in case of other types of exploration.
         vals0 : dict[str, array_like] or iterable of, optional
             A dict (or an iterable of dict, in case of `csnlp.MultistartNlp`), whose
             keys are the names of the MPC variables, and values are the numerical
@@ -320,21 +323,27 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
         Solution
             The solution of the MPC approximating `V(s)` at the given state.
         """
-        if deterministic or not self._exploration.can_explore():
+        V = self._V
+        exploration = self._exploration
+        exploration_mode = self._exploration.mode
+        if deterministic or exploration_mode is None or not exploration.can_explore():
             pert = None
         else:
-            pert = self._exploration.perturbation(
-                self.cost_perturbation_method,
-                size=self.V.parameters[self.cost_perturbation_parameter].shape,
+            pert = exploration.perturbation(
+                self.cost_perturbation_method, size=(V.na, 1)
             )
-        sol = self.solve_mpc(self._V, state, perturbation=pert, vals0=vals0, **kwargs)
-        first_action = cs.vertcat(*(sol.vals[u][:, 0] for u in self._V.actions.keys()))
+
+        grad_pert = pert if exploration_mode == "gradient-based" else None
+        sol = self.solve_mpc(V, state, perturbation=grad_pert, vals0=vals0, **kwargs)
+        first_action = cs.vertcat(*(sol.vals[u][:, 0] for u in V.actions.keys()))
 
         if sol.success:
             self._last_action = first_action
         elif self._last_action_on_fail and self._last_action is not None:
             first_action = self._last_action
 
+        if pert is not None and exploration_mode == "additive":
+            first_action += pert
         return first_action, sol
 
     def action_value(
@@ -453,22 +462,24 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
         V, Q = mpc, mpc.copy()
         V.unwrapped.name += "_V"
         Q.unwrapped.name += "_Q"
+
+        # for Q, add the additional constraint on the initial action to be equal to a0,
+        # and remove the now useless upper/lower bounds on the initial action
         a0 = Q.nlp.parameter(self.init_action_parameter, (na, 1))
-        perturbation = V.nlp.parameter(self.cost_perturbation_parameter, (na, 1))
-
         u0 = cs.vcat(mpc.first_actions.values())
-        f = V.nlp.f
-        if mpc.is_wrapped(wrappers.NlpScaling):
-            f = mpc.scale(f)
-
-        V.nlp.minimize(f + cs.dot(perturbation, u0))
         Q.nlp.constraint(self.init_action_constraint, u0, "==", a0)
-
-        # remove upper/lower bound on initial action in Q, since it is constrained as a0
         if remove_bounds_on_initial_action:
             for name, a in mpc.first_actions.items():
                 na_ = a.size1()
                 Q.nlp.remove_variable_bounds(name, "both", ((r, 0) for r in range(na_)))
+
+        # for V, add the cost perturbation parameter (only if gradient-based)
+        if self._exploration.mode == "gradient-based":
+            perturbation = V.nlp.parameter(self.cost_perturbation_parameter, (na, 1))
+            f = V.nlp.f
+            if mpc.is_wrapped(wrappers.NlpScaling):
+                f = mpc.scale(f)
+            V.nlp.minimize(f + cs.dot(perturbation, u0))
 
         # invalidate caches for V and Q since some modifications have been done
         for nlp in (V, Q):
@@ -482,58 +493,6 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
     def _post_setup_V_and_Q(self) -> None:
         """Internal utility that is run after the creation of V and Q, allowing for
         further customization in inheriting classes."""
-        # warn user of any constraints that linearly includes x0 and u0 (aside from
-        # x(0)==s0 and u(0)==a0), which may thus lead to LICQ-failure
-        # - u0 in Q should only appear in the 1st dynamics constraint and a0 con
-        # - u0 in V should only appear in the 1st dynamics constraint and lbx/ubx
-        # - x0 in V, Q should only appear in the 1st dynamics constraint and s0 con
-        # for mpc in (self._V, self._Q):
-        #     name = mpc.unwrapped.name[-1]
-        #     u0 = cs.vcat(self._V.first_actions.values())
-        #     x0 = cs.vvcat(self._V.first_states.values())
-        #     con = cs.vertcat(mpc.g, mpc.h, mpc.h_lbx, mpc.h_ubx)
-
-        #     if mpc.unwrapped.sym_type.__name__ == "SX":
-        #         nnz_con_u0 = len(set(cs.jacobian_sparsity(con, u0).get_triplet()[0]))
-        #         nnz_con_x0 = len(set(cs.jacobian_sparsity(con, x0).get_triplet()[0]))
-        #     else:
-        #         nnz_con_u0 = len(  # computes the same as above, but for MX
-        #             set(
-        #                 chain.from_iterable(
-        #                     cs.jacobian(con, a)[:, : a.size1()]
-        #                     .sparsity()
-        #                     .get_triplet()[0]
-        #                     for a in mpc.actions.values()
-        #                 )
-        #             )
-        #         )
-        #         nnz_con_x0 = len(
-        #             set(
-        #                 chain.from_iterable(
-        #                     cs.jacobian(con, s)[:, : s.size1()]
-        #                     .sparsity()
-        #                     .get_triplet()[0]
-        #                     for s in mpc.states.values()
-        #                 )
-        #             )
-        #         )
-
-        #     nnz_exp_u0 = mpc.ns + (mpc.na * 2 if name == "V" else mpc.na)
-        #     if nnz_con_u0 > nnz_exp_u0:
-        #         warnings.warn(
-        #             f"detected {nnz_con_u0} (expected {nnz_exp_u0}) constraints on "
-        #             f"initial actions in {name}; make sure that the initial action is"
-        #             "not overconstrained (LICQ may be compromised).",
-        #             RuntimeWarning,
-        #         )
-        #     nnz_exp_x0 = mpc.ns * 2
-        #     if nnz_con_x0 > nnz_exp_x0:
-        #         warnings.warn(
-        #             f"detected {nnz_con_x0} (expected {nnz_exp_x0}) constraints on "
-        #             f"initial states in {name}; make sure that the initial state is "
-        #             "not overconstrained (LICQ may be compromised).",
-        #             RuntimeWarning,
-        #         )
 
     def _get_parameters(
         self,

@@ -9,7 +9,50 @@ from .schedulers import NoScheduling, Scheduler
 
 
 class ExplorationStrategy(ABC):
-    """Base class for exploration strategies such as greedy, epsilon-greeyd, etc."""
+    """Base class for exploration strategies such as greedy, epsilon-greedy, etc."""
+
+    def __init__(
+        self,
+        hook: Literal["on_update", "on_episode_end", "on_timestep_end"] = "on_update",
+        mode: Literal["gradient-based", "additive"] = "gradient-based",
+    ) -> None:
+        """Instantiates a generic exploration strategy.
+
+        Parameters
+        ----------
+        hook : {'on_update', 'on_episode_end', 'on_timestep_end'}, optional
+            Specifies to which callback to hook, i.e., when to step the exploration's
+            schedulers (if any) to, e.g., decay the chances of exploring or the
+            perturbation strength (see `step` method also). The options are:
+             - `on_update` steps the exploration after each agent's update
+             - `on_episode_end` steps the exploration after each episode's end
+             - `on_timestep_end` steps the exploration after each env's timestep.
+
+            By default, 'on_update' is selected.
+        mode : {'gradient-based', 'additive'} optional
+            Mode of application of explorative perturbations to the MPC. If `additive`,
+            then the drawn pertubation is added to the optimal action computed by the
+            MPC. By default, `gradient-based` is selected, and in this mode the
+            pertubations enter  directly in the MPC objective and multiplied by the
+            first action, thus affecting its gradient.
+        """
+        super().__init__()
+        self._hook = hook
+        self._mode = mode
+
+    @property
+    def hook(
+        self,
+    ) -> Optional[Literal["on_update", "on_episode_end", "on_timestep_end"]]:
+        """Specifies to which callback to hook, i.e., when to step the exploration's
+        schedulers (if any) to, e.g., decay the chances of exploring or the perturbation
+        strength (see `step` method also). Can be `None` in case no hook is needed."""
+        return self._hook  # override this property if schedulers are used in the class
+
+    @property
+    def mode(self) -> Literal["gradient-based", "additive"]:
+        """Mode of application of explorative perturbations to the MPC."""
+        return self._mode
 
     @abstractmethod
     def can_explore(self) -> bool:
@@ -32,20 +75,35 @@ class ExplorationStrategy(ABC):
     def perturbation(self, *args: Any, **kwargs: Any) -> npt.NDArray[np.floating]:
         """Returns a random perturbation."""
 
+    def reset(self, _: RngType = None) -> None:
+        """Resets the exploration status, in case it is non-deterministic."""
+
     def __str__(self) -> str:
         return self.__class__.__name__
 
     def __repr__(self) -> str:
-        hook: Optional[str] = getattr(self, "hook", None)
-        if hook is None:
-            return self.__class__.__name__
-        return f"{self.__class__.__name__}(hook='{hook}')"
+        return f"{self.__class__.__name__}(hook={self.hook},mode={self.mode})"
 
 
 class NoExploration(ExplorationStrategy):
     """Strategy where no exploration is allowed at any time or, in other words, the
     policy is always deterministic (only based on the current state, and not perturbed).
     """
+
+    def __init__(self) -> None:
+        """Instiates a no-exploration strategy."""
+        super().__init__()
+        del self._hook, self._mode
+
+    @property
+    def hook(self) -> None:
+        """Returns `None`, since no exploration is allowed."""
+        return None
+
+    @property
+    def mode(self) -> None:
+        """Returns no mode."""
+        return None
 
     def can_explore(self) -> bool:
         return False
@@ -58,6 +116,9 @@ class NoExploration(ExplorationStrategy):
             f"Perturbation not implemented in {self.__class__.__name__}"
         )
 
+    def __repr__(self) -> str:
+        return self.__class__.__name__ + "()"
+
 
 class GreedyExploration(ExplorationStrategy):
     """Fully greedy strategy for perturbing the policy, thus inducing exploration. This
@@ -67,6 +128,7 @@ class GreedyExploration(ExplorationStrategy):
         self,
         strength: Union[Scheduler[npt.NDArray[np.floating]], npt.NDArray[np.floating]],
         hook: Literal["on_update", "on_episode_end", "on_timestep_end"] = "on_update",
+        mode: Literal["gradient-based", "additive"] = "gradient-based",
         seed: RngType = None,
     ) -> None:
         """Initializes the greedy exploration strategy.
@@ -88,29 +150,28 @@ class GreedyExploration(ExplorationStrategy):
              - `on_timestep_end` steps the exploration after each env's timestep.
 
             By default, 'on_update' is selected.
+        mode : {'gradient-based', 'additive'} optional
+            Mode of application of explorative perturbations to the MPC. If `additive`,
+            then the drawn pertubation is added to the optimal action computed by the
+            MPC. By default, `gradient-based` is selected, and in this mode the
+            pertubations enter  directly in the MPC objective and multiplied by the
+            first action, thus affecting its gradient.
         seed : None, int, array_like[ints], SeedSequence, BitGenerator, Generator
             Number to seed the RNG engine used for randomizing the exploration. By
             default, `None`.
         """
-        super().__init__()
-        self._hook = hook
+        super().__init__(hook, mode)
         if not isinstance(strength, Scheduler):
             strength = NoScheduling[npt.NDArray[np.floating]](strength)
         self.strength_scheduler = strength
         self.reset(seed)
 
     @property
-    def hook(self) -> Optional[str]:
-        """Specifies to which callback to hook, i.e., when to step the exploration's
-        schedulers (if any) to, e.g., decay the chances of exploring or the perturbation
-        strength (see `step` method also). Can be `None` in case no hook is needed."""
+    def hook(
+        self,
+    ) -> Optional[Literal["on_update", "on_episode_end", "on_timestep_end"]]:
         # return hook only if the strength scheduler requires to be stepped
         return None if isinstance(self.strength_scheduler, NoScheduling) else self._hook
-
-    @property
-    def strength(self) -> npt.NDArray[np.floating]:
-        """Gets the current strength of the exploration strategy."""
-        return self.strength_scheduler.value
 
     def reset(self, seed: RngType = None) -> None:
         """Resets the exploration RNG."""
@@ -147,12 +208,8 @@ class GreedyExploration(ExplorationStrategy):
         )
 
     def __repr__(self) -> str:
-        hook = self.hook
-        hookstr = "None" if hook is None else f"'{hook}'"
-        return (
-            f"{self.__class__.__name__}(stn={self.strength_scheduler.value},"
-            f"hook={hookstr})"
-        )
+        stn = self.strength_scheduler.value
+        return f"{self.__class__.__name__}(stn={stn},hook={self.hook},mode={self.mode})"
 
 
 class EpsilonGreedyExploration(GreedyExploration):
@@ -164,6 +221,7 @@ class EpsilonGreedyExploration(GreedyExploration):
         epsilon: Union[Scheduler[float], float],
         strength: Union[Scheduler[npt.NDArray[np.floating]], npt.NDArray[np.floating]],
         hook: Literal["on_update", "on_episode_end", "on_timestep_end"] = "on_update",
+        mode: Literal["gradient-based", "additive"] = "gradient-based",
         seed: RngType = None,
     ) -> None:
         """Initializes the epsilon-greedy exploration strategy.
@@ -187,17 +245,25 @@ class EpsilonGreedyExploration(GreedyExploration):
              - `on_timestep_end` steps the exploration after each env's timestep.
 
             By default, 'on_update' is selected.
+        mode : {'gradient-based', 'additive'} optional
+            Mode of application of explorative perturbations to the MPC. If `additive`,
+            then the drawn pertubation is added to the optimal action computed by the
+            MPC. By default, `gradient-based` is selected, and in this mode the
+            pertubations enter  directly in the MPC objective and multiplied by the
+            first action, thus affecting its gradient.
         seed : None, int, array_like[ints], SeedSequence, BitGenerator, Generator
             Number to seed the RNG engine used for randomizing the exploration. By
             default, `None`.
         """
-        super().__init__(strength, hook, seed)
+        super().__init__(strength, hook, mode, seed)
         if not isinstance(epsilon, Scheduler):
             epsilon = NoScheduling[float](epsilon)
         self.epsilon_scheduler = epsilon
 
     @property
-    def hook(self) -> Optional[str]:
+    def hook(
+        self,
+    ) -> Optional[Literal["on_update", "on_episode_end", "on_timestep_end"]]:
         # return hook only if the strength or epislon scheduler requires to be stepped
         return (
             None
@@ -205,11 +271,6 @@ class EpsilonGreedyExploration(GreedyExploration):
             and isinstance(self.epsilon_scheduler, NoScheduling)
             else self._hook
         )
-
-    @property
-    def epsilon(self) -> float:
-        """Gets the current probability of the exploration strategy."""
-        return self.epsilon_scheduler.value
 
     def can_explore(self) -> bool:
         return self.np_random.random() <= self.epsilon_scheduler.value
@@ -221,12 +282,10 @@ class EpsilonGreedyExploration(GreedyExploration):
         self.epsilon_scheduler.step()
 
     def __repr__(self) -> str:
-        hook = self.hook
-        hookstr = "None" if hook is None else f"'{hook}'"
-        return (
-            f"{self.__class__.__name__}(eps={self.epsilon_scheduler.value},"
-            f"stn={self.strength_scheduler.value},hook={hookstr})"
-        )
+        clsn = self.__class__.__name__
+        eps = self.epsilon_scheduler.value
+        stn = self.strength_scheduler.value
+        return f"{clsn}(eps={eps},stn={stn},hook={self.hook},mode={self.mode})"
 
 
 class StepWiseExploration(ExplorationStrategy):
@@ -263,6 +322,7 @@ class StepWiseExploration(ExplorationStrategy):
             steps.
         """
         super().__init__()
+        del self._hook, self._mode
         self.base_exploration = base_exploration
         self.step_size = step_size
         self._explore_counter = 0
@@ -270,9 +330,16 @@ class StepWiseExploration(ExplorationStrategy):
         self._stepwise_decay = stepwise_decay
 
     @property
-    def hook(self) -> Optional[str]:
+    def hook(
+        self,
+    ) -> Optional[Literal["on_update", "on_episode_end", "on_timestep_end"]]:
         """Returns the hook of the base exploration strategy, if any."""
-        return getattr(self.base_exploration, "hook", None)
+        return self.base_exploration.hook
+
+    @property
+    def mode(self) -> Literal["gradient-based", "additive"]:
+        """Returns the mode of the base exploration strategy."""
+        return self.base_exploration.mode
 
     def can_explore(self) -> bool:
         # since this method is called at every timestep (when deterministic=False), we
@@ -305,4 +372,6 @@ class StepWiseExploration(ExplorationStrategy):
     def __repr__(self) -> str:
         clsn = self.__class__.__name__
         bclsn = self.base_exploration.__class__.__name__
-        return f"{clsn}(base={bclsn},step_size={self.step_size})"
+        h = self.hook
+        m = self.mode
+        return f"{clsn}(base={bclsn},step_size={self.step_size},hook={h},mode={m})"

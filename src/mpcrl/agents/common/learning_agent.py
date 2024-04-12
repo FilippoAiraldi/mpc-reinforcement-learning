@@ -8,7 +8,6 @@ from gymnasium import Env
 
 from ...core.callbacks import LearningAgentCallbackMixin
 from ...core.experience import ExperienceReplay
-from ...core.exploration import ExplorationStrategy
 from ...core.parameters import LearnableParametersDict
 from ...core.update import UpdateStrategy
 from ...util.seeding import RngType, mk_seed
@@ -40,7 +39,6 @@ class LearningAgent(
         self,
         update_strategy: Union[int, UpdateStrategy],
         learnable_parameters: LearnableParametersDict[SymType],
-        exploration: Optional[ExplorationStrategy] = None,
         experience: Union[None, int, ExperienceReplay[ExpType]] = None,
         **kwargs: Any,
     ) -> None:
@@ -57,9 +55,6 @@ class LearningAgent(
             A special dict containing the learnable parameters of the MPC, together with
             their bounds and values. This dict is complementary with `fixed_parameters`,
             which contains the MPC parameters that are not learnt by the agent.
-        exploration : ExplorationStrategy, optional
-            Exploration strategy for inducing exploration in the MPC policy. By default
-            `None`, in which case `NoExploration` is used in the fixed-MPC agent.
         experience : int or ExperienceReplay, optional
             The container for experience replay memory. If `None` is passed, then a
             memory with length 1 is created, i.e., it keeps only the latest memory
@@ -77,8 +72,6 @@ class LearningAgent(
         elif isinstance(experience, int):
             experience = ExperienceReplay(maxlen=experience, sample_size=experience)
         self._experience = experience
-        if exploration is not None:
-            self._exploration = exploration
         if not isinstance(update_strategy, UpdateStrategy):
             update_strategy = UpdateStrategy(update_strategy, "on_timestep_end")
         self._update_strategy = update_strategy
@@ -348,7 +341,7 @@ class LearningAgent(
     def establish_callback_hooks(self) -> None:
         super().establish_callback_hooks()
         # hook exploration (only if necessary)
-        exploration_hook: Optional[str] = getattr(self._exploration, "hook", None)
+        exploration_hook = self._exploration.hook
         if exploration_hook is not None:
             self.hook_callback(
                 repr(self._exploration), exploration_hook, self._exploration.step
