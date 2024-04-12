@@ -54,11 +54,14 @@ class LtiSystem(gym.Env[npt.NDArray[np.floating], float]):
     def get_stage_cost(self, state: npt.NDArray[np.floating], action: float) -> float:
         """Computes the stage cost `L(s,a)`."""
         lb, ub = self.x_bnd
-        return 0.5 * float(
-            np.square(state).sum()
-            + 0.5 * action**2
-            + self.w.T @ np.maximum(0, lb - state)
-            + self.w.T @ np.maximum(0, state - ub)
+        return (
+            0.5
+            * (
+                np.square(state).sum()
+                + 0.5 * action**2
+                + self.w.T @ np.maximum(0, lb - state)
+                + self.w.T @ np.maximum(0, state - ub)
+            ).item()
         )
 
     def step(
