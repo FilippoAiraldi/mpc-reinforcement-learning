@@ -354,20 +354,13 @@ class LearningAgent(
                 repr(self._exploration), exploration_hook, self._exploration.step
             )
         # hook updates (always necessary)
-        assert self._update_strategy.hook in {
-            "on_episode_end",
-            "on_timestep_end",
-        }, "Updates can be hooked only to `episode_end` or `on_timestep_end`."
+        update_hook = self._update_strategy.hook
         func: Callable[..., None] = (
             (lambda _, e, __: self._check_and_perform_update(e, None))
-            if self._update_strategy.hook == "on_episode_end"
+            if update_hook == "on_episode_end"
             else (lambda _, e, t: self._check_and_perform_update(e, t))
         )
-        self.hook_callback(
-            repr(self._update_strategy),
-            self._update_strategy.hook,
-            func,
-        )
+        self.hook_callback(repr(self._update_strategy), update_hook, func)
 
     def _check_and_perform_update(self, episode: int, timestep: Optional[int]) -> None:
         """Internal utility to check if an update is due and perform it."""
