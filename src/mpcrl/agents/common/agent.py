@@ -10,6 +10,7 @@ from csnlp.core.cache import invalidate_caches_of
 from csnlp.util.io import SupportsDeepcopyAndPickle
 from csnlp.wrappers import Mpc
 from gymnasium import Env
+from gymnasium.spaces import Box
 from typing_extensions import TypeAlias
 
 from ...core.callbacks import AgentCallbackMixin
@@ -292,6 +293,7 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
         vals0: Union[
             None, dict[str, npt.ArrayLike], Iterable[dict[str, npt.ArrayLike]]
         ] = None,
+        action_space: Optional[Box] = None,
         **kwargs,
     ) -> tuple[cs.DM, Solution[SymType]]:
         """Computes the state value function `V(s)` approximated by the MPC.
@@ -312,30 +314,47 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
             initial values of each variable. Use this to warm-start the MPC. If `None`,
             and a previous solution (possibly, successful) is available, the MPC solver
             is automatically warm-started.
+        action_space : gymnasium.spaces.Box, optional
+            The action space of the environment. If not `None`, it is used in case an
+            additive exploration perturbation is summed to the action in order to clip
+            it back into the action space.
 
         Returns
         -------
         casadi.DM
-            The first optimal action according to the solution of `V(s)`.
+            The first optimal action according to the solution of `V(s)`, possibly
+            perturbed by exploration noise
         Solution
             The solution of the MPC approximating `V(s)` at the given state.
         """
-        if deterministic or not self._exploration.can_explore():
+        V = self._V
+        exploration = self._exploration
+        exploration_mode = self._exploration.mode
+        na = V.na
+        if deterministic or exploration_mode is None or not exploration.can_explore():
             pert = None
         else:
-            pert = self._exploration.perturbation(
-                self.cost_perturbation_method,
-                size=self.V.parameters[self.cost_perturbation_parameter].shape,
-            )
-        sol = self.solve_mpc(self._V, state, perturbation=pert, vals0=vals0, **kwargs)
-        first_action = cs.vertcat(*(sol.vals[u][:, 0] for u in self._V.actions.keys()))
+            pert = exploration.perturbation(self.cost_perturbation_method, size=(na, 1))
+
+        grad_pert = pert if exploration_mode == "gradient-based" else None
+        sol = self.solve_mpc(V, state, perturbation=grad_pert, vals0=vals0, **kwargs)
+        action_opt = cs.vertcat(*(sol.vals[u][:, 0] for u in V.actions.keys()))
 
         if sol.success:
-            self._last_action = first_action
+            self._last_action = action_opt
         elif self._last_action_on_fail and self._last_action is not None:
-            first_action = self._last_action
+            action_opt = self._last_action
 
-        return first_action, sol
+        if pert is not None and exploration_mode == "additive":
+            action_opt_noisy = action_opt + pert
+            if action_space is not None:
+                lb = action_space.low.reshape(na, 1)
+                ub = action_space.high.reshape(na, 1)
+                action_opt_noisy = np.clip(action_opt_noisy, lb, ub)
+                # if np.equal(action_opt_noisy, action_opt).all():
+                #     action_opt_noisy = np.clip(action_opt - pert, lb, ub)
+            action_opt = action_opt_noisy
+        return action_opt, sol
 
     def action_value(
         self,
