@@ -5,6 +5,7 @@ from typing import Any, Callable, Generic, Optional, TypeVar, Union
 import numpy as np
 import numpy.typing as npt
 from gymnasium import Env
+from gymnasium.spaces import Box
 
 from ...core.callbacks import LearningAgentCallbackMixin
 from ...core.experience import ExperienceReplay
@@ -150,6 +151,8 @@ class LearningAgent(
         UpdateError or UpdateWarning
             Raises the error or the warning (depending on `raises`) if the update fails.
         """
+        if hasattr(env, "action_space"):
+            assert isinstance(env.action_space, Box), "Env action space must be a Box,"
         rng = np.random.default_rng(seed)
         self.reset(rng)
         self._updates_enabled = True

@@ -186,9 +186,10 @@ class LstdQLearningAgent(
         timestep = 0
         rewards = 0.0
         state = init_state
+        action_space = getattr(env, "action_space", None)
 
         # solve for the first action
-        action, solV = self.state_value(state, False)
+        action, solV = self.state_value(state, False, action_space=action_space)
         if not solV.success:
             self.on_mpc_failure(episode, None, solV.status, raises)
 
@@ -201,7 +202,9 @@ class LstdQLearningAgent(
             self.on_env_step(env, episode, timestep)
 
             # compute V(s+) and store transition
-            new_action, solV = self.state_value(new_state, False)
+            new_action, solV = self.state_value(
+                new_state, False, action_space=action_space
+            )
             if not self._try_store_experience(cost, solQ, solV):
                 self.on_mpc_failure(
                     episode, timestep, f"{solQ.status} (Q); {solV.status} (V)", raises

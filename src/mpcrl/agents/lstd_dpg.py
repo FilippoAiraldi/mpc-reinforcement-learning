@@ -250,11 +250,23 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         timestep = 0
         rewards = 0.0
         state = init_state
+        action_space = getattr(env, "action_space", None)
+        gradient_based_exploration = self.exploration.mode == "gradient-based"
+        action_keys = self.V.actions.keys()
 
         while not (truncated or terminated):
-            # compute V(s) (perturbed and not perturbed)
-            action, sol = self.state_value(state, False)
-            action_opt, sol_opt = self.state_value(state, True)
+            # compute V(s)
+            action, sol = self.state_value(state, False, action_space=action_space)
+            if gradient_based_exploration:
+                # NOTE: if the exploration affects the gradient, unfortunately we have
+                # to solve again the NLP (but deterministically this time)
+                action_opt, sol_opt = self.state_value(
+                    state, True, action_space=action_space
+                )
+            else:
+                # otherwise, just retrieve manually the unperturbed optimal action
+                action_opt = cs.vertcat(*(sol.vals[u][:, 0] for u in action_keys))
+                sol_opt = sol
 
             # step the system with the action just computed
             state_new, cost, truncated, terminated, _ = env.step(action)
