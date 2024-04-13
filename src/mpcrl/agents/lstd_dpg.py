@@ -10,7 +10,7 @@ from gymnasium import Env
 from typing_extensions import TypeAlias
 
 from ..core.experience import ExperienceReplay
-from ..core.exploration import ExplorationStrategy
+from ..core.exploration import ExplorationStrategy, NoExploration
 from ..core.parameters import LearnableParametersDict
 from ..core.update import UpdateStrategy
 from ..core.warmstart import WarmStartStrategy
@@ -58,10 +58,10 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         discount_factor: float,
         optimizer: GradientBasedOptimizer,
         learnable_parameters: LearnableParametersDict[SymType],
+        exploration: Optional[ExplorationStrategy],
         fixed_parameters: Union[
             None, dict[str, npt.ArrayLike], Collection[dict[str, npt.ArrayLike]]
         ] = None,
-        exploration: Optional[ExplorationStrategy] = None,
         experience: Union[None, int, ExperienceReplay[ExpType]] = None,
         warmstart: Union[
             Literal["last", "last-successful"], WarmStartStrategy
@@ -103,14 +103,14 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
             A special dict containing the learnable parameters of the MPC, together with
             their bounds and values. This dict is complementary with `fixed_parameters`,
             which contains the MPC parameters that are not learnt by the agent.
+        exploration : ExplorationStrategy, optional
+            Exploration strategy for inducing exploration in the MPC policy (it is
+            mandatory to explore in DPG).
         fixed_parameters : dict[str, array_like] or collection of, optional
             A dict (or collection of dict, in case of `csnlp.MultistartNlp`) whose keys
             are the names of the MPC parameters and the values are their corresponding
             values. Use this to specify fixed parameters, that is, non-learnable. If
             `None`, then no fixed parameter is assumed.
-        exploration : ExplorationStrategy, optional
-            Exploration strategy for inducing exploration in the MPC policy. By default
-            `None`, in which case `NoExploration` is used in the fixed-MPC agent.
         experience : int or ExperienceReplay, optional
             The container for experience replay memory. If `None` is passed, then a
             memory with length 1 is created, i.e., it keeps only the latest memory
@@ -181,7 +181,15 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         name : str, optional
             Name of the agent. If `None`, one is automatically created from a counter of
             the class' instancies.
+
+        Raises
+        ------
+        ValueError
+            If the exploration strategy is `None` or an instance of `NoExploration`, as
+            DPG requires exploration.
         """
+        if exploration is None or isinstance(exploration, NoExploration):
+            raise ValueError("DPG requires exploration, but none was provided.")
         # change default update hook to 'on_episode_end'
         if not isinstance(update_strategy, UpdateStrategy):
             update_strategy = UpdateStrategy(update_strategy, "on_episode_end")
