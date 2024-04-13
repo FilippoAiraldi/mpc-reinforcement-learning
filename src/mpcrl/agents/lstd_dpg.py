@@ -66,7 +66,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         warmstart: Union[
             Literal["last", "last-successful"], WarmStartStrategy
         ] = "last-successful",
-        rollout_length: Optional[int] = None,
+        rollout_length: int = -1,
         record_policy_performance: bool = False,
         record_policy_gradient: bool = False,
         state_features: Optional[cs.Function] = None,
@@ -138,13 +138,13 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
             Can only be used with an MPC that has an underlying multistart NLP problem
             (see `csnlp.MultistartNlp`).
         rollout_length : int, optional
-            Time-step length of a closed-loop simulation, which defines a complete
-            trajectory of the states, and is saved in the experience as a single item
-            (since LSTD DPG needs to draw samples of trajectories). In case the env is
-            episodic, it can be `None`, in which case the rollout length coincides with
-            the episode's. In case the env is not episodic, i.e., it never terminates, a
-            rollout length must be given in order to save the current trajectory as an
-            atomic item in memory.
+            Number of steps of each closed-loop simulation, which defines a complete
+            trajectory of the states (i.e., a rollout), and is saved in the experience
+            as a single item (since LSTD DPG needs to draw samples of trajectories). In
+            case the env is episodic, it can be `-1`, in which case the rollout length
+            coincides with the episode's length. In case the env is not episodic, i.e.,
+            it never terminates, a length `>0` must be given in order to know when to
+            save the current trajectory as an atomic item in memory.
         record_policy_performance: bool, optional
             If `True`, the performance of each rollout is stored in the field
             `policy_performances`, which otherwise is `None`. By default, does not
@@ -212,8 +212,8 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
             if state_features is None
             else state_features
         )
-        self.ridge_regression_regularization = ridge_regression_regularization
-        self.rollout_length = rollout_length or float("+inf")
+        self.regularization = ridge_regression_regularization
+        self.rollout_length = rollout_length
         self._rollout: list[
             tuple[
                 ObsType,
@@ -233,7 +233,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
     def update(self) -> Optional[str]:
         sample = self.experience.sample()
         dJdtheta = _estimate_gradient_update(
-            sample, self.discount_factor, self.ridge_regression_regularization
+            sample, self.discount_factor, self.regularization
         )
         if self.policy_gradients is not None:
             self.policy_gradients.append(dJdtheta)
@@ -250,6 +250,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         timestep = 0
         rewards = 0.0
         state = init_state
+        rollout_length = self.rollout_length
         action_space = getattr(env, "action_space", None)
         gradient_based_exploration = self.exploration.mode == "gradient-based"
         action_keys = self.V.actions.keys()
@@ -292,12 +293,12 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
 
             # first, check if current rollout has reached its length, and only then
             # invoke on_timestep_end (as it might trigger an update)
-            if len(self._rollout) >= self.rollout_length:
+            if rollout_length > 0 and len(self._rollout) >= rollout_length:
                 self._consolidate_rollout_into_memory()
             self.on_timestep_end(env, episode, timestep)
 
         # consolidate rollout at the end of episode, if no length was specified
-        if self.rollout_length == float("+inf"):
+        if rollout_length <= 0:
             self._consolidate_rollout_into_memory()
         return rewards
 
@@ -360,8 +361,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         Phi = np.ascontiguousarray(self._Phi(S.T).elements()).reshape(N + 1, -1)
         dpidtheta = self._sensitivity(vals, N)
         Psi = (dpidtheta @ E).reshape(N, dpidtheta.shape[1])
-        R = self.ridge_regression_regularization
-        v = _compute_cafa_weight_v(Phi, L, self.discount_factor, R)
+        v = _compute_cafa_weight_v(Phi, L, self.discount_factor, self.regularization)
 
         # save to experience
         self.store_experience((L, Phi, Psi, dpidtheta, v))
