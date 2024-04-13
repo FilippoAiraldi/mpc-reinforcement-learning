@@ -15,6 +15,7 @@ import numpy as np
 import numpy.typing as npt
 from csnlp import Nlp
 from csnlp.wrappers import Mpc
+from gymnasium.spaces import Box
 from gymnasium.wrappers import TimeLimit
 
 from mpcrl import (
@@ -43,6 +44,10 @@ class LtiSystem(gym.Env[npt.NDArray[np.floating], float]):
     a_bnd = (-1, 1)  # bounds of control input
     w = np.asarray([[1e2], [1e2]])  # penalty weight for bound violations
     e_bnd = (-1e-1, 0)  # uniform noise bounds
+
+    # extremely recommended to bound the action space with additive exploration so that
+    # we can clip the action before applying it to the system
+    action_space = Box(*a_bnd, (nu,), np.float64)
 
     def reset(
         self,
@@ -181,7 +186,7 @@ if __name__ == "__main__":
                 optimizer=GradientDescent(learning_rate=1e-6),
                 update_strategy=UpdateStrategy(rollout_length, "on_timestep_end"),
                 rollout_length=rollout_length,
-                exploration=E.GreedyExploration(0.05),
+                exploration=E.GreedyExploration(0.05, mode="additive"),
                 record_policy_performance=True,
                 record_policy_gradient=True,
             )
