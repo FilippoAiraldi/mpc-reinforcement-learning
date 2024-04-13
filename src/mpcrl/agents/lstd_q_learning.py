@@ -18,9 +18,10 @@ from ..optim.gradient_based_optimizer import GradientBasedOptimizer
 from .common.agent import ActType, ObsType, SymType
 from .common.rl_learning_agent import LrType, RlLearningAgent
 
-ExpType: TypeAlias = tuple[
-    npt.NDArray[np.floating],  # gradient of Bellman residuals w.r.t. theta
-    npt.NDArray[np.floating],  # (approximate) hessian of Bellman residuals w.r.t. theta
+# the experience buffer contains the gradient and, possibly, the hessian of the Bellman
+# residuals w.r.t. the learnable parameters theta
+ExpType: TypeAlias = Union[
+    npt.NDArray[np.floating], tuple[npt.NDArray[np.floating], npt.NDArray[np.floating]]
 ]
 
 
@@ -166,13 +167,13 @@ class LstdQLearningAgent(
 
     def update(self) -> Optional[str]:
         sample = self.experience.sample()
-        gradients = []
-        hessians = []
-        for g, H in sample:
-            gradients.append(g)
-            hessians.append(H)
+        if self.hessian_type == "none":
+            gradient = np.mean(list(sample), 0)
+            return self.optimizer.update(gradient)
+
+        gradients, hessians = zip(*sample)
         gradient = np.mean(gradients, 0)
-        hessian = np.mean(hessians, 0) if self.hessian_type != "none" else None
+        hessian = np.mean(hessians, 0)
         return self.optimizer.update(gradient, hessian)
 
     def train_one_episode(
@@ -300,21 +301,22 @@ class LstdQLearningAgent(
         """Internal utility that tries to store the gradient and hessian for the current
         transition in memory, if both V and Q were successful; otherwise, does not store
         it. Returns whether it was successful or not."""
-        if solQ.success and solV.success:
+        success = solQ.success and solV.success
+        if success:
             sol_values = solQ.all_vals
             td_error = cost + self.discount_factor * solV.f - solQ.f
             if self.hessian_type == "none":
                 dQ = self._sensitivity(sol_values)
-                hessian = np.nan
+                gradient = -td_error * dQ
+                self.store_experience(gradient)
             else:
                 dQ, ddQ = self._sensitivity(sol_values)
+                gradient = -td_error * dQ
                 hessian = np.multiply.outer(dQ, dQ) - td_error * ddQ
-            gradient = -td_error * dQ
-            self.store_experience((gradient, hessian))
-            success = True
+                self.store_experience((gradient, hessian))
         else:
             td_error = np.nan
-            success = False
+
         if self.td_errors is not None:
             self.td_errors.append(td_error)
         return success
