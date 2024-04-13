@@ -219,7 +219,7 @@ if __name__ == "__main__":
     axs[1].semilogy(np.linalg.norm(agent.policy_gradients, axis=1))
     axs[2].semilogy(R, "o", markersize=1)
     axs[0].set_ylabel(r"$J(\pi_\theta)$")
-    axs[1].set_ylabel(r"$\nabla_\theta J(\pi_\theta)$")
+    axs[1].set_ylabel(r"$||\nabla_\theta J(\pi_\theta)||$")
     axs[2].set_ylabel("$L$")
 
     _, axs = plt.subplots(3, 2, constrained_layout=True, sharex=True)
