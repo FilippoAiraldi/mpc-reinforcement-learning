@@ -22,7 +22,7 @@ from more_itertools import pairwise
 from mpcrl import Agent, LearnableParameter, LearnableParametersDict, LstdQLearningAgent
 from mpcrl.optim import NetwonMethod
 from mpcrl.util.control import dlqr
-from mpcrl.wrappers.agents import Log, RecordUpdates
+from mpcrl.wrappers.agents import Evaluate, Log, RecordUpdates
 from mpcrl.wrappers.envs import MonitorEpisodes
 
 # first, create classes for environment and mpc controller
@@ -182,6 +182,7 @@ def get_rollout_generator(
 
 if __name__ == "__main__":
     # now, let's create the instances of such classes
+    seed = 69
     mpc = LinearMpc()
     learnable_pars = LearnableParametersDict[cs.SX](
         (
@@ -189,41 +190,44 @@ if __name__ == "__main__":
             for name, val in mpc.learnable_pars_init.items()
         )
     )
-    agent = Log(  # type: ignore[var-annotated]
-        RecordUpdates(
-            LstdQLearningAgent(
-                mpc=mpc,
-                learnable_parameters=learnable_pars,
-                discount_factor=mpc.discount_factor,
-                update_strategy=1,
-                optimizer=NetwonMethod(learning_rate=5e-2),
-                hessian_type="approx",
-                record_td_errors=True,
-                remove_bounds_on_initial_action=True,
-            )
+    eval_env = MonitorEpisodes(TimeLimit(LtiSystem(), 100))
+    agent = Evaluate(
+        Log(
+            RecordUpdates(
+                LstdQLearningAgent(
+                    mpc=mpc,
+                    learnable_parameters=learnable_pars,
+                    discount_factor=mpc.discount_factor,
+                    update_strategy=1,
+                    optimizer=NetwonMethod(learning_rate=5e-2),
+                    hessian_type="approx",
+                    record_td_errors=True,
+                    remove_bounds_on_initial_action=True,
+                )
+            ),
+            level=logging.DEBUG,
+            log_frequencies={"on_episode_end": 1},
         ),
-        level=logging.DEBUG,
-        log_frequencies={"on_episode_end": 1},
+        eval_env=eval_env,
+        hook="on_episode_end",
+        frequency=3,
+        n_eval_episodes=5,
+        eval_immediately=True,
+        seed=seed,
     )
 
     # before training, let's create a nominal non-learning agent which will be used to
     # generate expert rollout data. This data will then be used to train the off-policy
     # q-learning agent.
-    seed = 69
     env_factory = lambda: MonitorEpisodes(TimeLimit(LtiSystem(), 100))
     generate_rollout = get_rollout_generator(env_factory, seed)
 
     # finally, we can launch the training
-    n_rollouts = 100
-    eval_returns = agent.train_offpolicy(
-        episode_rollouts=(generate_rollout(n) for n in range(n_rollouts)),
-        seed=seed,
-        eval_frequency=10,
-        eval_env_factory=env_factory,
-        eval_kwargs={
-            "episodes": 5,  # every 10 rollouts, evaluate the agent on 5 episodes
-        },
+    n_rollouts = 10
+    agent.train_offpolicy(
+        episode_rollouts=(generate_rollout(n) for n in range(n_rollouts)), seed=seed
     )
+    eval_returns = np.asarray(agent.eval_returns)
 
     # plot the results
     import matplotlib.pyplot as plt
