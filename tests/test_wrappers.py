@@ -2,7 +2,8 @@ import logging
 import os
 import unittest
 from functools import lru_cache
-from itertools import combinations
+from itertools import combinations, product
+from random import random
 from typing import Any
 from unittest.mock import Mock, call
 
@@ -12,6 +13,7 @@ import numpy as np
 from csnlp import Nlp, scaling
 from csnlp.multistart import StackedMultistartNlp
 from csnlp.wrappers import Mpc, NlpScaling
+from parameterized import parameterized
 
 from mpcrl import (
     Agent,
@@ -351,6 +353,38 @@ class TestRecordUpdates(unittest.TestCase):
         )
         pars_actual = np.squeeze(list(wrapped.updates_history.values())).T
         np.testing.assert_equal(pars_actual, pars)
+
+
+class TestEvaluate(unittest.TestCase):
+    @parameterized.expand(product((False, True), (False, True)))
+    def test_evaluate__evaluates_with_correct_frequency(
+        self, eval_immediately: bool, fix_seed: bool
+    ):
+        frequency = 10
+        repeats = 2
+        returns = [object() for _ in range(repeats + eval_immediately)]
+        returns_iter = iter(returns)
+        agent = mk_agent()
+        agent.evaluate = Mock(side_effect=lambda *_, **__: next(returns_iter))
+        env = SimpleEnv()
+        wrapped = wrappers_agents.Evaluate(
+            agent,
+            env,
+            "on_episode_end",
+            frequency=frequency,
+            eval_immediately=eval_immediately,
+            fix_seed=fix_seed,
+        )
+
+        n_calls = frequency * repeats
+        n_calls += int(frequency / 2)  # adds some spurious calls
+        [agent.on_episode_end(env, i, random()) for i in range(n_calls)]
+
+        self.assertEqual(agent.evaluate.call_count, repeats + eval_immediately)
+        self.assertListEqual(wrapped.eval_returns, returns)
+        if fix_seed:
+            seeds = (call.args[3] for call in agent.evaluate.call_args_list)
+            self.assertEqual(len(set(seeds)), 1)
 
 
 class TestMonitorEpisodesAndInfos(unittest.TestCase):
