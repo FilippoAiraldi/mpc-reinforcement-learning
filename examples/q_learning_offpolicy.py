@@ -158,7 +158,6 @@ class LinearMpc(Mpc[cs.SX]):
 
 
 def get_rollout_generator(
-    rollout_env_factory: Callable[[], gym.Env[np.ndarray, float]],
     rollout_seed: int,
 ) -> Callable[[int], Iterable[tuple[np.ndarray, float, float, np.ndarray]]]:
     """Returns a function used to generates rollouts from a nominal agent."""
@@ -166,7 +165,7 @@ def get_rollout_generator(
 
     def _generate_rollout(n):
         # run the nominal agent on the environment once
-        env = rollout_env_factory()
+        env = MonitorEpisodes(TimeLimit(LtiSystem(), 100))
         nominal_agent.evaluate(env, episodes=1, seed=rollout_seed + n)
 
         # transform the collected env data into a SARS sequence
@@ -190,7 +189,6 @@ if __name__ == "__main__":
             for name, val in mpc.learnable_pars_init.items()
         )
     )
-    eval_env = MonitorEpisodes(TimeLimit(LtiSystem(), 100))
     agent = Evaluate(
         Log(
             RecordUpdates(
@@ -208,9 +206,9 @@ if __name__ == "__main__":
             level=logging.DEBUG,
             log_frequencies={"on_episode_end": 1},
         ),
-        eval_env=eval_env,
+        eval_env=TimeLimit(LtiSystem(), 100),
         hook="on_episode_end",
-        frequency=3,
+        frequency=10,
         n_eval_episodes=5,
         eval_immediately=True,
         seed=seed,
@@ -219,11 +217,10 @@ if __name__ == "__main__":
     # before training, let's create a nominal non-learning agent which will be used to
     # generate expert rollout data. This data will then be used to train the off-policy
     # q-learning agent.
-    env_factory = lambda: MonitorEpisodes(TimeLimit(LtiSystem(), 100))
-    generate_rollout = get_rollout_generator(env_factory, seed)
+    generate_rollout = get_rollout_generator(rollout_seed=69)
 
     # finally, we can launch the training
-    n_rollouts = 10
+    n_rollouts = 100
     agent.train_offpolicy(
         episode_rollouts=(generate_rollout(n) for n in range(n_rollouts)), seed=seed
     )
