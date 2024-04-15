@@ -22,7 +22,7 @@ class Wrapper(SupportsDeepcopyAndPickle, CallbackMixin, Generic[SymType]):
         """
         SupportsDeepcopyAndPickle.__init__(self)
         CallbackMixin.__init__(self)
-        del self._hooks  # only keep one dict of hooks, i.e., the agent's one
+        del self._hooks  # keep only one dict of hooks, i.e., the agent's one
         self.agent = agent
         self._hooked_callbacks: dict[str, list[str]] = {}
         self.establish_callback_hooks()
@@ -58,10 +58,15 @@ class Wrapper(SupportsDeepcopyAndPickle, CallbackMixin, Generic[SymType]):
         self.unwrapped.hook_callback(attachername, callbackname, func)
 
     def detach_wrapper(
-        self,
+        self, recursive: bool = False
     ) -> Union[Agent[SymType], LearningAgent[SymType, ExpType], "Wrapper[SymType]"]:
-        """Detaches the wrapper from the agent, returning the wrapped agent. De facto,
+        """Detaches the wrapper from the agent, returning the unwrapped agent. De facto,
         this method detaches all the hooks attached by this wrapper.
+
+        Parameters
+        ----------
+        recursive : bool, optional
+            If `True`, detaches all the wrappers around the agent recursively.
 
         Returns
         -------
@@ -84,21 +89,13 @@ class Wrapper(SupportsDeepcopyAndPickle, CallbackMixin, Generic[SymType]):
 
         # clear hooked callbacks tracking
         hooked_callbacks.clear()
-        return self.agent
-
-    def detach_wrappers(self) -> Union[Agent[SymType], LearningAgent[SymType, ExpType]]:
-        """Similar to `detach_wrapper`, but detaches all wrappers around the agent.
-
-        Returns
-        -------
-        Agent
-            Returns the wrapped agent instance. This instance has no more active hooks
-            attached by all the wrappers around it.
-        """
-        agent_ = self
-        while hasattr(agent_, "detach_wrapper") and callable(agent_.detach_wrapper):
-            agent_ = agent_.detach_wrapper()
-        return agent_
+        return (
+            self.agent.detach_wrapper(True)
+            if recursive
+            and hasattr(self.agent, "detach_wrapper")
+            and callable(self.agent.detach_wrapper)
+            else self.agent
+        )
 
     def __getattr__(self, name: str) -> Any:
         """Reroutes attributes to the wrapped agent instance."""

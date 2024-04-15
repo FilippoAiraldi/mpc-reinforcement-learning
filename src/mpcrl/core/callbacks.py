@@ -37,7 +37,7 @@ class CallbackMixin:
     """
 
     def __init__(self) -> None:
-        self._hooks: dict[str, list[tuple[str, Callable[..., None]]]] = {}
+        self._hooks: dict[str, dict[str, Callable[..., None]]] = {}
 
     def __setstate__(
         self,

@@ -2,6 +2,7 @@ import logging
 import os
 import unittest
 from functools import lru_cache
+from itertools import combinations
 from typing import Any
 from unittest.mock import Mock, call
 
@@ -164,31 +165,32 @@ class TestWrapperAndLearningWrapper(unittest.TestCase):
         self.assertFalse(wrapped.is_wrapped(cs.SX))
 
     def test_detach_wrapper(self):
-        agent = mk_agent()
-        wrapped_intermediate = wrappers_agents.RecordUpdates(agent)
-        original_hooks = agent._hooks.copy()
-        wrapped = wrappers_agents.Log(
-            wrapped_intermediate,
-            level=logging.DEBUG,
-            log_frequencies={"on_timestep_end": 1000},
+        cp = lambda d: {k: {k_: id(v_) for k_, v_ in v.items()} for k, v in d.items()}
+        agent_0 = mk_agent()
+        agent_0_hooks = cp(agent_0._hooks)
+        wrapped_1 = wrappers_agents.RecordUpdates(agent_0)
+        wrapped_1_hooks = cp(agent_0._hooks)
+        wrapped_2 = wrappers_agents.Log(
+            wrapped_1, level=logging.DEBUG, log_frequencies={"on_timestep_end": 1000}
         )
-        with self.assertRaises(AssertionError):
-            self.assertDictEqual(agent._hooks, original_hooks)
-        wrapped.detach_wrapper()
-        self.assertDictEqual(agent._hooks, original_hooks)
+        wrapped_2_hooks = cp(agent_0._hooks)
+        for d1, d2 in combinations(
+            (agent_0_hooks, wrapped_1_hooks, wrapped_2_hooks), 2
+        ):
+            with self.assertRaises(AssertionError):
+                self.assertDictEqual(d1, d2)
 
-    def test_detach_wrappers(self):
-        agent = mk_agent()
-        original_hooks = agent._hooks.copy()
-        wrapped = wrappers_agents.Log(
-            wrappers_agents.RecordUpdates(agent),
-            level=logging.DEBUG,
-            log_frequencies={"on_timestep_end": 1000},
-        )
-        with self.assertRaises(AssertionError):
-            self.assertDictEqual(agent._hooks, original_hooks)
-        wrapped.detach_wrappers()
-        self.assertDictEqual(agent._hooks, original_hooks)
+        detached_1 = wrapped_2.detach_wrapper()
+        self.assertIs(detached_1, wrapped_1)
+        self.assertDictEqual(cp(agent_0._hooks), wrapped_1_hooks)
+
+        detached_0 = detached_1.detach_wrapper()
+        self.assertIs(detached_0, agent_0)
+        self.assertDictEqual(cp(agent_0._hooks), agent_0_hooks)
+
+        detached_recursive = wrapped_2.detach_wrapper(recursive=True)
+        self.assertIs(detached_recursive, agent_0)
+        self.assertDictEqual(cp(agent_0._hooks), agent_0_hooks)
 
 
 class TestLog(unittest.TestCase):
@@ -402,10 +404,18 @@ class TestMonitorEpisodesAndInfos(unittest.TestCase):
             terminated = truncated = False
             while not (terminated or truncated):
                 _, _, terminated, truncated, _ = env.step(object())
-        np.testing.assert_array_equal(env.observations, env.INTERNAL_OBSERVATIONS)
-        np.testing.assert_array_equal(env.actions, env.INTERNAL_ACTIONS)
-        np.testing.assert_array_equal(env.rewards, env.INTERNAL_REWARDS)
-        self.assertListEqual(list(env.episode_lengths), [env.T_MAX] * n_episodes)
+        np.testing.assert_array_equal(
+            env.observations, env.get_wrapper_attr("INTERNAL_OBSERVATIONS")
+        )
+        np.testing.assert_array_equal(
+            env.actions, env.get_wrapper_attr("INTERNAL_ACTIONS")
+        )
+        np.testing.assert_array_equal(
+            env.rewards, env.get_wrapper_attr("INTERNAL_REWARDS")
+        )
+        self.assertListEqual(
+            list(env.episode_lengths), [env.get_wrapper_attr("T_MAX")] * n_episodes
+        )
 
 
 if __name__ == "__main__":
