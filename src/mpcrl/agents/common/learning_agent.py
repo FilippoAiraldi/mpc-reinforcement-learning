@@ -214,17 +214,13 @@ class LearningAgent(
         episode_rollouts: Iterable[Iterable[Any]],
         seed: RngType = None,
         raises: bool = True,
-        eval_frequency: Optional[int] = None,
-        eval_env_factory: Callable[[], Optional[Env[ObsType, ActType]]] = None,
-        eval_kwargs: Optional[dict[str, Any]] = None,
-        eval_at_start: bool = True,
-    ) -> Optional[npt.NDArray[np.floating]]:
+    ) -> None:
         """Off-policy training of the agent on an environment.
 
         Parameters
         ----------
         episode_rollouts : iterable of iterables of any
-            An iterable, i.e., sequence, of episodical rollouts generated off-policy.
+            An iterable (i.e., a sequence) of episodical rollouts generated off-policy.
             Each rollout is itself a sequence of transitions, e.g., SARSA tuples. In
             general, these can be of different types, depending on the specific learning
             algorithm.
@@ -233,58 +229,19 @@ class LearningAgent(
         raises : bool, optional
             If `True`, when any of the MPC solver runs fails, or when an update fails,
             the corresponding error is raised; otherwise, only a warning is raised.
-        eval_frequency : int, optional
-            Frequency of evaluation of the agent's performance during off-policy
-            training. If `None`, no evaluation is performed. If an integer is passed,
-            then also `eval_env_factory` must be given as argument.
-        eval_env_factory : callable, optional
-            A callable that returns a new environment instance to be used for
-            evaluation, if `eval_frequency` is given. Otherwise, it is unused.
-        eval_kwargs : dict, optional
-            Additional keyword arguments to be passed to the agent's `evaluate` method.
-            Must contain the `episode` key (which is a required argument to `evaluate`),
-            and must not contain the `env`, `seed` or `raises` key, as these are already
-            handled by this method automatically.
-        eval_at_start : bool, optional
-            If `True`, an evaluation round is also performed before the training starts.
-
-        Returns
-        -------
-        2d-array of doubles or None
-            The cumulative returns for each evaluation episode, if evaluation is
-            enabled; otherwise, `None`.
 
         Raises
         ------
-        ValueError
-            Raises if `eval_frequency` is given but `eval_env_factory` is not callable.
         MpcSolverError or MpcSolverWarning
             Raises the error or the warning (depending on `raises`) if any of the MPC
             solvers fail.
         UpdateError or UpdateWarning
             Raises the error or the warning (depending on `raises`) if the update fails.
         """
-        if eval_frequency is not None:
-            if not callable(eval_env_factory):
-                raise ValueError(
-                    "If `eval_frequency` is given, `eval_env_factory` must be callable."
-                )
-            returns = []
-            if eval_kwargs is None:
-                eval_kwargs = {}
-            do_eval = lambda: self.evaluate(
-                eval_env_factory(), seed=rng, raises=raises, **eval_kwargs
-            )
-        else:
-            returns = np.empty(())
-
         rng = np.random.default_rng(seed)
         self.reset(rng)
         self._raises = raises
         env_proxy = "off-policy"
-
-        if eval_frequency is not None and eval_at_start:
-            returns.append(do_eval())
 
         self._updates_enabled = True
         self.on_training_start(env_proxy)
@@ -292,14 +249,8 @@ class LearningAgent(
             self.on_episode_start(env_proxy, episode, float("nan"))
             self.train_one_rollout(rollout, episode, raises)
             self.on_episode_end(env_proxy, episode, float("nan"))
-            if eval_frequency is not None and (episode + 1) % eval_frequency == 0:
-                returns.append(do_eval())
-                self._updates_enabled = True  # updates must be re-enabled after eval
 
-        returns = np.asarray(returns, float)
-        self.on_training_end(env_proxy, returns)
-        if eval_frequency is not None:
-            return returns
+        self.on_training_end(env_proxy, np.empty(0))
 
     def train_one_rollout(
         self, rollout: Iterable[Any], episode: int, raises: bool = True

@@ -1,0 +1,111 @@
+from typing import Any, Literal, Optional, TypeVar
+
+import numpy as np
+import numpy.typing as npt
+from gymnasium import Env
+
+from ...agents.common.learning_agent import ExpType, LearningAgent
+from ...util.iters import bool_cycle
+from ...util.seeding import RngType, mk_seed
+from .wrapper import LearningWrapper, SymType
+
+ObsType = TypeVar("ObsType")
+ActType = TypeVar("ActType")
+
+
+class Evaluate(LearningWrapper[SymType, ExpType]):
+    """Wrapper for evaluating an agent during learning."""
+
+    def __init__(
+        self,
+        agent: LearningAgent[SymType, ExpType],
+        eval_env: Env[ObsType, ActType],
+        hook: Literal["on_episode_end", "on_timestep_end", "on_update"],
+        frequency: int,
+        n_eval_episodes: int = 1,
+        eval_immediately: bool = False,
+        *,
+        deterministic: bool = False,
+        seed: RngType = None,
+        raises: bool = True,
+        env_reset_options: Optional[dict[str, Any]] = None,
+        fix_seed: bool = False,
+    ) -> None:
+        """Creates an instance of the evaluation wrapper around the agent.
+
+        Parameters
+        ----------
+        agent : LearningAgent
+            The learning agent to be evaluated by the wrapper.
+        eval_env : gymnasium.Env
+            A gym environment to evaluate the agent in.
+        hook : {'on_episode_end', 'on_timestep_end', 'on_update'}
+            Hook to trigger the evaluation. The evaluation will be triggered every
+            `frequency` invokations of the specified hook.
+        frequency : int
+            Frequency of the evaluation.
+        n_eval_episodes : int, optional
+            How many episodes to evaluate the agent for, by default `1`.
+        eval_immediately : bool, optional
+            Whether to evaluate the agent immediately after the wrapper is created, by
+            default `False`.
+        deterministic : bool, optional
+            Whether the agent should act deterministically; by default, `True`.
+        seed : None, int, array_like[ints], SeedSequence, BitGenerator, Generator
+            Agent's and each env's RNG seed for the evaluation.
+        raises : bool, optional
+            If `True`, when any of the MPC solver runs fails, or when an update fails,
+            the corresponding error is raised; otherwise, only a warning is raised.
+        env_reset_options : dict, optional
+            Additional information to specify how the environment is reset at each
+            evalution episode (optional, depending on the specific environment).
+        fix_seed : bool, optional
+            If `True`, the seed is fixed and the same seed is used for all evaluations.
+        """
+        self.eval_env = eval_env
+        self._hook = hook
+        self._n_eval_episodes = n_eval_episodes
+        self._deterministic = deterministic
+        np_random = np.random.default_rng(seed)
+        self._seed = mk_seed(np_random) if fix_seed else np_random
+        self._raises = raises
+        self._env_reset_options = env_reset_options
+        self._keep_seed_fixed = fix_seed
+        self._eval_cycle = bool_cycle(frequency)
+        self.eval_returns: list[npt.NDArray[np.floating]] = []
+        self._is_eval_in_progress = False
+        super().__init__(agent)
+        if eval_immediately:
+            self._evaluate(force=True)
+
+    def _evaluate(self, *_: Any, **__: Any) -> None:
+        """Internal utility to perform the evaluation.
+
+        Note: we do not check if the agent is training or evaluating, so the wrapper's
+        evaluation round can be initiated in both cases, the second making less sense.
+        """
+        if self._is_eval_in_progress or (
+            not __.get("force", False) and not next(self._eval_cycle)
+        ):
+            return
+        self._is_eval_in_progress = True
+        unwrapped_agent = self.agent.unwrapped
+        updates_flag = unwrapped_agent._updates_enabled
+        try:
+            self.eval_returns.append(
+                self.agent.evaluate(
+                    self.eval_env,
+                    self._n_eval_episodes,
+                    self._deterministic,
+                    self._seed,
+                    self._raises,
+                    self._env_reset_options,
+                )
+            )
+        finally:
+            self._is_eval_in_progress = False
+            unwrapped_agent._updates_enabled = updates_flag
+
+    def establish_callback_hooks(self) -> None:
+        super().establish_callback_hooks()
+        self.hook_callback(repr(self), self._hook, self._evaluate)
