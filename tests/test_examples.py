@@ -37,7 +37,7 @@ from mpcrl import (
 )
 from mpcrl import exploration as E
 from mpcrl.optim import GradientDescent, NetwonMethod
-from mpcrl.wrappers.agents import Log, RecordUpdates
+from mpcrl.wrappers.agents import Evaluate, Log, RecordUpdates
 from mpcrl.wrappers.envs import MonitorEpisodes
 
 torch.set_default_device("cpu")
@@ -249,42 +249,39 @@ class TestExamples(unittest.TestCase):
                 for name, val in mpc.learnable_pars_init.items()
             )
         )
-        agent = Log(
-            RecordUpdates(
-                LstdQLearningAgent(
-                    mpc=mpc,
-                    learnable_parameters=learnable_pars,
-                    discount_factor=mpc.discount_factor,
-                    update_strategy=1,
-                    optimizer=NetwonMethod(learning_rate=5e-2),
-                    hessian_type="approx",
-                    record_td_errors=True,
-                    remove_bounds_on_initial_action=True,
-                )
+        seed = np.random.default_rng(69)
+        agent = Evaluate(
+            Log(
+                RecordUpdates(
+                    LstdQLearningAgent(
+                        mpc=mpc,
+                        learnable_parameters=learnable_pars,
+                        discount_factor=mpc.discount_factor,
+                        update_strategy=1,
+                        optimizer=NetwonMethod(learning_rate=5e-2),
+                        hessian_type="approx",
+                        record_td_errors=True,
+                        remove_bounds_on_initial_action=True,
+                    )
+                ),
+                level=logging.DEBUG,
+                log_frequencies={"on_episode_end": 1},
             ),
-            level=logging.DEBUG,
-            log_frequencies={"on_episode_end": 1},
+            eval_env=TimeLimit(QLearningOffPolicyLtiSystem(), 100),
+            hook="on_episode_end",
+            frequency=2,
+            n_eval_episodes=2,
+            seed=seed,
         )
-
-        seed = 69
-        env_factory = lambda: MonitorEpisodes(
-            TimeLimit(QLearningOffPolicyLtiSystem(), 100)
-        )
-        generate_rollout = get_rollout_generator(env_factory, seed)
+        generate_rollout = get_rollout_generator(rollout_seed=69)
 
         agent_copy = agent.copy()
         if use_copy:
             agent = agent_copy
-        J = agent.train_offpolicy(
-            episode_rollouts=(generate_rollout(n) for n in range(6)),
-            seed=seed,
-            eval_frequency=2,
-            eval_env_factory=env_factory,
-            eval_kwargs={
-                "episodes": 2,
-            },
-            eval_at_start=False,
+        agent.train_offpolicy(
+            episode_rollouts=(generate_rollout(n) for n in range(6)), seed=seed
         )
+        J = np.asarray(agent.eval_returns)
         agent = pickle.loads(pickle.dumps(agent))
 
         parnames = ["V0", "x_lb", "x_ub", "b", "f", "A", "B"]
