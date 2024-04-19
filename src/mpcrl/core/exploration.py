@@ -264,7 +264,7 @@ class EpsilonGreedyExploration(GreedyExploration):
     def hook(
         self,
     ) -> Optional[Literal["on_update", "on_episode_end", "on_timestep_end"]]:
-        # return hook only if the strength or epislon scheduler requires to be stepped
+        # return hook only if the strength or epsilon scheduler requires to be stepped
         return (
             None
             if isinstance(self.strength_scheduler, NoScheduling)
@@ -286,6 +286,121 @@ class EpsilonGreedyExploration(GreedyExploration):
         eps = self.epsilon_scheduler.value
         stn = self.strength_scheduler.value
         return f"{clsn}(eps={eps},stn={stn},hook={self.hook},mode={self.mode})"
+
+
+class OrnsteinUhlenbeckExploration(ExplorationStrategy):
+    """
+    Exploraiton based on the Ornstein-Uhlenbeck Brownian motion with friction. See
+    implementation from  https://github.com/DLR-RM/stable-baselines3/tree/master.
+
+    Note: since this exploration strategy creates a particular noise process, it is
+    independent of the agent's `cost_perturbation_method` field.
+    """
+
+    def __init__(
+        self,
+        mean: Union[Scheduler[npt.NDArray[np.floating]], npt.NDArray[np.floating]],
+        sigma: Union[Scheduler[npt.NDArray[np.floating]], npt.NDArray[np.floating]],
+        theta: float = 0.15,
+        dt: float = 1.0,
+        initial_noise: Optional[npt.ArrayLike] = None,
+        hook: Literal["on_update", "on_episode_end", "on_timestep_end"] = "on_update",
+        mode: Literal["gradient-based", "additive"] = "gradient-based",
+        seed: RngType = None,
+    ) -> None:
+        """Creates a new Ornstein-Uhlenbeck exploration strategy.
+
+        Parameters
+        ----------
+        mean : scheduler or array/supports-algebraic-operations
+            Mean of the stochastic process. Should have the same shape as the action.
+        sigma : scheduler or array/supports-algebraic-operations
+            Standard deviation of the stochastic process. Should have the same shape as
+            the action.
+        theta : float, optional
+            Coefficient of attraction of the process towards mean, by default `0.15`.
+        dt : float, optional
+            Time step of the process, by default `1.0`.
+        initial_noise : array-like, optional
+            A default initial noise. By default `None`, in which case it is set to zero.
+        hook : {'on_update', 'on_episode_end', 'on_timestep_end'}, optional
+            Specifies to which callback to hook, i.e., when to step the exploration's
+            schedulers (if any) to, e.g., decay the chances of exploring or the
+            perturbation strength (see `step` method also). The options are:
+             - `on_update` steps the exploration after each agent's update
+             - `on_episode_end` steps the exploration after each episode's end
+             - `on_timestep_end` steps the exploration after each env's timestep.
+
+            By default, 'on_update' is selected.
+        mode : {'gradient-based', 'additive'} optional
+            Mode of application of explorative perturbations to the MPC. If `additive`,
+            then the drawn pertubation is added to the optimal action computed by the
+            MPC. By default, `gradient-based` is selected, and in this mode the
+            pertubations enter  directly in the MPC objective and multiplied by the
+            first action, thus affecting its gradient.
+        seed : None, int, array_like[ints], SeedSequence, BitGenerator, Generator
+            Number to seed the RNG engine used for randomizing the exploration. By
+            default, `None`.
+        """
+        super().__init__(hook, mode)
+        if not isinstance(mean, Scheduler):
+            mean = NoScheduling[npt.NDArray[np.floating]](mean)
+        self.mean_scheduler = mean
+        if not isinstance(sigma, Scheduler):
+            sigma = NoScheduling[npt.NDArray[np.floating]](sigma)
+        self.sigma_scheduler = sigma
+        self.theta = theta
+        self.dt = dt
+        self.initial_noise = initial_noise
+        self.reset(seed)
+
+    @property
+    def hook(
+        self,
+    ) -> Optional[Literal["on_update", "on_episode_end", "on_timestep_end"]]:
+        # return hook only if the mean or sigma scheduler requires to be stepped
+        return (
+            None
+            if isinstance(self.mean_scheduler, NoScheduling)
+            and isinstance(self.sigma_scheduler, NoScheduling)
+            else self._hook
+        )
+
+    def reset(self, seed: RngType = None) -> None:
+        """Resets the exploration RNG."""
+        self.np_random = np.random.default_rng(seed)
+        self._prev_noise = (
+            np.zeros_like(self.mean_scheduler.value)
+            if self.initial_noise is None
+            else np.asarray(self.initial_noise)
+        )
+
+    def can_explore(self) -> bool:
+        return True
+
+    def step(self, *_, **__) -> None:
+        """Updates the mean and std of the noise according to their schedulers."""
+        self.mean_scheduler.step()
+        self.sigma_scheduler.step()
+
+    def perturbation(self, *_: Any, **__: Any) -> npt.NDArray[np.floating]:
+        sigma = self.sigma_scheduler.value
+        noise = (
+            self._prev_noise
+            + (self.theta * self.dt) * (self.mean_scheduler.value - self._prev_noise)
+            + np.sqrt(self.dt) * (sigma * self.np_random.normal(size=np.shape(sigma)))
+        )
+        self._prev_noise = noise
+        return noise
+
+    def __repr__(self) -> str:
+        clsn = self.__class__.__name__
+        mean = self.mean_scheduler.value
+        sigma = self.sigma_scheduler.value
+        return (
+            f"{clsn}(mean={mean},sigma={sigma},theta={self.theta},dt={self.dt},"
+            f"hook={self.hook},mode={self.mode})"
+        )
 
 
 class StepWiseExploration(ExplorationStrategy):

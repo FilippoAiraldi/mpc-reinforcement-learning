@@ -186,7 +186,7 @@ if __name__ == "__main__":
                 optimizer=GradientDescent(learning_rate=1e-6),
                 update_strategy=UpdateStrategy(rollout_length, "on_timestep_end"),
                 rollout_length=rollout_length,
-                exploration=E.GreedyExploration(0.05, mode="additive"),
+                exploration=E.OrnsteinUhlenbeckExploration(0.0, 0.05, mode="additive"),
                 record_policy_performance=True,
                 record_policy_gradient=True,
             )
