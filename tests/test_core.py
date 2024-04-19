@@ -87,9 +87,8 @@ class TestExperienceReplay(unittest.TestCase):
         self.assertIsInstance(mem.np_random, np.random.Generator)
 
     def test_sample__raises__with_no_maxlen_and_percentage_size(self):
-        mem = ExperienceReplay[tuple[np.ndarray, float]](maxlen=None, sample_size=0.0)
-        with self.assertRaises(AssertionError):
-            list(mem.sample())
+        with self.assertRaises(TypeError):
+            ExperienceReplay[tuple[np.ndarray, float]](maxlen=None, sample_size=0.0)
 
     @parameterized.expand([(0,), (float(0),)])
     def test_sample__with_zero_samples__returns_no_samples(self, n: Union[int, float]):
@@ -253,6 +252,13 @@ class TestSchedulers(unittest.TestCase):
 
 
 class TestExploration(unittest.TestCase):
+    def test_no_exploration__has_no_mode_nor_hook(self):
+        exploration = E.NoExploration()
+        self.assertFalse(hasattr(exploration, "_mode"), "should not have `mode`")
+        self.assertFalse(hasattr(exploration, "_hook"), "should not have `_hook`")
+        self.assertIsNone(exploration.hook)
+        self.assertIsNone(exploration.mode)
+
     def test_no_exploration__never_explores(self):
         exploration = E.NoExploration()
         self.assertFalse(exploration.can_explore())
@@ -272,22 +278,17 @@ class TestExploration(unittest.TestCase):
         self.assertTrue(exploration.can_explore())
         do_test_str_and_repr(self, exploration)
 
+    @parameterized.expand(((False,), (True,)))
+    def test_greedy_exploration__hook(self, strength):
+        strength_scheduler = S.LinearScheduler(0, 1, 10) if strength else 0
+        exploration = E.GreedyExploration(strength_scheduler)
+        hook = exploration.hook
+        self.assertEqual(hook is not None, strength)
+
     @parameterized.expand([("uniform",), ("normal",), ("standard_normal",)])
     def test_greedy_exploration__perturbs(self, method: str):
         exploration = E.GreedyExploration(strength=0.5)
         exploration.perturbation(method)
-
-    def test_epsilon_greedy_exploration__properties_return_right_values(self):
-        epsilon, epsilon_decay_rate = 0.7, 0.75
-        strength, strength_decay_rate = 0.5, 0.75
-        epsilon_scheduler = S.ExponentialScheduler(epsilon, epsilon_decay_rate)
-        strength_scheduler = S.ExponentialScheduler(strength, strength_decay_rate)
-        exploration = E.EpsilonGreedyExploration(
-            epsilon=epsilon_scheduler, strength=strength_scheduler, seed=42
-        )
-        self.assertEqual(exploration.strength, strength)
-        self.assertEqual(exploration.epsilon, epsilon)
-        do_test_str_and_repr(self, exploration)
 
     def test_epsilon_greedy_exploration__never_explores__with_zero_epsilon(self):
         epsilon, epsilon_decay_rate = 0.0, 0.75
@@ -336,12 +337,49 @@ class TestExploration(unittest.TestCase):
         epsilon_scheduler.step.assert_called_once()
         strength_scheduler.step.assert_called_once()
 
-    def test_stepwise_exploration__has_same_hook_as_base_exploration(self):
-        hook = Mock()
+    @parameterized.expand(product([False, True], [False, True]))
+    def test_epsilon_greedy_exploration__hook(self, epsilon, strength):
+        epsilon_scheduler = S.LinearScheduler(0, 1, 10) if epsilon else 0
+        strength_scheduler = S.LinearScheduler(0, 1, 10) if strength else 0
+        exploration = E.EpsilonGreedyExploration(epsilon_scheduler, strength_scheduler)
+        hook = exploration.hook
+        self.assertEqual(hook is not None, epsilon or strength)
+
+    def test_ornsteinuhlenbeck_exploration__always_explores(self):
+        exploration = E.OrnsteinUhlenbeckExploration(0, 0.5)
+        self.assertTrue(exploration.can_explore())
+
+    def test_ornsteinuhlenbeck_exploration__decays_mean_and_sigma(self):
+        class MockScheduler(S.NoScheduling):
+            ...
+
+        mean_scheduler = MockScheduler(None)
+        sigma_scheduler = MockScheduler(None)
+        mean_scheduler.step = Mock()
+        sigma_scheduler.step = Mock()
+        exploration = E.OrnsteinUhlenbeckExploration(mean_scheduler, sigma_scheduler)
+
+        exploration.step()
+
+        mean_scheduler.step.assert_called_once()
+        sigma_scheduler.step.assert_called_once()
+
+    @parameterized.expand(product([False, True], [False, True]))
+    def test_ornsteinuhlenbeck_exploration__hook(self, mean, sigma):
+        mean_scheduler = S.LinearScheduler(0, 1, 10) if mean else 0
+        sigma_scheduler = S.LinearScheduler(0, 1, 10) if sigma else 0
+        exploration = E.OrnsteinUhlenbeckExploration(mean_scheduler, sigma_scheduler)
+        hook = exploration.hook
+        self.assertEqual(hook is not None, mean or sigma)
+
+    def test_stepwise_exploration__has_same_hook_and_mode_as_base_exploration(self):
+        hook, mode = Mock(), Mock()
         base_exploration = Mock()
         base_exploration.hook = hook
+        base_exploration.mode = mode
         exploration = E.StepWiseExploration(base_exploration, 5, 10)
         self.assertIs(exploration.hook, hook)
+        self.assertIs(exploration.mode, mode)
 
     @parameterized.expand([(True,), (False,)])
     def test_stepwise_exploration__turns_base_exploration_into_steps(
