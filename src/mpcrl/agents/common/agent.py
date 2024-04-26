@@ -75,8 +75,8 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
             values. Use this to specify fixed parameters, that is, non-learnable. If
             `None`, then no fixed parameter is assumed.
         exploration : ExplorationStrategy, optional
-            Exploration strategy for inducing exploration in the MPC policy. By default
-            `None`, in which case `NoExploration` is used.
+            Exploration strategy for inducing exploration in the online MPC policy. By
+            default `None`, in which case `NoExploration` is used.
         warmstart: "last" or "last-successful" or WarmStartStrategy, optional
             The warmstart strategy for the MPC's NLP. If `last-successful`, the last
             successful solution is used to warm start the solver for the next iteration.
@@ -332,7 +332,7 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
         """
         V = self._V
         exploration = self._exploration
-        exploration_mode = self._exploration.mode
+        exploration_mode = exploration.mode
         na = V.na
         if deterministic or exploration_mode is None or not exploration.can_explore():
             pert = None

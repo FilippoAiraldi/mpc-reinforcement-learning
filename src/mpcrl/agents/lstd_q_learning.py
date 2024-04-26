@@ -100,8 +100,10 @@ class LstdQLearningAgent(
             values. Use this to specify fixed parameters, that is, non-learnable. If
             `None`, then no fixed parameter is assumed.
         exploration : ExplorationStrategy, optional
-            Exploration strategy for inducing exploration in the MPC policy. By default
-            `None`, in which case `NoExploration` is used in the fixed-MPC agent.
+            Exploration strategy for inducing exploration in the online MPC policy. By
+            default `None`, in which case `NoExploration` is used. Should not be set
+            when offpolicy learning, as the exploration should be taken care in the
+            offpolicy data generation.
         experience : int or ExperienceReplay, optional
             The container for experience replay memory. If `None` is passed, then a
             memory with length 1 is created, i.e., it keeps only the latest memory
@@ -252,7 +254,7 @@ class LstdQLearningAgent(
         x_lam_p = cs.vertcat(nlp.primal_dual, nlp.p)
 
         # compute first order sensitivity
-        snlp = NlpSensitivity(self._Q.nlp, theta)
+        snlp = NlpSensitivity(nlp, theta)
         gradient = snlp.jacobians["L-p"]  # exact gradient, i.e., dQ/dtheta
 
         if hessian_type == "none":

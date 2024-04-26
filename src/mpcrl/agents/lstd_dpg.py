@@ -105,8 +105,8 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
             their bounds and values. This dict is complementary with `fixed_parameters`,
             which contains the MPC parameters that are not learnt by the agent.
         exploration : ExplorationStrategy, optional
-            Exploration strategy for inducing exploration in the MPC policy (it is
-            mandatory to explore in DPG).
+            Exploration strategy for inducing exploration in the online MPC policy (it
+            is mandatory to explore in DPG).
         fixed_parameters : dict[str, array_like] or collection of, optional
             A dict (or collection of dict, in case of `csnlp.MultistartNlp`) whose keys
             are the names of the MPC parameters and the values are their corresponding
