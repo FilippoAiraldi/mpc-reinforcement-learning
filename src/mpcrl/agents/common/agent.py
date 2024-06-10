@@ -305,9 +305,9 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
             a dict of state names and values, or a single concatenated column vector of
             all the states.
         deterministic : bool, optional
-            If `True`, the cost of the MPC is perturbed according to the exploration
-            strategy to induce some exploratory behaviour. Otherwise, no perturbation is
-            performed. By default, `deterministic=False`.
+            If `False`, the MPC is perturbed according to the exploration strategy to
+            induce some exploratory behaviour. Otherwise, no perturbation is performed.
+            By default, `deterministic=False`.
         vals0 : dict[str, array_like] or iterable of, optional
             A dict (or an iterable of dict, in case of `csnlp.MultistartNlp`), whose
             keys are the names of the MPC variables, and values are the numerical
