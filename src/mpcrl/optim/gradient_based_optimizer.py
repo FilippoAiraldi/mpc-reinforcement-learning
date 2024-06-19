@@ -25,6 +25,7 @@ class GradientBasedOptimizer(BaseOptimizer[SymType], Generic[SymType, LrType]):
         learning_rate: Union[LrType, Scheduler[LrType]],
         hook: Literal["on_update", "on_episode_end", "on_timestep_end"] = "on_update",
         max_percentage_update: float = float("+inf"),
+        bound_consistency: bool = False,
     ) -> None:
         """Instantiates the optimizer.
 
@@ -48,6 +49,11 @@ class GradientBasedOptimizer(BaseOptimizer[SymType], Generic[SymType, LrType]):
             parameters can experience in each update. For example,
             `max_percentage_update=0.5` means that the parameters can be updated by up
             to 50% of their current value. By default, it is set to `+inf`.
+        bound_consistency : bool, optional
+            A boolean that, if `True`, forces the learnable parameters to lie in their
+            bounds when updated. This is done `np.clip`. Only beneficial if numerical
+            issues arise during updates, e.g., due to the QP solver not being able to
+            guarantee bounds.
         """
         super().__init__(max_percentage_update)
         if not isinstance(learning_rate, Scheduler):
@@ -55,6 +61,7 @@ class GradientBasedOptimizer(BaseOptimizer[SymType], Generic[SymType, LrType]):
         self.lr_scheduler: Scheduler[LrType] = learning_rate
         self._hook = hook
         self._update_solver: cs.Function
+        self.bound_consistency = bound_consistency
 
     @property
     def hook(self) -> Optional[str]:
@@ -123,9 +130,10 @@ class GradientBasedOptimizer(BaseOptimizer[SymType], Generic[SymType, LrType]):
             theta_new, status = self._first_order_update(gradient)
         else:
             theta_new, status = self._second_order_update(gradient, hessian)
-        # theta_new = np.clip(
-        #     theta_new, self.learnable_parameters.lb, self.learnable_parameters.ub
-        # )
+        if self.bound_consistency:
+            theta_new = np.clip(
+                theta_new, self.learnable_parameters.lb, self.learnable_parameters.ub
+            )
         self.learnable_parameters.update_values(theta_new)
         return status
 
