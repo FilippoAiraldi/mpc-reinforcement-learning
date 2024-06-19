@@ -293,7 +293,7 @@ class EpsilonGreedyExploration(GreedyExploration):
 
 class OrnsteinUhlenbeckExploration(ExplorationStrategy):
     """
-    Exploraiton based on the Ornstein-Uhlenbeck Brownian motion with friction. See
+    Exploration based on the Ornstein-Uhlenbeck Brownian motion with friction. See
     implementation from  https://github.com/DLR-RM/stable-baselines3/tree/master.
 
     Note: since this exploration strategy creates a particular noise process, it is
