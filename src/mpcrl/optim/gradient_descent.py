@@ -33,6 +33,7 @@ class GradientDescent(GradientBasedOptimizer[SymType, LrType]):
         nesterov: bool = False,
         hook: Literal["on_update", "on_episode_end", "on_timestep_end"] = "on_update",
         max_percentage_update: float = float("+inf"),
+        bound_consistency: bool = False,
     ) -> None:
         """Instantiates the optimizer.
 
@@ -71,8 +72,13 @@ class GradientDescent(GradientBasedOptimizer[SymType, LrType]):
             to 50% of their current value. By default, it is set to `+inf`. If
             specified, the update becomes constrained and has to be solved as a QP,
             which is inevitably slower than its unconstrained counterpart.
+        bound_consistency : bool, optional
+            A boolean that, if `True`, forces the learnable parameters to lie in their
+            bounds when updated. This is done `np.clip`. Only beneficial if numerical
+            issues arise during updates, e.g., due to the QP solver not being able to
+            guarantee bounds.
         """
-        super().__init__(learning_rate, hook, max_percentage_update)
+        super().__init__(learning_rate, hook, max_percentage_update, bound_consistency)
         self.weight_decay = weight_decay
         self.momentum = momentum
         self.dampening = dampening
