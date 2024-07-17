@@ -99,7 +99,7 @@ def nchoosek(n: Union[int, npt.ArrayLike], k: int) -> Union[int, np.ndarray]:
         combinations or the combinations in a matrix.
     """
     return (
-        comb(n, k, True)
+        comb(n, k, exact=True)
         if isinstance(n, int)
         else np.row_stack(list(combinations(np.asarray(n).reshape(-1), k)))
     )
