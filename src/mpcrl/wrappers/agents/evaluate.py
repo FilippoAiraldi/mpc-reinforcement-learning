@@ -25,7 +25,7 @@ class Evaluate(LearningWrapper[SymType, ExpType]):
         n_eval_episodes: int = 1,
         eval_immediately: bool = False,
         *,
-        deterministic: bool = False,
+        deterministic: bool = True,
         seed: RngType = None,
         raises: bool = True,
         env_reset_options: Optional[dict[str, Any]] = None,

@@ -36,7 +36,6 @@ from gpytorch.mlls import ExactMarginalLogLikelihood
 from gymnasium import Env, ObservationWrapper
 from gymnasium.spaces import Box
 from gymnasium.wrappers import TimeLimit, TransformReward
-from joblib import Parallel
 from scipy.stats.qmc import LatinHypercube
 
 from mpcrl import (
@@ -246,12 +245,11 @@ def get_cstr_mpc(
     env: CstrEnv, horizon: int, multistarts: int, n_jobs: int
 ) -> Mpc[cs.SX]:
     """Returns an MPC controller for the given CSTR env."""
-    # create a custom parallel object for the multistart NLP
-    parallel = Parallel(n_jobs=n_jobs, return_as="generator")
-    parallel.__enter__()  # not strictly necessary, but good practice
-
-    # create NLP instance and MPC wrapper
-    nlp = ParallelMultistartNlp[cs.SX]("SX", starts=multistarts, parallel=parallel)
+    nlp = ParallelMultistartNlp[cs.SX](
+        "SX",
+        starts=multistarts,
+        parallel_kwargs={"n_jobs": n_jobs, "return_as": "generator"},
+    )
     mpc = Mpc[cs.SX](nlp, horizon)
 
     # variables (state, action)

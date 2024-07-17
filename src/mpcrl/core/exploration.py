@@ -88,6 +88,9 @@ class ExplorationStrategy(ABC):
 class NoExploration(ExplorationStrategy):
     """Strategy where no exploration is allowed at any time or, in other words, the
     policy is always deterministic (only based on the current state, and not perturbed).
+
+    This is a special kind of `ExplorationStrategy`, the only one without any
+    `hook` and `mode`.
     """
 
     def __init__(self) -> None:

@@ -109,13 +109,24 @@ class TestAgent(unittest.TestCase):
         self.assertIsInstance(agent.V, Mpc)
         self.assertIsNot(agent.Q, agent.V)
 
-    def test_init__instantiates_V_and_Q_correctly(self):
-        agent = Agent(mpc=get_mpc(3, self.multistart_nlp))
-        self.assertIn(agent.cost_perturbation_parameter, agent.V.parameters.keys())
-        self.assertNotIn(agent.cost_perturbation_parameter, agent.Q.parameters.keys())
-        self.assertIn(agent.init_action_parameter, agent.Q.parameters.keys())
+    @parameterized.expand([(None,), ("gradient-based",), ("additive",)])
+    def test_init__instantiates_V_and_Q_correctly(self, exploration_mode: str):
+        if exploration_mode is None:
+            exploration = E.NoExploration()
+        else:
+            exploration = E.GreedyExploration(0.5, mode=exploration_mode)
+        agent = Agent(mpc=get_mpc(3, self.multistart_nlp), exploration=exploration)
+
+        V_pars_keys = agent.V.parameters.keys()
+        Q_pars_keys = agent.Q.parameters.keys()
+        if exploration_mode is None or exploration_mode == "additive":
+            self.assertNotIn(agent.cost_perturbation_parameter, V_pars_keys)
+        else:
+            self.assertIn(agent.cost_perturbation_parameter, V_pars_keys)
+        self.assertNotIn(agent.cost_perturbation_parameter, Q_pars_keys)
+        self.assertIn(agent.init_action_parameter, Q_pars_keys)
         self.assertIn(agent.init_action_constraint, agent.Q.constraints.keys())
-        self.assertNotIn(agent.init_action_parameter, agent.V.parameters.keys())
+        self.assertNotIn(agent.init_action_parameter, V_pars_keys)
         self.assertNotIn(agent.init_action_constraint, agent.V.constraints.keys())
 
     def test_init__removes_bounds_on_initial_action_in_Q_correctly(self):
@@ -187,7 +198,8 @@ class TestAgent(unittest.TestCase):
             else fixed_pars.copy()
         )
         mpc = get_mpc(horizon, self.multistart_nlp)
-        agent = Agent(mpc=mpc, fixed_parameters=fixed_pars_)
+        exploration = E.GreedyExploration(0.5, mode="gradient-based")
+        agent = Agent(mpc=mpc, fixed_parameters=fixed_pars_, exploration=exploration)
         mpc: Mpc[cs.SX] = getattr(agent, mpctype)
 
         s = {"y": 0, "v": 10, "m": 5e5}

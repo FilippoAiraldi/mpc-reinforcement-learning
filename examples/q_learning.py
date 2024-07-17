@@ -15,6 +15,7 @@ import numpy as np
 import numpy.typing as npt
 from csnlp import Nlp
 from csnlp.wrappers import Mpc
+from gymnasium.spaces import Box
 from gymnasium.wrappers import TimeLimit
 
 from mpcrl import LearnableParameter, LearnableParametersDict, LstdQLearningAgent
@@ -37,6 +38,7 @@ class LtiSystem(gym.Env[npt.NDArray[np.floating], float]):
     a_bnd = (-1, 1)  # bounds of control input
     w = np.asarray([[1e2], [1e2]])  # penalty weight for bound violations
     e_bnd = (-1e-1, 0)  # uniform noise bounds
+    action_space = Box(*a_bnd, (nu,), np.float64)
 
     def reset(
         self,
