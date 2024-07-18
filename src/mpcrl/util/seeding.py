@@ -1,8 +1,13 @@
+import sys
 from collections.abc import Sequence
 from typing import Union
 
 import numpy as np
-from typing_extensions import TypeAlias
+
+if sys.version_info >= (3, 10):
+    from typing import TypeAlias
+else:
+    from typing_extensions import TypeAlias
 
 RngType: TypeAlias = Union[
     None,

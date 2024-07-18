@@ -1,3 +1,4 @@
+import sys
 from collections.abc import Collection, Iterable, Iterator
 from itertools import chain
 from typing import Any, Generic, Literal, Optional, TypeVar, Union
@@ -11,7 +12,11 @@ from csnlp.util.io import SupportsDeepcopyAndPickle
 from csnlp.wrappers import Mpc
 from gymnasium import Env
 from gymnasium.spaces import Box
-from typing_extensions import TypeAlias
+
+if sys.version_info >= (3, 10):
+    from typing import TypeAlias
+else:
+    from typing_extensions import TypeAlias
 
 from ...core.callbacks import AgentCallbackMixin
 from ...core.exploration import ExplorationStrategy, NoExploration

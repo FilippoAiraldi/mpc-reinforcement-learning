@@ -40,11 +40,12 @@ pip install mpcrl
 
 **mpcrl** has the following dependencies
 
-- [csnlp](https://pypi.org/project/csnlp/)
+- Python 3.9 or higher
+- [csnlp](https://casadi-nlp.readthedocs.io/en/stable/)
 - [SciPy](https://scipy.org/)
 - [Gymnasium](https://gymnasium.farama.org/)
 - [Numba](https://numba.pydata.org/)
-- [typing_extensions](https://pypi.org/project/typing-extensions/)
+- [typing_extensions](https://pypi.org/project/typing-extensions/) (only for Python 3.9)
 
 For playing around with the source code instead, run
 
