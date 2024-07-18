@@ -1,3 +1,4 @@
+import sys
 from collections.abc import Collection, Iterator
 from typing import Callable, Generic, Literal, Optional, SupportsFloat, Union
 
@@ -7,7 +8,11 @@ import numpy as np
 import numpy.typing as npt
 from csnlp.wrappers import Mpc, NlpSensitivity
 from gymnasium import Env
-from typing_extensions import TypeAlias
+
+if sys.version_info >= (3, 10):
+    from typing import TypeAlias
+else:
+    from typing_extensions import TypeAlias
 
 from ..core.experience import ExperienceReplay
 from ..core.exploration import ExplorationStrategy, NoExploration

@@ -1,4 +1,4 @@
-typing_extensions>=4.5.0
+typing_extensions>=4.5.0 ; python_version <= '3.9'
 numba>=0.57.1
 csnlp>=1.6.0
 scipy>=1.11.0
