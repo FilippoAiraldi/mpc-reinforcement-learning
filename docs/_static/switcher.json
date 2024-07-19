@@ -1,0 +1,11 @@
+[
+    {
+        "version": "stable",
+        "url": "https://mpc-reinforcement-learning.readthedocs.io/en/stable/",
+        "preferred": true
+    },
+    {
+        "version": "latest",
+        "url": "https://mpc-reinforcement-learning.readthedocs.io/en/latest/"
+    }
+]
