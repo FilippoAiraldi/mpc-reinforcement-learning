@@ -97,7 +97,7 @@ pip install -e /path/to/mpc-reinforcement-learning
 Here we provide the skeleton of a simple application of the library. The aim of the code
 below is to let an MPC control strategy learn how to optimally control a simple Linear
 Time Invariant (LTI) system. The cost (i.e., the opposite of the reward) of controlling
-this system in state $s \in \mathbb{R}^{n_s}$ with action 
+this system in state $s \in \mathbb{R}^{n_s}$ with action
 $a \in \mathbb{R}^{n_a}$ is given by
 
 $$
@@ -105,26 +105,27 @@ L(s,a) = s^\top Q s + a^\top R a,
 $$
 
 where $Q \in \mathbb{R}^{n_s \times n_s}$ and $R \in \mathbb{R}^{n_a \times n_a}$ are
-suitable positive definite matrices. However, in the context of RL, these matrices are 
-not known, but we can only observe realizations of the cost. The system is described by 
-the usual state-space model
+suitable positive definite matrices. This is a very well-known problem in optimal
+control theory. However, here, in the context of RL, these matrices are not known, and
+we can only observe realizations of the cost for each state-action pair our controller
+visits. The underlying system dynamics are described by the usual state-space model
 
 $$
 s_{k+1} = A s_k + B a_k,
 $$
 
-whose matrices $A \in \mathbb{R}^{n_s \times n_s}$ and 
-$B \in \mathbb{R}^{n_s \times n_a}$ could again in general be unknown. The control 
+whose matrices $A \in \mathbb{R}^{n_s \times n_s}$ and
+$B \in \mathbb{R}^{n_s \times n_a}$ could again in general be unknown. The control
 action $a_k$ is assumed bounded in the interval $[-1,1]$. In what follows we will go
 through the usual steps in setting up and solving such a task.
 
 ### Environment
 
 The first ingredient to implement is the LTI system in the form of a `gymnasium.Env`
-class. Fill free to fill in the missing parts based on your needs. The `reset` method 
-should initialize the state of the system, while the `step` method should update the 
-state of the system based on the action provided and mainly return the new state and the 
-cost.
+class. Fill free to fill in the missing parts based on your needs. The
+`gymnasium.Env.reset` method should initialize the state of the system, while the
+`gymnasium.Env.steo` method should update the state of the system based on the action
+provided and mainly return the new state and the cost.
 
 ```python
 from gymnasium import Env
@@ -190,20 +191,22 @@ mpc = Mpc[cs.SX](Nlp(), N)
 
 # create the parametrization of the controller
 nx, nu = LtiSystem.ns, LtiSystem.na
-A = mpc.parameter("A", (nx, nx))
-B = mpc.parameter("B", (nx, nu))
-Q = mpc.parameter("Q", (nx, nx))
-R = mpc.parameter("R", (nu, nu))
+Atilde = mpc.parameter("Atilde", (nx, nx))
+Btilde = mpc.parameter("Btilde", (nx, nu))
+Qtilde = mpc.parameter("Qtilde", (nx, nx))
+Rtilde = mpc.parameter("Rtilde", (nu, nu))
 
 # create the variables of the controller
 x, _ = mpc.state("x", nx)
 u, _ = mpc.action("u", nu, lb=-1.0, ub=1.0)
 
 # set the dynamics
-mpc.set_dynamics(lambda x, u: A @ x + B @ u, n_in=2, n_out=1)
+mpc.set_dynamics(lambda x, u: Atilde @ x + Btilde @ u, n_in=2, n_out=1)
 
 # set the objective
-mpc.minimize(sum(cs.bilin(Q, x[:, i]) + cs.bilin(R, u[:, i]) for i in range(N)))
+mpc.minimize(
+    sum(cs.bilin(Qtilde, x[:, i]) + cs.bilin(Rtilde, u[:, i]) for i in range(N))
+)
 
 # initiliaze the solver with some options
 opts = {
@@ -220,14 +223,32 @@ mpc.init_solver(opts, solver="ipopt")
 
 The last step is to train the controller using an RL algorithm. For instance, here we
 use Q-Learning. The idea is to let the controller interact with the environment, observe
-the cost, and update the MPC parameters accordingly. This can be done as follows.
+the cost, and update the MPC parameters accordingly. This can be achieved by computing
+the temporal difference error
+
+$$
+\delta_k = L(s_k, a_k) + \gamma V_\theta(s_{k+1}) - Q_\theta(s_k, a_k),
+$$
+
+where $\gamma$ is the discount factor, and $V_\theta$ and $Q_\theta$ are the state and
+state-action value functions, both provided by the parametrized MPC controller with
+$\theta = \{\tilde{A}, \tilde{B}, \tilde{Q}, \tilde{R}\}$. The update rule for the
+parameters is then given by
+
+$$
+\theta \gets \theta + \alpha \delta_k \nabla_\theta Q_\theta(s_k, a_k),
+$$
+
+where $\alpha$ is the learning rate, and $\nabla_\theta Q_\theta(s_k, a_k)$ is the
+sensitivity of the state-action value function w.r.t. the parameters. All of this can be
+implemented as follows.
 
 ```python
 from mpcrl import LearnableParameter, LearnableParametersDict, LstdQLearningAgent
 from mpcrl.optim import GradientDescent
 
 # give some initial values to the learnable parameters (shapes must match!)
-learnable_pars_init = {"A": ..., "B": ..., "Q": ..., "R": ...}
+learnable_pars_init = {"Atilde": ..., "Btilde": ..., "Qtilde": ..., "Rtilde": ...}
 
 # create the set of parameters that should be learnt
 learnable_pars = LearnableParametersDict[cs.SX](
