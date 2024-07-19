@@ -97,30 +97,34 @@ pip install -e /path/to/mpc-reinforcement-learning
 Here we provide the skeleton of a simple application of the library. The aim of the code
 below is to let an MPC control strategy learn how to optimally control a simple Linear
 Time Invariant (LTI) system. The cost (i.e., the opposite of the reward) of controlling
-this system in state $s$ with action $a$ is given by
+this system in state $s \in \mathbb{R}^{n_s}$ with action 
+$a \in \mathbb{R}^{n_a}$ is given by
 
 $$
 L(s,a) = s^\top Q s + a^\top R a,
 $$
 
-where $Q$ and $R$ are suitable positive definite matrices. However, in the context of
-RL, these matrices are not known, but we can only observe realizations of the cost. The
-The system is described by the usual state-space model
+where $Q \in \mathbb{R}^{n_s \times n_s}$ and $R \in \mathbb{R}^{n_a \times n_a}$ are
+suitable positive definite matrices. However, in the context of RL, these matrices are 
+not known, but we can only observe realizations of the cost. The system is described by 
+the usual state-space model
 
 $$
 s_{k+1} = A s_k + B a_k,
 $$
 
-whose matrices $A$ and $B$ could again in general be unknown. The control action $a_k$
-is assumed bounded in the interval $[-1,1]$. In what follows we will go through the
-usual steps in setting up and solving such a task.
+whose matrices $A \in \mathbb{R}^{n_s \times n_s}$ and 
+$B \in \mathbb{R}^{n_s \times n_a}$ could again in general be unknown. The control 
+action $a_k$ is assumed bounded in the interval $[-1,1]$. In what follows we will go
+through the usual steps in setting up and solving such a task.
 
 ### Environment
 
-The first ingredient to implement is the LTI system in the form of a `gym.Env` class.
-Fill free to fill in the missing parts based on your needs. The `reset` method should
-initialize the state of the system, while the `step` method should update the state of
-the system based on the action provided and mainly return the new state and the cost.
+The first ingredient to implement is the LTI system in the form of a `gymnasium.Env`
+class. Fill free to fill in the missing parts based on your needs. The `reset` method 
+should initialize the state of the system, while the `step` method should update the 
+state of the system based on the action provided and mainly return the new state and the 
+cost.
 
 ```python
 from gymnasium import Env
@@ -164,10 +168,17 @@ which are crucial in calculating the RL updates). In mathematical terms, the MPC
 like this:
 
 $$
-\min_{x_{0:N}, u_{0:N-1} \in [-1,1]}{ \sum_{i=0}^{N-1}{ x_i^\top Q x_i + u_i^\top R u_i } \quad \text{s.t.} \quad x_0 = s_k, \ x_{i+1} = A x_i + B u_i, \ i=0,\dots,N-1 }
+\begin{aligned}
+  \min_{x_{0:N}, u_{0:N-1}} \quad & \sum_{i=0}^{N-1}{ x_i^\top \tilde{Q} x_i + u_i^\top \tilde{R} u_i } & \\
+  \textrm{s.t.} \quad & x_0 = s_k \\
+                      & x_{i+1} = \tilde{A} x_i + \tilde{B} u_i, \quad & i=0,\dots,N-1 \\
+                      & -1 \le u_k \le 1, \quad & i=0,\dots,N-1
+\end{aligned}
 $$
 
-In code, we can implement this as follows.
+where $\tilde{Q}, \tilde{R}, \tilde{A}, \tilde{B}$ do not necessarily have to match
+the environment's $Q, R, A, B$ as they represent a possibly approximated a priori
+knowledge on the sytem. In code, we can implement this as follows.
 
 ```python
 import casadi as cs
