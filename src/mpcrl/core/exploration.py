@@ -1,3 +1,27 @@
+r"""Exploration is a fundamental concept in Reinforcement Learning. Without it, often
+the learning algorithms converge to very suboptimal solutions, or don't even work.
+
+This submodule contains base classes and implementations for exploration strategies in
+the context of MPC-based RL. These classes allow the agent to draw perturbations to
+apply then to the MPC's optimal action, thus inducing exploration. Mathematically
+speaking, this can be achieved in two distinct ways, or modes:
+
+- **additive**: this is the simplest way to apply perturbations. When the MPC solver
+  provides the optimal action to take in the environment's current state :math:`s` by
+  solving the state value function problem :math:`\min_{u} V(s)`, before applying the
+  action to the environment, the agent will draw a perturbation :math:`p` from the
+  exploration stratey and apply the action :math:`\tilde{u} = u + p` to the environment.
+
+- **gradient-based**: this is a more sophisticated way to apply perturbations. We can
+  induce exploration more safely by modifying the objective of the state value function
+  as :math:`\min_{u} V(s) + p^\top u_0`, where :math:`p` is the random perturbation and
+  :math:`u_0` is the first action in the NLP problem. This way, we can perturb the
+  gradient of the solution based on the scale of the first action.
+
+See :ref:`user_guide_exploration` for a more thorough explanation. In any case,
+whichever mode is selected, all the modifications and perturbations are taken care of
+automatically by the agent and the exploration strategy."""
+
 from abc import ABC, abstractmethod
 from typing import Any, Literal, Optional, Union
 
@@ -9,33 +33,33 @@ from .schedulers import NoScheduling, Scheduler
 
 
 class ExplorationStrategy(ABC):
-    """Base class for exploration strategies such as greedy, epsilon-greedy, etc."""
+    """Base abstract class for exploration strategies.
+
+    Parameters
+    ----------
+    hook : {"on_update", "on_episode_end", "on_timestep_end"}, optional
+        Specifies to which callback to hook onto, i.e., when to step the exploration's
+        schedulers (if any) to, e.g., decay the chances of exploring or the perturbation
+        strength (see :meth:`step` also). The options are
+
+        - ``"on_update"``, which steps the exploration after each agent's update
+        - ``"on_episode_end"``, which steps the exploration after each episode ends
+        - ``"on_timestep_end"``, which steps the exploration after each env's timestep.
+
+        By default, ``"on_update"`` is selected.
+    mode : {"gradient-based", "additive"} optional
+        Mode of application of explorative perturbations to the MPC. If ``"additive"``,
+        then the drawn pertubation is added to the optimal action computed by the
+        MPC solver. By default, ``"gradient-based"`` is selected, and in this mode the
+        pertubations enter  directly in the MPC objective and is multiplied by the first
+        action, thus affecting its gradient.
+    """
 
     def __init__(
         self,
         hook: Literal["on_update", "on_episode_end", "on_timestep_end"] = "on_update",
         mode: Literal["gradient-based", "additive"] = "gradient-based",
     ) -> None:
-        """Instantiates a generic exploration strategy.
-
-        Parameters
-        ----------
-        hook : {'on_update', 'on_episode_end', 'on_timestep_end'}, optional
-            Specifies to which callback to hook, i.e., when to step the exploration's
-            schedulers (if any) to, e.g., decay the chances of exploring or the
-            perturbation strength (see `step` method also). The options are:
-             - `on_update` steps the exploration after each agent's update
-             - `on_episode_end` steps the exploration after each episode's end
-             - `on_timestep_end` steps the exploration after each env's timestep.
-
-            By default, 'on_update' is selected.
-        mode : {'gradient-based', 'additive'} optional
-            Mode of application of explorative perturbations to the MPC. If `additive`,
-            then the drawn pertubation is added to the optimal action computed by the
-            MPC. By default, `gradient-based` is selected, and in this mode the
-            pertubations enter  directly in the MPC objective and multiplied by the
-            first action, thus affecting its gradient.
-        """
         super().__init__()
         self._hook = hook
         self._mode = mode
@@ -44,32 +68,33 @@ class ExplorationStrategy(ABC):
     def hook(
         self,
     ) -> Optional[Literal["on_update", "on_episode_end", "on_timestep_end"]]:
-        """Specifies to which callback to hook, i.e., when to step the exploration's
-        schedulers (if any) to, e.g., decay the chances of exploring or the perturbation
-        strength (see `step` method also). Can be `None` in case no hook is needed."""
-        return self._hook  # override this property if schedulers are used in the class
+        """Gets which callback the exploration is hooked on, i.e., when to step the
+        exploration's schedulers (if any) to, e.g., decay the chances of exploring or
+        the perturbation strength (see :meth:`step` also). Can be ``None`` in case no
+        hook is needed."""
+        return self._hook
 
     @property
     def mode(self) -> Literal["gradient-based", "additive"]:
-        """Mode of application of explorative perturbations to the MPC."""
+        """Gets the mode of application of explorative perturbations to the MPC."""
         return self._mode
 
     @abstractmethod
     def can_explore(self) -> bool:
         """Computes whether, according to the exploration strategy, the agent should
-        explore or not at the current instant.
+        explore or not now, at the current instant.
 
         Returns
         -------
         bool
-            `True` if the agent should explore according to this strategy; otherwise,
-            `False`.
+            ``True`` if the agent should explore according to this strategy; otherwise,
+            ``False``.
         """
 
     @abstractmethod
     def step(self, *args: Any, **kwargs: Any) -> None:
-        """Updates the exploration strength and/or probability, in case the strategy
-        supports them (usually, by decaying them over time)."""
+        """Steps (i.e., decays or increases) any scheduler that this class holds, e.g.,
+        exploration's strength and chances."""
 
     @abstractmethod
     def perturbation(self, *args: Any, **kwargs: Any) -> npt.NDArray[np.floating]:
@@ -89,29 +114,31 @@ class NoExploration(ExplorationStrategy):
     """Strategy where no exploration is allowed at any time or, in other words, the
     policy is always deterministic (only based on the current state, and not perturbed).
 
-    This is a special kind of `ExplorationStrategy`, the only one without any
-    `hook` and `mode`.
+    Notes
+    -----
+    This is a special kind of :class:`ExplorationStrategy`, the only one without any
+    :attr:`hook` and :attr:`mode`.
     """
 
     def __init__(self) -> None:
-        """Instiates a no-exploration strategy."""
         super().__init__()
         del self._hook, self._mode
 
     @property
     def hook(self) -> None:
-        """Returns `None`, since no exploration is allowed."""
+        """Returns ``None``, since no exploration is allowed."""
         return None
 
     @property
     def mode(self) -> None:
-        """Returns no mode."""
+        """Returns ``None``, since no exploration is allowed."""
         return None
 
     def can_explore(self) -> bool:
         return False
 
     def step(self, *_, **__) -> None:
+        """Does nothing, since no exploration is allowed."""
         return
 
     def perturbation(self, *args: Any, **kwargs: Any) -> npt.NDArray[np.floating]:
@@ -124,8 +151,34 @@ class NoExploration(ExplorationStrategy):
 
 
 class GreedyExploration(ExplorationStrategy):
-    """Fully greedy strategy for perturbing the policy, thus inducing exploration. This
-    strategy always perturbs randomly the policy."""
+    """Fully greedy strategy that always perturbs randomly the MPC policy.
+
+    Parameters
+    ----------
+    strength : scheduler or array/supports-algebraic-operations
+        The strength of the exploration. If passed in the form of an
+        :class:`mpcrl.schedulers.Scheduler`, then the strength can be scheduled to decay
+        or increase every time :meth:`step` is called. Otherwise, it is kept constant.
+    hook : {"on_update", "on_episode_end", "on_timestep_end"}, optional
+        Specifies to which callback to hook onto, i.e., when to step the exploration's
+        schedulers (if any) to, e.g., decay the chances of exploring or the perturbation
+        strength (see :meth:`step` also). The options are
+
+        - ``"on_update"``, which steps the exploration after each agent's update
+        - ``"on_episode_end"``, which steps the exploration after each episode ends
+        - ``"on_timestep_end"``, which steps the exploration after each env's timestep.
+
+        By default, ``"on_update"`` is selected.
+    mode : {"gradient-based", "additive"} optional
+        Mode of application of explorative perturbations to the MPC. If ``"additive"``,
+        then the drawn pertubation is added to the optimal action computed by the
+        MPC solver. By default, ``"gradient-based"`` is selected, and in this mode the
+        pertubations enter  directly in the MPC objective and is multiplied by the first
+        action, thus affecting its gradient.
+    seed : None, int, array_like of ints, SeedSequence, BitGenerator, Generator
+        Number to seed the :class:`numpy.random.Generator` used for randomizing the
+        exploration. By default, ``None``.
+    """
 
     def __init__(
         self,
@@ -134,35 +187,6 @@ class GreedyExploration(ExplorationStrategy):
         mode: Literal["gradient-based", "additive"] = "gradient-based",
         seed: RngType = None,
     ) -> None:
-        """Initializes the greedy exploration strategy.
-
-        Parameters
-        ----------
-        strength : scheduler or array/supports-algebraic-operations
-            The strength of the exploration. If passed in the form of an
-            `mpcrl.schedulers.Scheduler`, then the strength can be scheduled to
-            decay/increase every time `exploration.step` is called. If an array or
-            something other than a scheduler is passed, then this quantity will get
-            wrapped in a base scheduler which will kept it constant.
-        hook : {'on_update', 'on_episode_end', 'on_timestep_end'}, optional
-            Specifies to which callback to hook, i.e., when to step the exploration's
-            schedulers (if any) to, e.g., decay the chances of exploring or the
-            perturbation strength (see `step` method also). The options are:
-             - `on_update` steps the exploration after each agent's update
-             - `on_episode_end` steps the exploration after each episode's end
-             - `on_timestep_end` steps the exploration after each env's timestep.
-
-            By default, 'on_update' is selected.
-        mode : {'gradient-based', 'additive'} optional
-            Mode of application of explorative perturbations to the MPC. If `additive`,
-            then the drawn pertubation is added to the optimal action computed by the
-            MPC. By default, `gradient-based` is selected, and in this mode the
-            pertubations enter  directly in the MPC objective and multiplied by the
-            first action, thus affecting its gradient.
-        seed : None, int, array_like[ints], SeedSequence, BitGenerator, Generator
-            Number to seed the RNG engine used for randomizing the exploration. By
-            default, `None`.
-        """
         super().__init__(hook, mode)
         if not isinstance(strength, Scheduler):
             strength = NoScheduling[npt.NDArray[np.floating]](strength)
@@ -177,14 +201,14 @@ class GreedyExploration(ExplorationStrategy):
         return None if isinstance(self.strength_scheduler, NoScheduling) else self._hook
 
     def reset(self, seed: RngType = None) -> None:
-        """Resets the exploration RNG."""
         self.np_random = np.random.default_rng(seed)
 
     def can_explore(self) -> bool:
         return True
 
     def step(self, *_, **__) -> None:
-        """Updates the exploration strength according to its scheduler."""
+        """Steps (i.e., decays or increases) the exploration strength according to its
+        scheduler."""
         self.strength_scheduler.step()
 
     def perturbation(
@@ -195,8 +219,10 @@ class GreedyExploration(ExplorationStrategy):
         Parameters
         ----------
         method : str
-            The name of a method from the ones available to `numpy.random.Generator`,
-            e.g., 'random', 'normal', etc.
+            The name of a method from the ones available to
+            :class:`numpy.random.Generator`,
+            e.g., ``"random"`` for :func:`numpy.random.Generator.random`, ``"normal"``
+            for :func:`numpy.random.Generator.random`, etc.
         args, kwargs
             Args and kwargs with which to call such method.
 
@@ -216,8 +242,40 @@ class GreedyExploration(ExplorationStrategy):
 
 
 class EpsilonGreedyExploration(GreedyExploration):
-    """Epsilon-greedy strategy for perturbing the policy, thus inducing exploration.
-    This strategy only occasionally perturbs randomly the policy."""
+    """Epsilon-greedy strategy for perturbing the policy, which only occasionally
+    perturbs randomly the MPC policy.
+
+    Parameters
+    ----------
+    epsilon : scheduler or float
+        The probability to explore. Should be in range ``[0, 1]``. If passed in the form
+        of an :class:`mpcrl.schedulers.Scheduler`, then the probability can be scheduled
+        to decay or increase every time :meth:`step` is called. Otherwise, it is kept
+        constant.
+    strength : scheduler or array/supports-algebraic-operations
+        The strength of the exploration. If passed in the form of an
+        :class:`mpcrl.schedulers.Scheduler`, then the strength can be scheduled to decay
+        or increase every time :meth:`step` is called. Otherwise, it is kept constant.
+    hook : {"on_update", "on_episode_end", "on_timestep_end"}, optional
+        Specifies to which callback to hook onto, i.e., when to step the exploration's
+        schedulers (if any) to, e.g., decay the chances of exploring or the perturbation
+        strength (see :meth:`step` also). The options are
+
+        - ``"on_update"``, which steps the exploration after each agent's update
+        - ``"on_episode_end"``, which steps the exploration after each episode ends
+        - ``"on_timestep_end"``, which steps the exploration after each env's timestep.
+
+        By default, ``"on_update"`` is selected.
+    mode : {"gradient-based", "additive"} optional
+        Mode of application of explorative perturbations to the MPC. If ``"additive"``,
+        then the drawn pertubation is added to the optimal action computed by the
+        MPC solver. By default, ``"gradient-based"`` is selected, and in this mode the
+        pertubations enter  directly in the MPC objective and is multiplied by the first
+        action, thus affecting its gradient.
+    seed : None, int, array_like of ints, SeedSequence, BitGenerator, Generator
+        Number to seed the :class:`numpy.random.Generator` used for randomizing the
+        exploration. By default, ``None``.
+    """
 
     def __init__(
         self,
@@ -227,37 +285,6 @@ class EpsilonGreedyExploration(GreedyExploration):
         mode: Literal["gradient-based", "additive"] = "gradient-based",
         seed: RngType = None,
     ) -> None:
-        """Initializes the epsilon-greedy exploration strategy.
-
-        Parameters
-        ----------
-        epsilon : scheduler or float
-            The probability to explore. Should be in range [0, 1]. If passed in the form
-            of an `mpcrl.schedulers.Scheduler`, then the probability can be scheduled to
-            decay/increase every time `exploration.step` is called. If an array or
-            something other than a scheduler is passed, then this quantity will get
-            wrapped in a base scheduler which will kept it constant.
-        strength : scheduler or array/supports-algebraic-operations
-            The strength of the exploration. Can be scheduled, see `epsilon`.
-        hook : {'on_update', 'on_episode_end', 'on_timestep_end'}, optional
-            Specifies to which callback to hook, i.e., when to step the exploration's
-            schedulers (if any) to, e.g., decay the chances of exploring or the
-            perturbation strength (see `step` method also). The options are:
-             - `on_update` steps the exploration after each agent's update
-             - `on_episode_end` steps the exploration after each episode's end
-             - `on_timestep_end` steps the exploration after each env's timestep.
-
-            By default, 'on_update' is selected.
-        mode : {'gradient-based', 'additive'} optional
-            Mode of application of explorative perturbations to the MPC. If `additive`,
-            then the drawn pertubation is added to the optimal action computed by the
-            MPC. By default, `gradient-based` is selected, and in this mode the
-            pertubations enter  directly in the MPC objective and multiplied by the
-            first action, thus affecting its gradient.
-        seed : None, int, array_like[ints], SeedSequence, BitGenerator, Generator
-            Number to seed the RNG engine used for randomizing the exploration. By
-            default, `None`.
-        """
         super().__init__(strength, hook, mode, seed)
         if not isinstance(epsilon, Scheduler):
             epsilon = NoScheduling[float](epsilon)
@@ -279,8 +306,8 @@ class EpsilonGreedyExploration(GreedyExploration):
         return self.np_random.random() <= self.epsilon_scheduler.value
 
     def step(self, *_, **__) -> None:
-        """Updates the exploration probability and strength according to their
-        schedulers."""
+        """Steps (i.e., decays or increases) the exploration strength and probability
+        according to their schedulers."""
         self.strength_scheduler.step()
         self.epsilon_scheduler.step()
 
@@ -292,12 +319,42 @@ class EpsilonGreedyExploration(GreedyExploration):
 
 
 class OrnsteinUhlenbeckExploration(ExplorationStrategy):
-    """
-    Exploration based on the Ornstein-Uhlenbeck Brownian motion with friction. See
-    implementation from  https://github.com/DLR-RM/stable-baselines3/tree/master.
+    """Exploration based on the Ornstein-Uhlenbeck Brownian motion with friction.
 
-    Note: since this exploration strategy creates a particular noise process, it is
-    independent of the agent's `cost_perturbation_method` field.
+    Inspired by :class:`stable_baselines3.common.noise.OrnsteinUhlenbeckActionNoise`.
+
+    Parameters
+    ----------
+    mean : scheduler or array/supports-algebraic-operations
+        Mean of the stochastic process. Should have the same shape as the action.
+    sigma : scheduler or array/supports-algebraic-operations
+        Standard deviation of the stochastic process. Should have the same shape as
+        the action.
+    theta : float, optional
+        Coefficient of attraction of the process towards mean, by default ``0.15``.
+    dt : float, optional
+        Time step of the process, by default ``1.0``.
+    initial_noise : array-like, optional
+        A default initial noise. By default ``None``, in which case it is set to zero.
+    hook : {"on_update", "on_episode_end", "on_timestep_end"}, optional
+        Specifies to which callback to hook onto, i.e., when to step the exploration's
+        schedulers (if any) to, e.g., decay the chances of exploring or the perturbation
+        strength (see :meth:`step` also). The options are
+
+        - ``"on_update"``, which steps the exploration after each agent's update
+        - ``"on_episode_end"``, which steps the exploration after each episode ends
+        - ``"on_timestep_end"``, which steps the exploration after each env's timestep.
+
+        By default, ``"on_update"`` is selected.
+    mode : {"gradient-based", "additive"} optional
+        Mode of application of explorative perturbations to the MPC. If ``"additive"``,
+        then the drawn pertubation is added to the optimal action computed by the
+        MPC solver. By default, ``"gradient-based"`` is selected, and in this mode the
+        pertubations enter  directly in the MPC objective and is multiplied by the first
+        action, thus affecting its gradient.
+    seed : None, int, array_like of ints, SeedSequence, BitGenerator, Generator
+        Number to seed the :class:`numpy.random.Generator` used for randomizing the
+        exploration. By default, ``None``.
     """
 
     def __init__(
@@ -311,40 +368,6 @@ class OrnsteinUhlenbeckExploration(ExplorationStrategy):
         mode: Literal["gradient-based", "additive"] = "gradient-based",
         seed: RngType = None,
     ) -> None:
-        """Creates a new Ornstein-Uhlenbeck exploration strategy.
-
-        Parameters
-        ----------
-        mean : scheduler or array/supports-algebraic-operations
-            Mean of the stochastic process. Should have the same shape as the action.
-        sigma : scheduler or array/supports-algebraic-operations
-            Standard deviation of the stochastic process. Should have the same shape as
-            the action.
-        theta : float, optional
-            Coefficient of attraction of the process towards mean, by default `0.15`.
-        dt : float, optional
-            Time step of the process, by default `1.0`.
-        initial_noise : array-like, optional
-            A default initial noise. By default `None`, in which case it is set to zero.
-        hook : {'on_update', 'on_episode_end', 'on_timestep_end'}, optional
-            Specifies to which callback to hook, i.e., when to step the exploration's
-            schedulers (if any) to, e.g., decay the chances of exploring or the
-            perturbation strength (see `step` method also). The options are:
-             - `on_update` steps the exploration after each agent's update
-             - `on_episode_end` steps the exploration after each episode's end
-             - `on_timestep_end` steps the exploration after each env's timestep.
-
-            By default, 'on_update' is selected.
-        mode : {'gradient-based', 'additive'} optional
-            Mode of application of explorative perturbations to the MPC. If `additive`,
-            then the drawn pertubation is added to the optimal action computed by the
-            MPC. By default, `gradient-based` is selected, and in this mode the
-            pertubations enter  directly in the MPC objective and multiplied by the
-            first action, thus affecting its gradient.
-        seed : None, int, array_like[ints], SeedSequence, BitGenerator, Generator
-            Number to seed the RNG engine used for randomizing the exploration. By
-            default, `None`.
-        """
         super().__init__(hook, mode)
         if not isinstance(mean, Scheduler):
             mean = NoScheduling[npt.NDArray[np.floating]](mean)
@@ -370,7 +393,6 @@ class OrnsteinUhlenbeckExploration(ExplorationStrategy):
         )
 
     def reset(self, seed: RngType = None) -> None:
-        """Resets the exploration RNG."""
         self.np_random = np.random.default_rng(seed)
         self._prev_noise = (
             np.zeros_like(self.mean_scheduler.value)
@@ -382,7 +404,8 @@ class OrnsteinUhlenbeckExploration(ExplorationStrategy):
         return True
 
     def step(self, *_, **__) -> None:
-        """Updates the mean and std of the noise according to their schedulers."""
+        """Updates (i.e., decays or increases) the mean and standard deviation of the
+        perturbation according to their schedulers."""
         self.mean_scheduler.step()
         self.sigma_scheduler.step()
 
@@ -407,18 +430,32 @@ class OrnsteinUhlenbeckExploration(ExplorationStrategy):
 
 
 class StepWiseExploration(ExplorationStrategy):
-    """Wrapper exploration class that enables a base exploration strategy to change only
-    every N steps, thus yielding a step-wise strategy with steps of the given length.
-    This is useful when, e.g., the exploration strategy must be kept constant across
-    time for a number of steps.
+    """Wrapper-like exploration that keeps the wrapped base exploration strategy
+    constants for a number of steps, thus creating a piecewise exploration.
 
-    Note
-    ----
-    This exploration wrapper modifies the exploration chance and magnitude of the
-    wrapped base strategy as well as the step behaviour, i.e., the decay of the base
-    exploration's schedulers (if any) is enlarged by the step size factor. This is
-    because the number of calls to the base exploration's `step` method is reduced by
-    a factor of the step size.
+    This class takes in another exploration instance, and allows it to change only every
+    ``N`` steps, thus yielding a step-wise strategy with steps of the given length. This
+    is useful when, e.g., the exploration strategy must be kept constant across time for
+    a number of steps.
+
+    Parameters
+    ----------
+    base_exploration : ExplorationStrategy
+        The base exploration strategy to be made step-wise.
+    step_size : int
+        Size of each step.
+    stepwise_decay : bool, optional
+        Enables the decay :meth:`step` to also be step-wise, i.e., applied only every
+        ``N`` steps.
+
+    Notes
+    -----
+    Be carefull that this exploration wrapper ends up modifying the exploration chance
+    and magnitude (if any) of the wrapped base strategy as well as the step behaviour,
+    i.e., the frequency of the decay/increment of the base exploration's schedulers
+    (again, if any) is enlarged by the step size factor. This is because the number of
+    calls to the base exploration's :meth:`step` method is reduced by a factor of the
+    step size.
     """
 
     def __init__(
@@ -427,18 +464,6 @@ class StepWiseExploration(ExplorationStrategy):
         step_size: int,
         stepwise_decay: bool = True,
     ) -> None:
-        """Creates a step-wise exploration strategy wrapepr.
-
-        Parameters
-        ----------
-        base_exploration : ExplorationStrategy
-            The base exploration strategy to be made step-wise.
-        step_size : int
-            Size of each step.
-        stepwise_decay : bool, optional
-            Enables the decay `step` to also be step-wise, i.e., applied only every N
-            steps.
-        """
         super().__init__()
         del self._hook, self._mode
         self.base_exploration = base_exploration

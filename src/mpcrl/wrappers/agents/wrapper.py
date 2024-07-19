@@ -8,18 +8,18 @@ from ...core.callbacks import CallbackMixin
 
 
 class Wrapper(SupportsDeepcopyAndPickle, CallbackMixin, Generic[SymType]):
-    """Wraps a learning agent to allow a modular transformation of its methods. This
-    class is the base class for all wrappers. The subclass could override some methods
-    to change the behavior of the original agent without touching the original code."""
+    """Wraps an instance of :class:`mpcrl.Agent` to allow a modular transformation of
+    its behaviour. This class is the base class for all wrappers. The subclass could
+    override some methods to change the behavior of the original agent without touching
+    the original code.
+
+    Parameters
+    ----------
+    agent : Agent or subclass
+        The agent to wrap.
+    """
 
     def __init__(self, agent: Agent[SymType]) -> None:
-        """Wraps an agent's instance.
-
-        Parameters
-        ----------
-        agent : Agent or subclass
-            The agent to wrap.
-        """
         SupportsDeepcopyAndPickle.__init__(self)
         CallbackMixin.__init__(self)
         del self._hooks  # keep only one dict of hooks, i.e., the agent's one
@@ -29,7 +29,7 @@ class Wrapper(SupportsDeepcopyAndPickle, CallbackMixin, Generic[SymType]):
 
     @property
     def unwrapped(self) -> Union[Agent[SymType], LearningAgent[SymType, ExpType]]:
-        """'Returns the original agent of the wrapper."""
+        """Returns the original agent wrapped by this wrapper."""
         return self.agent.unwrapped
 
     def is_wrapped(self, wrapper_type: type["Wrapper[SymType]"]) -> bool:
@@ -43,7 +43,8 @@ class Wrapper(SupportsDeepcopyAndPickle, CallbackMixin, Generic[SymType]):
         Returns
         -------
         bool
-            `True` if wrapped by an instance of `wrapper_type`; `False`, otherwise.
+            ``True`` if wrapped by an instance of ``wrapper_type``; ``False``,
+            otherwise.
         """
         if isinstance(self, wrapper_type):
             return True
@@ -65,13 +66,20 @@ class Wrapper(SupportsDeepcopyAndPickle, CallbackMixin, Generic[SymType]):
         Parameters
         ----------
         recursive : bool, optional
-            If `True`, detaches all the wrappers around the agent recursively.
+            If ``True``, detaches all the wrappers around the agent recursively.
 
         Returns
         -------
-        Agent or Wrapper
+        Agent or LearningAgent or Wrapper
             Returns the wrapped agent (or other wrapper) instance. This instance has no
-            more active hooks attached by this wrapper.
+            more active hooks attached by this wrapper. If ``recursive=True``, all the
+            wrappers around the agent and their hooks are detached.
+
+        Notes
+        -----
+        Detaching a wrapper is useful when you want to make sure that the wrapper's
+        hooked callback cannot modify the behaviour or data of the agent, for example,
+        after learning is done and you want to save and evaluate your learnt policy.
         """
         hooks = self.unwrapped._hooks
         hooked_callbacks = self._hooked_callbacks
@@ -103,16 +111,15 @@ class Wrapper(SupportsDeepcopyAndPickle, CallbackMixin, Generic[SymType]):
         return getattr(self.agent, name)
 
     def __str__(self) -> str:
-        """Returns the wrapped agent string."""
         return f"<{self.__class__.__name__}{self.agent.__str__()}>"
 
     def __repr__(self) -> str:
-        """Returns the wrapped agent representation."""
         return f"<{self.__class__.__name__}{self.agent.__repr__()}>"
 
 
 class LearningWrapper(Wrapper[SymType], Generic[SymType, ExpType]):
-    """Identical to `Wrapper`, but for learning agents."""
+    """A :class:`Wrapper` subclass dedicated to wrapping instances of
+    :class:`mpcrl.LearningAgent`."""
 
     def __init__(self, agent: LearningAgent[SymType, ExpType]) -> None:
         Wrapper.__init__(self, agent)

@@ -37,16 +37,94 @@ def _update_dicts(sinks: Iterable[dict], source: dict) -> Iterator[dict]:
 
 
 class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymType]):
-    """Simple MPC-based agent with a fixed (i.e., non-learnable) MPC controller.
+    r"""Simple MPC-based agent with a fixed (i.e., non-learnable) MPC controller.
 
-    In this agent, the MPC controller is used as policy provider, as well as to provide
-    the value function `V(s)` and quality function `Q(s,a)`, where `s` and `a` are the
-    state and action of the environment, respectively. However, this class does not use
-    any RL method to improve its MPC policy."""
+    In this agent, the MPC controller parametrized in :math:`\theta` is used as policy
+    provider, as well as to provide the value function :math:`V_\theta(s)` and quality
+    function :math:`Q_\theta(s,a)`, where :math:`s` and :math:`a` are the state of the
+    environment and a generic action, respectively. Since it only supports a fixed
+    parametrization, this class does not use any RL or other learning method to improve
+    its MPC policy.
+
+    Parameters
+    ----------
+    mpc : :class:`csnlp.wrappers.Mpc`
+        The MPC controller used as policy provider by this agent. The instance is
+        modified in place to create the approximations of the state function
+        :math:`V_\theta(s)` and action value function :math:`Q_\theta(s,a)`, so it is
+        recommended not to modify it further after initialization of the agent.
+        Moreover, some parameter and constraint names will need to be created, so an
+        error is thrown if these names are already in use in the mpc.
+    fixed_parameters : dict of (str, array_like) or collection of, optional
+        A dict (or collection of dict, in case of the ``mpc`` wrapping an underlying
+        :class:`csnlp.multistart.MultistartNlp` instance) whose keys are the names of
+        the MPC parameters and the values are their corresponding values. Use this to
+        specify fixed parameters, that is, non-learnable. If ``None``, then no fixed
+        parameter is assumed.
+    exploration : :class:`core.exploration.ExplorationStrategy`, optional
+        Exploration strategy for inducing exploration in the online MPC policy. By
+        default ``None``, in which case :class:`core.exploration.NoExploration` is used.
+    warmstart : "last" or "last-successful" or WarmStartStrategy, optional
+        The warmstart strategy for the MPC's NLP. If ``"last-successful"``, the last
+        successful solution is used to warmstart the solver for the next iteration. If
+        ``"last"``, the last solution is used, regardless of success or failure.
+        Furthermore, an instance of :class:`core.warmstart.WarmStartStrategy` can
+        be passed to specify a strategy for generating multiple warmstart points for the
+        MPC's NLP instance. This is useful to generate multiple initial conditions for
+        highly non-convex, nonlinear problems. This feature Can only be used with an
+        MPC that has an underlying multistart NLP problem (see :mod:`csnlp.multistart`).
+    use_last_action_on_fail : bool, optional
+        In case the MPC solver fails
+         - if ``False``, the action from the last solver's iteration is returned anyway
+           (though suboptimal)
+         - if ``True``, the action from the last successful call to the MPC is returned
+           instead (if the MPC has been solved at least once successfully).
+
+        By default, ``False``.
+    remove_bounds_on_initial_action : bool, optional
+        When ``True``, the upper and lower bounds on the initial action are removed in
+        the action-value function approximator :math:`Q_\theta(s,a)` since the first
+        action is constrained to be equal to the provided action :math:`a`. This is
+        useful to avoid issues in the LICQ of the NLP. However, it can lead to numerical
+        problems. By default, ``False``.
+    name : str, optional
+        Name of the agent. If ``None``, one is automatically created from a counter of
+        the class' instancies.
+
+    Raises
+    ------
+    ValueError
+        Raises if
+         - the given ``mpc`` has no control action as optimization variable
+         - the reserved parameter and constraint names are already in use (see
+           :attr:`cost_perturbation_parameter`, :attr:`init_action_parameter` and
+           :attr:`init_action_constraint`)
+         - a multistart ``mpc`` is given, but the warmstart strategy ``warmstart`` asks
+           for an incompatible number of starting points to be generated
+         - a warmstart strategy ``warmstart`` is given, but the ``mpc`` does not have an
+           underlying multistart NLP problem, so it cannot handle multiple starting
+           points (see :attr:`csnlp.Nlp.is_multi` and
+           :attr:`csnlp.multistart.MultistartNlp.is_multi`).
+    """
 
     cost_perturbation_method = "normal"
+    r"""The name of the method from :class`numpy.random.Generator` to be used to
+    generate perturbations of the cost function in the state value function
+    :math:`V_\theta(s)`."""
+
     cost_perturbation_parameter = "cost_perturbation"
-    init_action_parameter = init_action_constraint = "a_init"
+    r"""The name of the parameter to be added to the original ``mpc`` problem for
+    perturbing the state value function :math:`V_\theta(s)`."""
+
+    init_action_parameter = "a_init"
+    r"""Name of the parameter to be added to the original ``mpc`` problem for
+    constraining the first action to be equal to :math:`a` in the action value function
+    :math:`Q_\theta(s,a)`."""
+
+    init_action_constraint = init_action_parameter
+    r"""Name of the equality constraint to be added to the original ``mpc`` problem for
+    constraining the first action to be equal to :math:`a` in the action value function
+    :math:`Q_\theta(s,a)`."""
 
     def __init__(
         self,
@@ -62,64 +140,6 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
         remove_bounds_on_initial_action: bool = False,
         name: Optional[str] = None,
     ) -> None:
-        """Instantiates an agent with an MPC controller.
-
-        Parameters
-        ----------
-        mpc : Mpc[casadi.SX or MX]
-            The MPC controller used as policy provider by this agent. The instance is
-            modified in place to create the approximations of the state function `V(s)`
-            and action value function `Q(s,a)`, so it is recommended not to modify it
-            further after initialization of the agent. Moreover, some parameter and
-            constraint names will need to be created, so an error is thrown if these
-            names are already in use in the mpc. These names are under the attributes
-            `perturbation_parameter`, `action_parameter` and `action_constraint`.
-        fixed_parameters : dict[str, array_like] or collection of, optional
-            A dict (or collection of dict, in case of `csnlp.MultistartNlp`) whose keys
-            are the names of the MPC parameters and the values are their corresponding
-            values. Use this to specify fixed parameters, that is, non-learnable. If
-            `None`, then no fixed parameter is assumed.
-        exploration : ExplorationStrategy, optional
-            Exploration strategy for inducing exploration in the online MPC policy. By
-            default `None`, in which case `NoExploration` is used.
-        warmstart: "last" or "last-successful" or WarmStartStrategy, optional
-            The warmstart strategy for the MPC's NLP. If `last-successful`, the last
-            successful solution is used to warm start the solver for the next iteration.
-            If `last`, the last solution is used, regardless of success or failure.
-            Furthermore, a `WarmStartStrategy` object can be passed to specify a
-            strategy for generating multiple warmstart points for the NLP. This is
-            useful to generate multiple initial conditions for very non-convex problems.
-            Can only be used with an MPC that has an underlying multistart NLP problem
-            (see `csnlp.MultistartNlp`).
-        use_last_action_on_fail : bool, optional
-            In case the MPC solver fails
-             * if `False`, the action from the last solver's iteration is returned
-               anyway (though suboptimal)
-             * if `True`, the action from the last successful call to the MPC is
-               returned instead (if the MPC has been solved at least once successfully).
-
-            By default, `False`.
-        remove_bounds_on_initial_action : bool, optional
-            When `True`, the upper and lower bounds on the initial action are removed in
-            the action-value function approximator Q(s,a) since the first action is
-            constrained to be equal to the initial action. This is useful to avoid
-            issues in the LICQ of the NLP. However, it can lead to numerical problems.
-            By default, `False`.
-        name : str, optional
-            Name of the agent. If `None`, one is automatically created from a counter of
-            the class' instancies.
-
-        Raises
-        ------
-        ValueError
-            Raises if
-             * the given mpc has no control action as optimization variable
-             * the reserved parameter and constraint names are already in use
-             * a multistart MPC is given, but the warmstart strategy asks for an
-               incompatible number of starting points to be generated
-             * a warmstart strategy is given, but the MPC does not have an underlying
-               multistart NLP problem, so it cannot handle multiple starting points.
-        """
         if isinstance(warmstart, str):
             warmstart = WarmStartStrategy(warmstart)
         ws_points = warmstart.n_points
@@ -151,50 +171,83 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
 
     @property
     def unwrapped(self) -> "Agent":
-        """Gets the underlying wrapped instance of an agent."""
+        """Gets the underlying wrapped instance of an agent. In this case, since the
+        agent is not wrapped at all, returns itself."""
         return self
 
     def is_wrapped(self, *args: Any, **kwargs: Any) -> bool:
-        """Gets whether the agent instance is wrapped or not by the wrapper type."""
+        """Gets whether the agent instance is wrapped or not by the wrapper type.
+
+        Returns
+        -------
+        bool
+            A flag indicating whether the agent is wrapped or not.
+        """
         return False
 
     @property
     def V(self) -> Mpc[SymType]:
-        """Gets the MPC function approximation of the state value function `V(s)`."""
+        r"""Gets the MPC function approximation of the state value function
+        :math:`V_\theta(s)`."""
         return self._V
 
     @property
     def Q(self) -> Mpc[SymType]:
-        """Gets the MPC function approximation of the action value function `Q(s,a)`."""
+        r"""Gets the MPC function approximation of the action value function
+        :math:`Q_\theta(s,a)`."""
         return self._Q
 
     @property
     def fixed_parameters(
         self,
     ) -> Union[None, dict[str, npt.ArrayLike], Collection[dict[str, npt.ArrayLike]]]:
-        """Gets the fixed parameters of the MPC controller (i.e., non-learnable). Can be
-        an iterable in the case of `csnlp.MultistartNpl`, where multiple parameters can
-        be specified, one for each scenario in the MPC scheme."""
+        """Gets the fixed parameters of the MPC controller, i.e., the non-learnable
+        ones.
+
+        Returns
+        -------
+        ``None`` or dict of (str, array_like), or collection of
+            The returned object can be either
+             - ``None``, if the MPC controller has no fixed parameters
+             - a dict whose keys are the names of the MPC parameters and the values are
+               their corresponding values, when the MPC controller wraps an instance of
+               :class:`csnlp.Nlp`, or it wraps an instance of
+               :class:`csnlp.multistart.MultistartNlp` but the same set of parameters
+               is meant to be used for all scenarios
+             - a collection of such dictionaries, when the MPC controller wraps an
+               instance of :class:`csnlp.multistart.MultistartNlp` and different
+               parameters are meant to be used for each scenario.
+        """
         return self._fixed_pars
 
     @property
     def exploration(self) -> ExplorationStrategy:
-        """Gets the exploration strategy used within this agent."""
+        r"""Gets the exploration strategy used within this agent to perturb the
+        policy provided by the MPC controller via :math:`V_\theta(s)`."""
         return self._exploration
 
     @property
     def warmstart(self) -> WarmStartStrategy:
-        """Gets the warm start strategy used within this agent."""
+        """Gets the warmstart strategy used within this agent. This strategy is used to
+        generate the initial guess for the solver to optimize the MPC's NLP."""
         return self._warmstart
 
     def reset(self, seed: RngType = None) -> None:
-        """Resets the agent's internal variables and exploration's RNG."""
+        """Resets the agent. This includes resetting the warmstart strategy, the
+        exploration strategy, and the some internal variables of the agent.
+
+        Parameters
+        ----------
+        seed : RngType, optional
+            The seed to reset the  :class:`numpy.random.Generator` instances. By
+            default, ``None``.
+        """
         self._last_solution = None
         self._last_action = None
         self.warmstart.reset(seed)
         self.exploration.reset(seed)
 
-    def solve_mpc(
+    def _solve_mpc(
         self,
         mpc: Mpc[SymType],
         state: Union[npt.ArrayLike, dict[str, npt.ArrayLike]],
@@ -205,32 +258,38 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
         ] = None,
         store_solution: bool = True,
     ) -> Solution[SymType]:
-        """Solves the agent's specific MPC optimal control problem.
+        r"""Solves the agent's specific MPC optimal control problem.
 
         Parameters
         ----------
         mpc : Mpc
-            The MPC problem to solve, either `Agent.V` or `Agent.Q`.
-        state : array_like or dict[str, array_like]
-            A 1D array representing the value of all states of the MPC, concatenated.
+            The MPC problem to solve, either :attr:`V` or :attr:`Q`.
+        state : array_like or dict of (str, array_like)
+            The initial state at which to evaluate the MPC policy, i.e., :math:`s` in
+            :math:`V_\theta(s)` or :math:`Q_\theta(s,a)`. It can be either a 1D array
+            representing the value of all initial states of the MPC, concatenated.
             Otherwise, a dict whose keys are the names of each state, and values are
-            their numerical values.
-        action : array_like or dict[str, array_like], optional
-            Same for `state`, for the action. Only valid if evaluating the action value
-            function `Q(s,a)`. For this reason, it can be `None` for `V(s)`.
+            their numerical initial state values.
+        action : array_like or dict of (str, array_like), optional
+            Same for ``state``, but for the action, i.e., the initial action at which to
+            evaluate the MPC action value function, i.e., :math:`a` in
+            :math:`Q_\theta(s,a)`. Obviously, it is only pertinent if ``mpc`` is
+            :attr:`Q`, while it should be ``None`` for :attr:`V`.
         perturbation : array_like, optional
-            The gradient-based cost perturbation used to induce exploration in `V(s)`.
-            Should be `None` for `Q(s,a)`, or in case of other types of exploration.
-        vals0 : dict[str, array_like] or iterable of, optional
-            A dict (or an iterable of dict, in case of `csnlp.MultistartNlp`), whose
+            The **gradient-based** cost perturbation used to induce exploration in
+            :math:`V_\theta(s)`. Should be ``None`` for :math:`Q_\theta(s,a)`, or in
+            case of other types of exploration are used.
+        vals0 : dict of (str, array_like) or iterable of, optional
+            A dict (or an iterable of dict, in case of
+            :class:`csnlp.multistart.MultistartNlp` is used), whose
             keys are the names of the MPC variables, and values are the numerical
-            initial values of each variable. Use this to warm-start the MPC. If `None`,
-            and a previous solution (possibly, successful) is available, the MPC solver
-            is automatically warm-started. If an iterable is passed instead, the
-            warm-starting strategy is bypassed.
+            initial values of each variable. Use this argument to warmstart the MPC.
+            If ``None``, and a previous solution (possibly, successful) is available,
+            the MPC solver is automatically warmstarted. If an iterable is passed
+            instead, the warmstarting strategy is bypassed.
         store_solution : bool, optional
-            By default, the mpc solution is stored accordingly to the `warmstart`
-            strategy. If set to `False`, this flag allows to disable the behaviour for
+            By default, the MPC solution is stored accordingly to the :attr:`warmstart`
+            strategy. If set to ``False``, this flag allows to disable the behaviour for
             this particular solution.
 
         Returns
@@ -304,36 +363,45 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
         action_space: Optional[Box] = None,
         **kwargs,
     ) -> tuple[cs.DM, Solution[SymType]]:
-        """Computes the state value function `V(s)` approximated by the MPC.
+        r"""Computes the MPC-based state value function approximation
+        :math:`V_\theta(s)`.
 
         Parameters
         ----------
-        state : array_like or dict[str, array_like]
-            The state `s` at which to evaluate the value function `V(s)`. Can either be
-            a dict of state names and values, or a single concatenated column vector of
-            all the states.
+        state : array_like or dict of (str, array_like)
+            The initial state at which to evaluate the MPC approximation of the state
+            value function, i.e., :math:`s` in :math:`V_\theta(s)`. It can be either a
+            1D array representing the value of all initial states of the MPC,
+            concatenated. Otherwise, a dict whose keys are the names of each state, and
+            values are their numerical initial state values.
         deterministic : bool, optional
-            If `False`, the MPC is perturbed according to the exploration strategy to
-            induce some exploratory behaviour. Otherwise, no perturbation is performed.
-            By default, `deterministic=False`.
-        vals0 : dict[str, array_like] or iterable of, optional
-            A dict (or an iterable of dict, in case of `csnlp.MultistartNlp`), whose
+            If ``False``, the MPC controller is perturbed according to the
+            :attr:`exploration` strategy to induce some exploratory behaviour.
+            Otherwise, no perturbation is performed. By default, ``False``.
+        vals0 : dict of (str, array_like) or iterable of, optional
+            A dict (or an iterable of dict, in case of
+            :class:`csnlp.multistart.MultistartNlp` is used), whose
             keys are the names of the MPC variables, and values are the numerical
-            initial values of each variable. Use this to warm-start the MPC. If `None`,
-            and a previous solution (possibly, successful) is available, the MPC solver
-            is automatically warm-started.
+            initial values of each variable. Use this argument to warmstart the MPC.
+            If ``None``, and a previous solution (possibly, successful) is available,
+            the MPC solver is automatically warmstarted. If an iterable is passed
+            instead, the warmstarting strategy is bypassed.
         action_space : gymnasium.spaces.Box, optional
-            The action space of the environment. If not `None`, it is used in case an
-            additive exploration perturbation is summed to the action in order to clip
-            it back into the action space.
+            The action space of the environment the agent is being evaluated/trained on.
+            If not ``None``, it is used in case an additive exploration perturbation is
+            summed to the action in order to clip it back into the action space.
 
         Returns
         -------
         casadi.DM
-            The first optimal action according to the solution of `V(s)`, possibly
-            perturbed by exploration noise
+            The first optimal action according to the solution of the state value
+            function, possibly perturbed by exploration noise, i.e.,
+
+            .. math:: u_0^\star = \arg\min_{u} V_\theta(s)
+
         Solution
-            The solution of the MPC approximating `V(s)` at the given state.
+            The solution of the MPC approximation :math:`V_\theta(s)` at the given
+            state.
         """
         V = self._V
         exploration = self._exploration
@@ -345,7 +413,7 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
             pert = exploration.perturbation(self.cost_perturbation_method, size=(na, 1))
 
         grad_pert = pert if exploration_mode == "gradient-based" else None
-        sol = self.solve_mpc(V, state, perturbation=grad_pert, vals0=vals0, **kwargs)
+        sol = self._solve_mpc(V, state, perturbation=grad_pert, vals0=vals0, **kwargs)
         action_opt = cs.vertcat(*(sol.vals[u][:, 0] for u in V.actions.keys()))
 
         if sol.success:
@@ -373,31 +441,37 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
         ] = None,
         **kwargs,
     ) -> Solution[SymType]:
-        """Computes the action value function `Q(s,a)` approximated by the MPC.
+        r"""Computes the MPC-based action value function approximation
+        :math:`Q_\theta(s,a)`.
 
         Parameters
         ----------
-        state : array_like or dict[str, array_like]
-            The state `s` at which to evaluate the value function `Q(s,a)`. Can either
-            be a dict of state names and values, or a single concatenated column vector
-            of all the states.
-        action : array_like or dict[str, array_like]
-            The action `a` at which to evaluate the value function `Q(s,a)`. Can either
-            be a dict of action names and values, or a single concatenated column vector
-            of all the actions.
-        vals0 : dict[str, array_like] or iterable of, optional
-            A dict (or an iterable of dict, in case of `csnlp.MultistartNlp`), whose
+        state : array_like or dict of (str, array_like)
+            The initial state at which to evaluate the action value function, i.e.,
+            :math:`s` in :math:`Q_\theta(s,a)`. It can be either a 1D array representing
+            the value of all initial states of the MPC, concatenated. Otherwise, a dict
+            whose keys are the names of each state, and values are their numerical
+            initial state values.
+        action : array_like or dict of (str, array_like), optional
+            Same for ``state``, but for the action, i.e., the initial action at which to
+            evaluate the MPC action value function, i.e., :math:`a` in
+            :math:`Q_\theta(s,a)`.
+        vals0 : dict of (str, array_like) or iterable of, optional
+            A dict (or an iterable of dict, in case of
+            :class:`csnlp.multistart.MultistartNlp` is used), whose
             keys are the names of the MPC variables, and values are the numerical
-            initial values of each variable. Use this to warm-start the MPC. If `None`,
-            and a previous solution (possibly, successful) is available, the MPC solver
-            is automatically warm-started.
+            initial values of each variable. Use this argument to warmstart the MPC.
+            If ``None``, and a previous solution (possibly, successful) is available,
+            the MPC solver is automatically warmstarted. If an iterable is passed
+            instead, the warmstarting strategy is bypassed.
 
         Returns
         -------
         Solution
-            The solution of the MPC approximating `Q(s,a)` at given state and action.
+            The solution of the MPC approximation :math:`Q_\theta(s,a)` at the given
+            state and action pair.
         """
-        return self.solve_mpc(self._Q, state, action, vals0=vals0, **kwargs)
+        return self._solve_mpc(self._Q, state, action, vals0=vals0, **kwargs)
 
     def evaluate(
         self,
@@ -408,24 +482,21 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
         raises: bool = True,
         env_reset_options: Optional[dict[str, Any]] = None,
     ) -> npt.NDArray[np.floating]:
-        """Evaluates the agent in a given environment.
-
-        Note: after solving `V(s)` for the current state `s`, the action is computed and
-        passed to the environment as the concatenation of the first optimal action
-        variables of the MPC (see `csnlp.Mpc.actions`).
+        r"""Evaluates the agent in a given environment.
 
         Parameters
         ----------
         env : Env[ObsType, ActType]
-            A gym environment where to test the agent in.
+            The gym environment where to evaluate the agent in.
         episodes : int
             Number of evaluation episodes.
         deterministic : bool, optional
-            Whether the agent should act deterministically; by default, `True`.
-        seed : None, int, array_like[ints], SeedSequence, BitGenerator, Generator
-            Agent's and each env's RNG seed.
+            Whether the agent should act deterministically, i.e., applying no
+            exploration to the policy provided by the MPC. By default, ``True``.
+        seed : None, int, array_like of ints, SeedSequence, BitGenerator, Generator
+            Seed for the agent's and env's random number generator. By default ``None``.
         raises : bool, optional
-            If `True`, when any of the MPC solver runs fails, or when an update fails,
+            If ``True``, when any of the MPC solver runs fails, or when an update fails,
             the corresponding error is raised; otherwise, only a warning is raised.
         env_reset_options : dict, optional
             Additional information to specify how the environment is reset at each
@@ -438,7 +509,14 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
 
         Raises
         ------
-            Raises if the MPC optimization solver fails and `warns_on_exception=False`.
+        MpcSolverError or MpcSolverWarning
+            Raises if the MPC optimization solver fails and ``raises=True``.
+
+        Notes
+        -----
+        After solving :math:`V_\theta(s)` for the current env's state `s`, the action
+        is passed to the environment as the concatenation of the first optimal action
+        variables of the MPC (see `csnlp.Mpc.actions`).
         """
         rng = np.random.default_rng(seed)
         self.reset(rng)
@@ -471,7 +549,7 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
         self, mpc: Mpc[SymType], remove_bounds_on_initial_action: bool
     ) -> tuple[Mpc[SymType], Mpc[SymType]]:
         """Internal utility to setup the function approximators for the value function
-        V(s) and the quality function Q(s,a)."""
+        ``V(s)`` and the quality function ``Q(s,a)``."""
         na = mpc.na
         if na <= 0:
             raise ValueError(f"Expected Mpc with na>0; got na={na} instead.")
@@ -509,14 +587,15 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
         return V, Q
 
     def _post_setup_V_and_Q(self) -> None:
-        """Internal utility that is run after the creation of V and Q, allowing for
-        further customization in inheriting classes."""
+        """Internal utility that is run after the creation of ``V`` and ``Q``, allowing
+        for further customization in inheriting classes."""
 
     def _get_parameters(
         self,
     ) -> Union[None, dict[str, npt.ArrayLike], Collection[dict[str, npt.ArrayLike]]]:
         """Internal utility to retrieve parameters of the MPC in order to solve it.
-        `Agent` has no learnable parameter, so only fixed parameters are returned."""
+        :class:`Agent` has no learnable parameter, so only fixed parameters are
+        returned."""
         return self._fixed_pars
 
     def __deepcopy__(self, memo: Optional[dict[int, list[Any]]] = None) -> "Agent":

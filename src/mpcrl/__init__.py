@@ -1,3 +1,19 @@
+r"""**M**\odel **P**\redictive **C**\ontrol-based **R**\einforcement **L**\earning
+(**mpcrl**, for short) is a library for training model-based Reinforcement Learning (RL)
+:cite:`sutton_reinforcement_2018` agents with Model Predictive Control (MPC) as function
+approximation :cite:`rawlings_model_2017`.
+
+==================== =======================================================================
+**Documentation**        https://mpc-reinforcement-learning.readthedocs.io/en/latest/
+
+**Download**             https://pypi.python.org/pypi/mpcrl/
+
+**Source code**          https://github.com/FilippoAiraldi/mpc-reinforcement-learning/
+
+**Report issues**        https://github.com/FilippoAiraldi/mpc-reinforcement-learning/issues
+==================== =======================================================================
+"""
+
 __version__ = "1.2.1"
 
 __all__ = [

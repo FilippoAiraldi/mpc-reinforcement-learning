@@ -3,6 +3,7 @@ import unittest
 import casadi as cs
 import numpy as np
 from parameterized import parameterized, parameterized_class
+from scipy.special import comb
 
 from mpcrl.util import control, iters, math, named, seeding
 
@@ -37,7 +38,7 @@ class TestMath(unittest.TestCase):
         n = 5
         A = np.random.rand(n, n) + np.eye(n) * 5
         A = 0.5 * (A + A.T)
-        L = math.cholesky_added_multiple_identities(A)
+        L = math.cholesky_added_multiple_identity(A)
         np.testing.assert_allclose(A, L @ L.T)
 
     def test_cholesky_added_multiple_identities__raises__max_iterations_reached(self):
@@ -45,40 +46,63 @@ class TestMath(unittest.TestCase):
         A = np.random.rand(n, n) - np.eye(n) * 5
         A = 0.5 * (A + A.T)
         with self.assertRaisesRegex(ValueError, "Maximum iterations reached."):
-            math.cholesky_added_multiple_identities(A, maxiter=1)
+            math.cholesky_added_multiple_identity(A, maxiter=1)
 
     @parameterized.expand(
         [
-            ((1, 1), 1),
-            ((5, 4), 5),
             (
-                (np.arange(2, 11, 2), 4),
-                np.asarray(
-                    [
-                        [2, 4, 6, 8],
-                        [2, 4, 6, 10],
-                        [2, 4, 8, 10],
-                        [2, 6, 8, 10],
-                        [4, 6, 8, 10],
-                    ]
-                ),
+                3,
+                5,
+                {
+                    (0, 0, 5),
+                    (0, 1, 4),
+                    (0, 2, 3),
+                    (0, 3, 2),
+                    (0, 4, 1),
+                    (0, 5, 0),
+                    (1, 0, 4),
+                    (1, 1, 3),
+                    (1, 2, 2),
+                    (1, 3, 1),
+                    (1, 4, 0),
+                    (2, 0, 3),
+                    (2, 1, 2),
+                    (2, 2, 1),
+                    (2, 3, 0),
+                    (3, 0, 2),
+                    (3, 1, 1),
+                    (3, 2, 0),
+                    (4, 0, 1),
+                    (4, 1, 0),
+                    (5, 0, 0),
+                },
             ),
-            ((np.asarray([10, 20, 30]), 2), np.asarray([[10, 20], [10, 30], [20, 30]])),
+            (1, 4, {(4,)}),
+            (10, 1, {tuple(row) for row in np.eye(10)}),
+            (4, 3, None),
         ]
     )
-    def test_nchoosek__computes_correct_combinations(
-        self, inp: tuple[int, int], out: int
-    ):
-        out_ = math.nchoosek(*inp)
-        np.testing.assert_allclose(out_, out)
-
-    @parameterized.expand([(1, 4, 4), (10, 1, np.eye(10)), (4, 3, None)])
     def test_monomial_powers__computes_correct_powers(self, n, k, out):
         p = math.monomial_powers(n, k)
-        self.assertEqual(p.shape[1], n)
-        np.testing.assert_allclose(p.sum(axis=1), k)
-        if out is not None:
-            np.testing.assert_allclose(p, out)
+        np.testing.assert_array_equal(p.sum(axis=1), k)
+        expected_n_combinations = comb(k + n - 1, n - 1, exact=True)
+        self.assertEqual(p.shape, (expected_n_combinations, n))
+        if out is None:
+            return
+        set_of_combinations = {tuple(row) for row in p}
+        self.assertSetEqual(set_of_combinations, out)
+
+    @parameterized.expand([(3, 1, 2), (5, 0, 5), (4, 5, 4)])
+    def test_monomials_basis_function(self, n, mindeg, maxdeg):
+        Phi = math.monomials_basis_function(n, mindeg, maxdeg)
+        self.assertEqual(Phi.n_in(), 1)
+        self.assertEqual(Phi.n_out(), 1)
+
+        self.assertEqual(n, Phi.size1_in(0))
+        expected_out = sum(
+            comb(deg + n - 1, n - 1, exact=True) for deg in range(mindeg, maxdeg + 1)
+        )
+        self.assertEqual(expected_out, Phi.size1_out(0))
 
 
 class TestControl(unittest.TestCase):

@@ -49,7 +49,47 @@ def _generate_method_caller(m: Callable) -> Callable:
 
 
 class Log(Wrapper[SymType]):
-    """A wrapper class for logging information about an agent."""
+    """A wrapper class for logging information about an agent.
+
+    Parameters
+    ----------
+    agent : LearningAgent or inheriting
+        Agent to wrap.
+    log_name : str, optional
+        Name of the logger. If not provided, the name of the agent is used.
+    level : int, optional
+        The logging level, by default :attr:`logging.INFO`.
+    to_file : bool, optional
+        Whether to write the log also to a file in the current directory. By
+        default, ``False``.
+    mode : str, optional
+        The mode for opening the logging faile, in case ``to_file=True``. By default, it
+        appends to the file, if already present.
+    precision : int, optional
+        Precision for printing floats, by default ``3``.
+    log_frequencies : dict of (str, int), optional
+        A dict containing, for each logging call hook, its corresponding frequency. The
+        calls for which a frequency can be set are:
+
+        - ``"on_episode_start"``
+        - ``"on_episode_end"``
+        - ``"on_env_step"``
+        - ``"on_timestep_end"``
+        - ``"on_update"``.
+
+        If this dictionary does not contain an entry for a specific call, the call is
+        assumed to be never logged.
+    exclude_mandatory : iterable of str, optional
+        An iterable of strings that contains the default mandatory callbacks to be
+        excluded. These mandatory callbacks that can be excluded are:
+
+        - ``"on_mpc_failure"``
+        - ``"on_validation_start"``
+        - ``"on_validation_end"``
+        - ``"on_update_failure"``
+        - ``"on_training_start"``
+        - ``"on_training_end"``.
+    """
 
     def __init__(
         self,
@@ -62,44 +102,6 @@ class Log(Wrapper[SymType]):
         log_frequencies: Optional[dict[str, int]] = None,
         exclude_mandatory: Optional[Iterable[str]] = None,
     ) -> None:
-        """Creates a logger wrapper.
-
-        Parameters
-        ----------
-        agent : LearningAgent or inheriting
-            Agent to wrap.
-        log_name : str, optional
-            Name of the logger. If not provided, the name of the agent is used.
-        level : int, optional
-            The logging level, by default `INFO`.
-        to_file : bool, optional
-            Whether to write the log also to a file in the current directory. By
-            default, `False`.
-        mode : str, optional
-            The mode for opening the logging faile, in case `to_file=True`.
-        precision : int, optional
-            Precision for printing floats, by default 3.
-        log_frequencies : int, optional
-            dict containing for each logging call its corresponding frequency. The calls
-            for which a frequency can be set are:
-             - `on_episode_start`
-             - `on_episode_end`
-             - `on_env_step`
-             - `on_timestep_end`
-             - `on_update`.
-
-            If an entry is not found in the dict, it is assumed that its call is never
-            logged.
-        exclude_mandatory : iterable of str, optional
-            An iterable of strings that contains the mandatory callbacks to be excluded.
-            The mandatory callbacks that can be excluded are:
-             - `on_mpc_failure`
-             - `on_validation_start`
-             - `on_validation_end`
-             - `on_update_failure`
-             - `on_training_start`
-             - `on_training_end`.
-        """
         name = log_name if log_name is not None else agent.name
         self.logger = logging.getLogger(name)
         self.logger.setLevel(level)
@@ -145,7 +147,7 @@ class Log(Wrapper[SymType]):
             method = getattr(self, f"_{name}")
             self._hook_callback(repr_self, name, _generate_method_caller(method))
 
-    # callbacks for Agent
+    # NOTE: callbacks for Agent
 
     def _on_mpc_failure(
         self, episode: int, timestep: Optional[int], status: str, raises: bool
@@ -191,7 +193,7 @@ class Log(Wrapper[SymType]):
         if next(self.log_frequencies["on_timestep_end"]):
             self.logger.debug("episode %d stepped at time %d.", episode, timestep)
 
-    # callbacks for LearningAgent
+    # NOTE: callbacks for LearningAgent
 
     def _on_update_failure(
         self, episode: int, timestep: Optional[int], errormsg: str, raises: bool

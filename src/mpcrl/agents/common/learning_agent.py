@@ -20,21 +20,49 @@ ExpType = TypeVar("ExpType")
 class LearningAgent(
     Agent[SymType], LearningAgentCallbackMixin, ABC, Generic[SymType, ExpType]
 ):
-    """Base class for a learning agent with MPC as policy provider where the main method
-    `update`, which is called to update the learnable parameters of the MPC according to
-    the underlying learning methodology (e.g., Bayesian Optimization, RL, etc.) is
-    abstract and must be implemented by inheriting classes.
+    r"""Base abstract class for a learning agent with MPC as policy provider. The main
+    method :meth:`update`, which is called to update the learnable parameters of the MPC
+    according to the underlying learning methodology (e.g., Bayesian Optimization, RL,
+    etc.), is abstract and must be implemented by inheriting classes based on their
+    learning algorithm.
 
-    Aside of `update`, this class implements also the basic structure for both on-policy
-    and off-policy learning, which require further ad-hoc implementations. For on-policy
-    learning, the `train` method should be run, which requires the implementation of
-    `train_one_episode`. For off-policy learning, run `train_offpolicy` and implement
-    `train_one_rollout` instead. At least one of the two implementations is required in
-    the inheriting class, depending on the learning algorithm. Some algorithms might
-    support both.
+    Aside of :meth:`update`, this class also provides also the basic skeleton for both
+    on-policy and off-policy learning, which require further ad-hoc implementations. For
+    on-policy learning, the :meth:`train` method should be run, which requires the
+    implementation of :meth:`train_one_episode`. For off-policy learning, run
+    :meth:`train_offpolicy` and implement :meth:`train_one_rollout` instead. At least
+    one of the two implementations is required in the inheriting class, depending on the
+    learning algorithm. Some algorithms might support both.
 
-    Note: this class makes no assumptions on the learning methodology used to update the
-    MPC's learnable parameters."""
+    Parameters
+    ----------
+    update_strategy : UpdateStrategy or int
+        The strategy used to decide which frequency to update the mpc parameters with.
+        If an ``int`` is passed, then the default strategy that updates every ``n``
+        env's steps is used (where ``n`` is the argument passed); otherwise, an instance
+        of :class:`core.update.UpdateStrategy` can be passed to specify the
+        desired strategy in more details.
+    learnable_parameters : :class:`core.parameters.LearnableParametersDict`
+        A special dict containing the learnable parameters of the MPC (usually referred
+        to as :math:`\theta`), together with their bounds and values. This dict is
+        complementary to :attr:`fixed_parameters`, which contains the MPC parameters
+        that are not learnt by the agent.
+    experience : int or ExperienceReplay, optional
+        The container for experience replay memory. If ``None`` is passed, then a memory
+        with unitary length is created, i.e., it keeps only the latest memory
+        transition. If an integer ``n`` is passed, then a memory with the length ``n``
+        is created and with sample size ``n``. Otherwise, pass an instance of
+        :class:`core.experience.ExperienceReplay` to specify the requirements in more
+        details.
+    kwargs
+        Additional arguments to be passed to :class:`Agent`.
+
+    Notes
+    -----
+    This class makes no assumptions on the learning methodology used to update the MPC's
+    learnable parameters. This could be either gradient-based or gradient-free, but the
+    logic implemented in this class should be largely remain untouched.
+    """
 
     def __init__(
         self,
@@ -43,27 +71,6 @@ class LearningAgent(
         experience: Union[None, int, ExperienceReplay[ExpType]] = None,
         **kwargs: Any,
     ) -> None:
-        """Instantiates the learning agent.
-
-        Parameters
-        ----------
-        update_strategy : UpdateStrategy or int
-            The strategy used to decide which frequency to update the mpc parameters
-            with. If an `int` is passed, then the default strategy that updates every
-            `n` env's steps is used (where `n` is the argument passed); otherwise, an
-            instance of `UpdateStrategy` can be passed to specify these in more details.
-        learnable_parameters : LearnableParametersDict
-            A special dict containing the learnable parameters of the MPC, together with
-            their bounds and values. This dict is complementary with `fixed_parameters`,
-            which contains the MPC parameters that are not learnt by the agent.
-        experience : int or ExperienceReplay, optional
-            The container for experience replay memory. If `None` is passed, then a
-            memory with length 1 is created, i.e., it keeps only the latest memory
-            transition. If an integer `n` is passed, then a memory with the length `n`
-            is created and with sample size `n`.
-        kwargs
-            Additional arguments to be passed to `Agent`.
-        """
         Agent.__init__(self, **kwargs)
         LearningAgentCallbackMixin.__init__(self)
         self._learnable_pars = learnable_parameters
@@ -95,16 +102,16 @@ class LearningAgent(
         return self._learnable_pars
 
     def reset(self, seed: RngType = None) -> None:
-        """Resets agent's internal variables, exploration and experience's RNG"""
         super().reset(seed)
         self.experience.reset(seed)
 
     def store_experience(self, item: ExpType) -> None:
-        """Stores the given item in the agent's memory for later experience replay.
+        """Stores the given item in the agent's :attr:`experience` for later usage in
+        updating the parametrization.
 
         Parameters
         ----------
-        item : experience-type
+        item : ExpType
             Item to be stored in memory.
         """
         self._experience.append(item)
@@ -126,17 +133,17 @@ class LearningAgent(
         Parameters
         ----------
         env : Env[ObsType, ActType]
-            A gym environment where to train the agent in.
+            The gym environment where to train the agent on.
         episodes : int
             Number of training episodes.
-        seed : None, int, array_like[ints], SeedSequence, BitGenerator, Generator
-            Agent's and each env's RNG seed.
+        seed : None, int, array_like of ints, SeedSequence, BitGenerator, Generator
+            Seed for the agent's and env's random number generator. By default ``None``.
         raises : bool, optional
-            If `True`, when any of the MPC solver runs fails, or when an update fails,
+            If ``True``, when any of the MPC solver runs fails, or when an update fails,
             the corresponding error is raised; otherwise, only a warning is raised.
         env_reset_options : dict, optional
             Additional information to specify how the environment is reset at each
-            training episode (optional, depending on the specific environment).
+            evalution episode (optional, depending on the specific environment).
 
         Returns
         -------
@@ -146,10 +153,11 @@ class LearningAgent(
         Raises
         ------
         MpcSolverError or MpcSolverWarning
-            Raises the error or the warning (depending on `raises`) if any of the MPC
+            Raises the error or the warning (depending on ``raises``) if any of the MPC
             solvers fail.
         UpdateError or UpdateWarning
-            Raises the error or the warning (depending on `raises`) if the update fails.
+            Raises the error or the warning (depending on ``raises``) if the update
+            fails.
         """
         if hasattr(env, "action_space"):
             assert isinstance(env.action_space, Box), "Env action space must be a Box,"
@@ -177,18 +185,18 @@ class LearningAgent(
         init_state: ObsType,
         raises: bool = True,
     ) -> float:
-        """On-policy training of the agent on an environment for one episode.
+        """On-policy training of the agent on an environment for one single episode.
 
         Parameters
         ----------
         env : Env[ObsType, ActType]
-            A gym environment where to train the agent in.
+            The gym environment where to train the agent on.
         episode : int
             Number of the current training episode.
         init_state : observation type
             Initial state/observation of the environment.
         raises : bool, optional
-            If `True`, when any of the MPC solver runs fails, or when an update fails,
+            If ``True``, when any of the MPC solver runs fails, or when an update fails,
             the corresponding error is raised; otherwise, only a warning is raised.
 
         Returns
@@ -199,10 +207,11 @@ class LearningAgent(
         Raises
         ------
         MpcSolverError or MpcSolverWarning
-            Raises the error or the warning (depending on `raises`) if any of the MPC
+            Raises the error or the warning (depending on ``raises``) if any of the MPC
             solvers fail.
         UpdateError or UpdateWarning
-            Raises the error or the warning (depending on `raises`) if the update fails.
+            Raises the error or the warning (depending on ``raises``) if the update
+            fails.
         """
         raise NotImplementedError(
             f"{self.__class__.__name__} does not implement `train_one_episode` for "
@@ -220,23 +229,25 @@ class LearningAgent(
         Parameters
         ----------
         episode_rollouts : iterable of iterables of any
-            An iterable (i.e., a sequence) of episodical rollouts generated off-policy.
-            Each rollout is itself a sequence of transitions, e.g., SARSA tuples. In
-            general, these can be of different types, depending on the specific learning
-            algorithm.
-        seed : None, int, array_like[ints], SeedSequence, BitGenerator, Generator
-            Agent's (and each evaluation env's, if applicable) RNG seed.
+            An iterable of episodical rollouts generated in an
+            off-policy fashion. Each rollout is itself a sequence of transitions, e.g.,
+            SARSA tuples. In other words, `episode_rollouts` is a sequence of sequences
+            of tuples. However, in general, its nature and the tuples' can widely differ
+            from learning algorithm to learning algorithm.
+        seed : None, int, array_like of ints, SeedSequence, BitGenerator, Generator
+            Seed for the agent's random number generator. By default ``None``.
         raises : bool, optional
-            If `True`, when any of the MPC solver runs fails, or when an update fails,
+            If ``True``, when any of the MPC solver runs fails, or when an update fails,
             the corresponding error is raised; otherwise, only a warning is raised.
 
         Raises
         ------
         MpcSolverError or MpcSolverWarning
-            Raises the error or the warning (depending on `raises`) if any of the MPC
+            Raises the error or the warning (depending on ``raises``) if any of the MPC
             solvers fail.
         UpdateError or UpdateWarning
-            Raises the error or the warning (depending on `raises`) if the update fails.
+            Raises the error or the warning (depending on ``raises``) if the update
+            fails.
         """
         rng = np.random.default_rng(seed)
         self.reset(rng)
@@ -261,19 +272,20 @@ class LearningAgent(
         ----------
         rollout : iterable of any
             Rollout, i.e., a sequence of transitions generated off-policy, e.g., SARSA
-            tuples. In general, these can be of different types, depending on the
-            specific learning algorithm.
+            tuples.  However, in general, these tuples can be of different nature,
+            depending on the specific learning algorithm.
         raises : bool, optional
-            If `True`, when any of the MPC solver runs fails, or when an update fails,
+            If ``True``, when any of the MPC solver runs fails, or when an update fails,
             the corresponding error is raised; otherwise, only a warning is raised.
 
         Raises
         ------
         MpcSolverError or MpcSolverWarning
-            Raises the error or the warning (depending on `raises`) if any of the MPC
+            Raises the error or the warning (depending on ``raises``) if any of the MPC
             solvers fail.
         UpdateError or UpdateWarning
-            Raises the error or the warning (depending on `raises`) if the update fails.
+            Raises the error or the warning (depending on ``raises``) if the update
+            fails.
         """
         raise NotImplementedError(
             f"{self.__class__.__name__} does not implement `train_offpolicy` for "
@@ -282,8 +294,8 @@ class LearningAgent(
 
     @abstractmethod
     def update(self) -> Optional[str]:
-        """Updates the learnable parameters of the MPC according to the agent's learning
-        algorithm.
+        r"""Updates the learnable parameters (usually referred to as :math:`\theta`) of
+        the MPC according to the agent's learning algorithm.
 
         Returns
         -------
@@ -322,14 +334,12 @@ class LearningAgent(
         self,
     ) -> Union[None, dict[str, npt.ArrayLike], Collection[dict[str, npt.ArrayLike]]]:
         """Internal utility to retrieve parameters of the MPC in order to solve it.
-        `LearningAgent` returns both fixed and learnable parameters."""
+        :class:`LearningAgent` returns both fixed and learnable parameters."""
         learnable_pars = self._learnable_pars.value_as_dict
         fixed_pars = self._fixed_pars
         if fixed_pars is None:
-            return learnable_pars  # type: ignore[return-value]
+            return learnable_pars
         if isinstance(fixed_pars, dict):
             fixed_pars.update(learnable_pars)
             return fixed_pars
-        return tuple(
-            _update_dicts(self._fixed_pars, learnable_pars)  # type: ignore[arg-type]
-        )
+        return tuple(_update_dicts(self._fixed_pars, learnable_pars))

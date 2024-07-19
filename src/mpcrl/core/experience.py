@@ -1,3 +1,10 @@
+"""Naively, Reinforcement Learning algorithms can dish out an update of the MPC
+parametrization at every time step, by leveraging only the current information. However,
+as in Deep RL, it makes sense to enable the agent to store past experiences and
+re-use them, or at least use them in a batched fashion, to improve the stability and
+convergence learning process. :class:`ExperienceReplay` allows a learning agent to store
+and sample, when performing an update, past experiences."""
+
 from collections import deque
 from collections.abc import Iterable, Iterator
 from itertools import chain
@@ -11,6 +18,39 @@ ExpType = TypeVar("ExpType")
 
 
 class ExperienceReplay(deque[ExpType]):
+    """Class for Reinforcement Learning agents' traning to save and sample experience
+    transitions.
+
+    The class inherits from :class:`deque`, adding a couple of simple functionalities to
+    it for sampling transitions at random from past observed data (see :meth:`reset` and
+    :meth:`sample`).
+
+    Parameters
+    ----------
+    iterable : Iterable of ExpType, optional
+        Initial items to be inserted in the container. By default, empty.
+    maxlen : int, optional
+        Maximum length/capacity of the memory. If ``None``, the deque has no maximum
+        size, which is the default behaviour.
+    sample_size : int or float, optional
+        Size (as integer, or float percentage of ``maxlen``) of the experience replay
+        items to draw when performing an update. By default, one item per sampling is
+        drawn. If a float percentage, ``maxlen`` must be provided.
+    include_latest : int or float, optional
+        Size (as integer, or float percentage of ``sample_size``) dedicated to including
+        the latest experience items. By default, ``0``, i.e., no last item is included.
+    seed : None, int, array_like of ints, SeedSequence, BitGenerator, Generator
+        Seed for the :class:`numpy.random.Generator` used for sampling. By default,
+        ``None``.
+
+    Raises
+    ------
+    TypeError
+        Raises if ``sample_size`` is a float (a percentage of the maximum length), but
+        ``maxlen`` is ``None``, since it is impossible to compute the percentage of an
+        unknown quantity.
+    """
+
     def __init__(
         self,
         iterable: Iterable[ExpType] = (),
@@ -19,33 +59,6 @@ class ExperienceReplay(deque[ExpType]):
         include_latest: Union[int, float] = 0,
         seed: RngType = None,
     ) -> None:
-        """Instantiate the container for experience replay memory.
-
-        Parameters
-        ----------
-        iterable : Iterable of T, optional
-            Initial items to be inserted in the container. By default, empty.
-        maxlen : int, optional
-            Maximum length/capacity of the memory. If `None`, the deque has no maximum
-            size, which is the default behaviour.
-        sample_size : int or float, optional
-            Size (as integer, or float percentage of `maxlen`) of the experience replay
-            items to draw when performing an update. By default, one item per sampling
-            is drawn. If a float percentage, `maxlen` must be provided.
-        include_latest : int or float, optional
-            Size (as integer, or float percentage of `sample_size`) dedicated to
-            including the latest experience items. By default, 0, i.e., no last item is
-            included.
-        seed : None, int, array_like[ints], SeedSequence, BitGenerator, Generator
-            Seed for the random number generator. By default, `None`.
-
-        Raises
-        ------
-        TypeError
-            Raises if `sample_size` is a float (a percentage of the maximum length), but
-            `maxlen` is `None`, since it is impossible to compute the percentage of an
-            unknown quantity.
-        """
         if isinstance(sample_size, float) and maxlen is None:
             raise TypeError(
                 "Cannot compute the percentage of an unknown quantity (maxlen is None)."
@@ -56,7 +69,7 @@ class ExperienceReplay(deque[ExpType]):
         self.reset(seed)
 
     def reset(self, seed: RngType = None) -> None:
-        """Resets the sampling RNG."""
+        """Resets the seed of the :class:`numpy.random.Generator` used for sampling."""
         self.np_random = np.random.default_rng(seed)
 
     def sample(self) -> Iterator[ExpType]:
@@ -64,7 +77,7 @@ class ExperienceReplay(deque[ExpType]):
 
         Returns
         -------
-        sample : iterator of T
+        sample : iterator of ExpType
             An iterable sample is yielded.
         """
         L = len(self)

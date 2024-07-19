@@ -10,26 +10,83 @@ from .gradient_based_optimizer import GradientBasedOptimizer, LrType
 
 
 class Adam(GradientBasedOptimizer[SymType, LrType]):
-    """Adam and AdamW optimizers, based on [1,2] and [3,4], respectively. AMSGrad is
-    also supported [5].
+    r"""First-order gradient-based Adam and AdamW optimizers, based on
+    :cite:`kingma_adam_2014` and :class:`torch.optim.Adam`, and
+    :cite:`loshchilov_decoupled_2017` and :class:`torch.optim.AdamW`, respectively.
+    AMSGrad is also supported :cite:`reddi_convergence_2019`.
 
-    References
+    While there is an abundance of resources to understand the Adam optimizer and its
+    variants, how do we address the constraints on the learnable parameters? Similarly
+    to :class:`mpcrl.optim.GradientDescent`, once the update rule has calculated the
+    change :math:`g` in the parameters (in an unconstrained fashion), we force the
+    constraints via the Quadratic Programming (QP) problem
+
+    .. math::
+
+        \begin{aligned}
+            \min_{\Delta\theta} & \quad \frac{1}{2} \lVert \Delta\theta \rVert_2^2 + \alpha g^\top \Delta\theta \\
+            \text{s.t.} & \quad \theta_{\text{lower}} \leq \theta + \Delta\theta \leq \theta_{\text{upper}}
+        \end{aligned}
+
+    Parameters
     ----------
-    [1] Kingma, D.P. and Ba, J., 2014. Adam: A method for stochastic optimization.
-        arXiv preprint arXiv:1412.6980.
-    [2] Loshchilov, I. and Hutter, F., 2017. Decoupled weight decay regularization.
-        arXiv preprint arXiv:1711.05101.
-    [3] Adam - PyTorch 2.1 documentation.
-        https://pytorch.org/docs/stable/generated/torch.optim.Adam.html
-    [4] AdamW - PyTorch 2.1 documentation.
-        https://pytorch.org/docs/stable/generated/torch.optim.AdamW.html
-    [5] Reddi, S.J., Kale, S. and Kumar, S., 2019. On the convergence of adam and
-        beyond. arXiv preprint arXiv:1904.09237.
+    learning_rate : float or array or :class:`mpcrl.core.schedulers.Scheduler`
+        The learning rate of the optimizer. It can be:
+
+        - a float, in case the learning rate must stay constant and is the same for all
+          learnable parameters
+
+        - an array, in case the learning rate must stay constant but is different for
+          each parameter (should have the same size as the number of learnable
+          parameters)
+
+        - a :class:`mpcrl.core.schedulers.Scheduler`, in case the learning rate can vary
+          during the learning process (usually, it is set to decay). See the ``hook``
+          argument for more details on when this scheduler is stepped.
+    betas : tuple of 2 floats, optional
+        Coefficients used for computing running averages of gradient and its square.
+        By default, they are set to ``(0.9, 0.999)``.
+    eps : float, optional
+        Term added to the denominator to improve numerical stability. By default, it
+        is set to ``1e-8``.
+    weight_decay : float, optional
+        A positive float that specifies the decay of the learnable parameters in the
+        form of an L2 regularization term. By default, it is set to ``0.0``, so no
+        decay/regularization takes place.
+    decoupled_weight_decay : bool, optional
+        If ``False``, the optimizer is _Adam_. Otherwise, it is _AdamW_. By default, it
+        is ``False``.
+    amsgrad : bool, optional
+        If ``True``, uses the AMSGrad variant. By default, it is ``False``.
+    hook : {"on_update", "on_episode_end", "on_timestep_end"}, optional
+        Specifies when to step the optimizer's learning rate's scheduler to decay
+        its value. This allows to vary the rate over the learning iterations. The
+        options are:
+
+        - ``"on_update"`` steps the learning rate after each agent's update
+
+        - ``"on_episode_end"`` steps the learning rate after each episode's end
+
+        - ``"on_timestep_end"`` steps the learning rate after each env's timestep.
+
+        By default, ``"on_update"`` is selected.
+    max_percentage_update : float, optional
+        A positive float that specifies the maximum percentage change the learnable
+        parameters can experience in each update. For example,
+        ``max_percentage_update=0.5`` means that the parameters can be updated by up
+        to 50% of their current value. By default, it is set to ``+inf``.
+        If specified, the update becomes constrained and has to be solved as a QP, which
+        is inevitably slower than its unconstrained counterpart (a linear system).
+    bound_consistency : bool, optional
+        A boolean that, if ``True``, forces the learnable parameters to lie in their
+        bounds when updated. This is done via :func:`numpy.clip`. Only beneficial if
+        numerical issues arise during updates, e.g., due to the QP solver not being able
+        to guarantee bounds.
     """
 
     _order = 1
     _hessian_sparsity = "diag"
-    """In Adam, hessian is at most diagonal, i.e., in case we have constraints."""
+    # In Adam, hessian is at most diagonal, i.e., in case we have constraints
 
     def __init__(
         self,
@@ -43,51 +100,6 @@ class Adam(GradientBasedOptimizer[SymType, LrType]):
         max_percentage_update: float = float("+inf"),
         bound_consistency: bool = False,
     ) -> None:
-        """Instantiates the optimizer.
-
-        Parameters
-        ----------
-        learning_rate : float/array, scheduler
-            The learning rate of the optimizer. A float/array can be passed in case the
-            learning rate must stay constant; otherwise, a scheduler can be passed which
-            will be stepped `on_update` by default (see `hook` argument).
-        betas : tuple of 2 floats, optional
-            Coefficients used for computing running averages of gradient and its square.
-            By default, they are set to `(0.9, 0.999)`.
-        eps : float, optional
-            Term added to the denominator to improve numerical stability. By default, it
-            is set to `1e-8`.
-        weight_decay : float, optional
-            A positive float that specifies the decay of the learnable parameters in the
-            form of an L2 regularization term. By default, it is set to `0.0`, so no
-            decay/regularization takes place.
-        decoupled_weight_decay : bool, optional
-            If `False`, the optimizer is Adam. Otherwise, it is `AdamW`. By default, it
-            is `False`.
-        amsgrad : bool, optional
-            If `True`, uses the AMSGrad variant. By default, it is `False`.
-        hook : {'on_update', 'on_episode_end', 'on_timestep_end'}, optional
-            Specifies when to step the optimizer's learning rate's scheduler to decay
-            its value (see `step` method also). This allows to vary the rate over the
-            learning iterations. The options are:
-             - `on_update` steps the learning rate after each agent's update
-             - `on_episode_end` steps the learning rate after each episode's end
-             - `on_timestep_end` steps the learning rate after each env's timestep.
-
-            By default, 'on_update' is selected.
-        max_percentage_update : float, optional
-            A positive float that specifies the maximum percentage change the learnable
-            parameters can experience in each update. For example,
-            `max_percentage_update=0.5` means that the parameters can be updated by up
-            to 50% of their current value. By default, it is set to `+inf`. If
-            specified, the update becomes constrained and has to be solved as a QP,
-            which is inevitably slower than its unconstrained counterpart.
-        bound_consistency : bool, optional
-            A boolean that, if `True`, forces the learnable parameters to lie in their
-            bounds when updated. This is done `np.clip`. Only beneficial if numerical
-            issues arise during updates, e.g., due to the QP solver not being able to
-            guarantee bounds.
-        """
         super().__init__(learning_rate, hook, max_percentage_update, bound_consistency)
         self.weight_decay = weight_decay
         self.beta1, self.beta2 = betas

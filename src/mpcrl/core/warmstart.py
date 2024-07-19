@@ -1,3 +1,18 @@
+"""More often than not, the agent is given a nonlinear MPC problem to solve at each
+time step. It is well-known that NLP problems are proned to convergence to local minima,
+and a simple yet effective way to counter this is to solve the same problem multiple
+times with different initial conditions. This is known as a warmstart strategy.
+
+:class:`WarmStartStrategy` allows the user to specify a warmstart strategy for the NLP
+solver of the MPC. In particular, the user can select which past solution to use as the
+initial guess for the next iteration, and whether to generate structured or random
+guesses around that solution to further explore the solution space and possibly converge
+to a better solution. Moreover, the user can choose how this strategy should keep up
+with new solutions.
+
+This class makes heavy use of :mod:`csnlp.multistart`, so be sure to check the
+documentation of that module for more basic information."""
+
 from collections.abc import Generator
 from itertools import chain
 from typing import Literal, Optional
@@ -10,9 +25,33 @@ from ..util.seeding import RngType
 
 
 class WarmStartStrategy:
-    """Class containing all the information to guide the warm start strategy for the
+    """Class containing all the information to guide the warmstart strategy for the
     MPC's NLP in order to speed up computations (by selecting appropriate initial
-    conditions) and to support multiple initial conditions."""
+    conditions) and to support multiple initial conditions.
+
+    Parameters
+    ----------
+    warmstart: "last" or "last-successful", optional
+        The warmstart strategy for the MPC's NLP solver. If ``"last-successful"``, the
+        last **successful** solution is automatically used to warmstart the solver for
+        the next iteration. If ``"last"``, the last solution is automatically used,
+        regardless of success or failure.
+    structured_points : :class:`csnlp.multistart.StructuredStartPoint`, optional
+        Class containing info on how to generate structured starting points for the
+        NLP solver. If ``None``, no structured point is generated.
+    random_points : :class:`csnlp.multistart.RandomStartPoints`, optional
+        Class containing info on how to generate random starting points for the NLP
+        solver. Its :attr:`csnlp.multistart.RandomStartPoints.biases` field will be
+        automatically updated with the last available solution (based on ``warmstart``),
+        unless disabled with ``update_biases_for_random_points=False``). If ``None``,
+        no random point is generated.
+    update_biases_for_random_points : bool, optional
+        If ``True``, the random points are biased around the values from the last
+        available solution to the MPC optimization (based on ``warmstart``). If
+        ``False``, the biases in ``random_points`` are not updated.
+    seed : None, int, array of ints, SeedSequence, BitGenerator, Generator
+        Seed for the random number generator. By default, ``None``.
+    """
 
     def __init__(
         self,
@@ -22,29 +61,6 @@ class WarmStartStrategy:
         update_biases_for_random_points: bool = True,
         seed: RngType = None,
     ) -> None:
-        """Instantiates a warm start strategy for solving the MPC's NLP.
-
-        Parameters
-        ----------
-        warmstart: "last" or "last-successful", optional
-            The warmstart strategy for the MPC's NLP. If `last-successful`, the last
-            successful solution is used to warm start the solver for the next iteration.
-            If `last`, the last solution is used, regardless of success or failure.
-        structured_points : StructuredStartPoint, optional
-            Class containing info on how to generate structured starting points for the
-            NLP. If `None`, no structured point is generated.
-        random_points : RandomStartPoints, optional
-            Class containing info on how to generate random starting points for the NLP.
-            Its `biases` field will be automatically updated with the last successful
-            solution, unless disabled with `update_biases_for_random_points=False`). If
-            `None`, no random point is generated.
-        update_biases_for_random_points : bool, optional
-            If `True`, the random points are biased around the bias-values updated with
-            the latest successful MPC solution. If `False`, the biases in
-            `random_points` are not updated.
-        seed : None, int, array of ints, SeedSequence, BitGenerator, Generator
-            Seed for the random number generator. By default, `None`.
-        """
         self.store_always = warmstart == "last"
         self.structured_points = structured_points
         self.random_points = random_points
@@ -59,22 +75,24 @@ class WarmStartStrategy:
         )
 
     def reset(self, seed: RngType = None) -> None:
-        """Resets the sampling RNG."""
+        """Resets the :class:`numpy.random.Generator` for sampling random points, if any
+        were specified."""
         if self.random_points is not None:
             self.random_points.np_random = np.random.default_rng(seed)
 
     def generate(
         self, biases: Optional[dict[str, npt.ArrayLike]] = None
     ) -> Generator[dict[str, npt.ArrayLike], None, None]:
-        """Generates initial conditions for the MPC's NLP.
+        """Generates some initial conditions/guesses for the primal optimization
+        variables of the MPC's NLP problem.
 
         Parameters
         ----------
         biases : dict of (str, array_like), optional
             Optional biases that can be used to update the random points' original
-            biases. If `None` or `update_biases_for_random_points=False`, the original
-            biases are kept constant. These do not affect the generation of structure
-            points in any way.
+            biases. If ``None`` or ``update_biases_for_random_points=False``, the
+            original biases are kept constant. These do not affect the generation of
+            structure points in any way.
 
         Yields
         ------

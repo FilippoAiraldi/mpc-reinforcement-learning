@@ -10,20 +10,82 @@ from .gradient_based_optimizer import GradientBasedOptimizer, LrType
 
 
 class RMSprop(GradientBasedOptimizer[SymType, LrType]):
-    """RMSprop optimizer, based on [1,2].
+    r"""RMSprop optimizer, based on :cite:`hinton_neural_2012` and
+    :class:`torch.optim.RMSprop`.
 
-    References
+    While there is an abundance of resources to understand the RMSprop optimizer, how do
+    we address the constraints on the learnable parameters? Similarly to
+    :class:`mpcrl.optim.GradientDescent`, once the update rule has calculated the change
+    :math:`g` in the parameters (in an unconstrained fashion), we force the constraints
+    via the Quadratic Programming (QP) problem
+
+    .. math::
+
+        \begin{aligned}
+            \min_{\Delta\theta} & \quad \frac{1}{2} \lVert \Delta\theta \rVert_2^2 + \alpha g^\top \Delta\theta \\
+            \text{s.t.} & \quad \theta_{\text{lower}} \leq \theta + \Delta\theta \leq \theta_{\text{upper}}
+        \end{aligned}
+
+    Parameters
     ----------
-    [1] Geoffrey Hinton, Nitish Srivastava, and Kevin Swersky. Neural networks for
-        machine learning lecture 6a overview of mini-batch gradient descent. page 14,
-        2012.
-    [2] RMSprop - PyTorch 2.1 documentation.
-        https://pytorch.org/docs/stable/generated/torch.optim.RMSprop.html
+    learning_rate : float or array or :class:`mpcrl.core.schedulers.Scheduler`
+        The learning rate of the optimizer. It can be:
+
+        - a float, in case the learning rate must stay constant and is the same for all
+          learnable parameters
+
+        - an array, in case the learning rate must stay constant but is different for
+          each parameter (should have the same size as the number of learnable
+          parameters)
+
+        - a :class:`mpcrl.core.schedulers.Scheduler`, in case the learning rate can vary
+          during the learning process (usually, it is set to decay). See the ``hook``
+          argument for more details on when this scheduler is stepped.
+    alpha : float, optional
+        A positive float that specifies the decay rate of the running average of the
+        gradient. By default, it is set to ``0.99``.
+    eps : float, optional
+        Term added to the denominator to improve numerical stability. By default, it
+        is set to ``1e-8``.
+    weight_decay : float, optional
+        A positive float that specifies the decay of the learnable parameters in the
+        form of an L2 regularization term. By default, it is set to ``0.0``, so no
+        decay/regularization takes place.
+    momentum : float, optional
+        A positive float that specifies the momentum factor. By default, it is set
+        to ``0.0``, so no momentum is used.
+    centered : bool, optional
+        If ``True``, compute the centered RMSProp, i.e., the gradient is normalized by
+        an estimation of its variance.
+    hook : {"on_update", "on_episode_end", "on_timestep_end"}, optional
+        Specifies when to step the optimizer's learning rate's scheduler to decay
+        its value. This allows to vary the rate over the learning iterations. The
+        options are:
+
+        - ``"on_update"`` steps the learning rate after each agent's update
+
+        - ``"on_episode_end"`` steps the learning rate after each episode's end
+
+        - ``"on_timestep_end"`` steps the learning rate after each env's timestep.
+
+        By default, ``"on_update"`` is selected.
+    max_percentage_update : float, optional
+        A positive float that specifies the maximum percentage change the learnable
+        parameters can experience in each update. For example,
+        ``max_percentage_update=0.5`` means that the parameters can be updated by up
+        to 50% of their current value. By default, it is set to ``+inf``.
+        If specified, the update becomes constrained and has to be solved as a QP, which
+        is inevitably slower than its unconstrained counterpart (a linear system).
+    bound_consistency : bool, optional
+        A boolean that, if ``True``, forces the learnable parameters to lie in their
+        bounds when updated. This is done via :func:`numpy.clip`. Only beneficial if
+        numerical issues arise during updates, e.g., due to the QP solver not being able
+        to guarantee bounds.
     """
 
     _order = 1
     _hessian_sparsity = "diag"
-    """In RMSprop, hessian is at most diagonal, i.e., in case we have constraints."""
+    # In RMSprop, hessian is at most diagonal, i.e., in case we have constraints
 
     def __init__(
         self,
@@ -37,52 +99,6 @@ class RMSprop(GradientBasedOptimizer[SymType, LrType]):
         max_percentage_update: float = float("+inf"),
         bound_consistency: bool = False,
     ) -> None:
-        """Instantiates the optimizer.
-
-        Parameters
-        ----------
-        learning_rate : float/array, scheduler
-            The learning rate of the optimizer. A float/array can be passed in case the
-            learning rate must stay constant; otherwise, a scheduler can be passed which
-            will be stepped `on_update` by default (see `hook` argument).
-        alpha : float, optional
-            A positive float that specifies the decay rate of the running average of the
-            gradient. By default, it is set to `0.99`.
-        eps : float, optional
-            Term added to the denominator to improve numerical stability. By default, it
-            is set to `1e-8`.
-        weight_decay : float, optional
-            A positive float that specifies the decay of the learnable parameters in the
-            form of an L2 regularization term. By default, it is set to `0.0`, so no
-            decay/regularization takes place.
-        momentum : float, optional
-            A positive float that specifies the momentum factor. By default, it is set
-            to `0.0`, so no momentum is used.
-        centered : bool, optional
-            If `True`, compute the centered RMSProp, i.e., the gradient is normalized by
-            an estimation of its variance.
-        hook : {'on_update', 'on_episode_end', 'on_timestep_end'}, optional
-            Specifies when to step the optimizer's learning rate's scheduler to decay
-            its value (see `step` method also). This allows to vary the rate over the
-            learning iterations. The options are:
-             - `on_update` steps the learning rate after each agent's update
-             - `on_episode_end` steps the learning rate after each episode's end
-             - `on_timestep_end` steps the learning rate after each env's timestep.
-
-            By default, 'on_update' is selected.
-        max_percentage_update : float, optional
-            A positive float that specifies the maximum percentage change the learnable
-            parameters can experience in each update. For example,
-            `max_percentage_update=0.5` means that the parameters can be updated by up
-            to 50% of their current value. By default, it is set to `+inf`. If
-            specified, the update becomes constrained and has to be solved as a QP,
-            which is inevitably slower than its unconstrained counterpart.
-        bound_consistency : bool, optional
-            A boolean that, if `True`, forces the learnable parameters to lie in their
-            bounds when updated. This is done `np.clip`. Only beneficial if numerical
-            issues arise during updates, e.g., due to the QP solver not being able to
-            guarantee bounds.
-        """
         super().__init__(learning_rate, hook, max_percentage_update, bound_consistency)
         self.weight_decay = weight_decay
         self.alpha = alpha
