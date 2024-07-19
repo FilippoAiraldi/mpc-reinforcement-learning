@@ -227,7 +227,7 @@ learnable_pars = LearnableParametersDict[cs.SX](
 )
 
 # instantiate the learning agent
-agent =  LstdQLearningAgent(
+agent = LstdQLearningAgent(
     mpc=mpc,
     learnable_parameters=learnable_pars,
     discount_factor=...,  # a number in (0,1], e.g.,  1.0
