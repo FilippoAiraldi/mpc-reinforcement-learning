@@ -164,8 +164,7 @@ which are crucial in calculating the RL updates). In mathematical terms, the MPC
 like this:
 
 $$
-\min_{\bm{x},\bm{u} \in [-1,1]}{ \sum_{i=0}^{N-1}{ x_i^\top Q x_i + u_i^\top R u_i }
-\quad \text{s.t.} \quad x_0 = s_k, \ x_{i+1} = A x_i + B u_i, \ i=0,\dots,N-1 }
+\min_{x_{0:N}, u_{0:N-1} \in [-1,1]}{ \sum_{i=0}^{N-1}{ x_i^\top Q x_i + u_i^\top R u_i } \quad \text{s.t.} \quad x_0 = s_k, \ x_{i+1} = A x_i + B u_i, \ i=0,\dots,N-1 }
 $$
 
 In code, we can implement this as follows.
