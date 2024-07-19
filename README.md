@@ -1,12 +1,22 @@
 # Reinforcement Learning with Model Predictive Control
 
-**mpcrl** is a library for training model-based Reinforcement Learning (RL) agents with Model Predictive Control (MPC) as function approximation. This framework, also known as MPC-based RL, was first proposed in [[1]](#1) and has so far been shown effective in various applications and with different learning algorithms, e.g., [[2](#2),[3](#3)].
+**M**odel **P**redictive **C**ontrol-based **R**einforcement **L**earning (**mpcrl**,
+for short) is a library for training model-based Reinforcement Learning (RL) [[1]](#1)
+agents with Model Predictive Control (MPC) [[2]](#2) as function approximation.
+
+> |   |   |
+> |---|---|
+> | **Documentation** | <https://mpc-reinforcement-learning.readthedocs.io/en/stable/>         |
+> | **Download**      | <https://pypi.python.org/pypi/mpcrl/>                                  |
+> | **Source code**   | <https://github.com/FilippoAiraldi/mpc-reinforcement-learning/>        |
+> | **Report issues** | <https://github.com/FilippoAiraldi/mpc-reinforcement-learning/issues/> |
 
 [![PyPI version](https://badge.fury.io/py/mpcrl.svg)](https://badge.fury.io/py/mpcrl)
-[![Source Code License](https://img.shields.io/badge/license-MIT-blueviolet)](https://github.com/FilippoAiraldi/casadi-nlp/blob/release/LICENSE)
+[![Source Code License](https://img.shields.io/badge/license-MIT-blueviolet)](https://github.com/FilippoAiraldi/mpc-reinforcement-learning/blob/main/LICENSE)
 ![Python 3.9](https://img.shields.io/badge/python->=3.9-green.svg)
 
 [![Tests](https://github.com/FilippoAiraldi/mpc-reinforcement-learning/actions/workflows/test-main.yml/badge.svg)](https://github.com/FilippoAiraldi/mpc-reinforcement-learning/actions/workflows/test-main.yml)
+[![Docs](https://readthedocs.org/projects/mpc-reinforcement-learning/badge/?version=stable)](https://mpc-reinforcement-learning.readthedocs.io/en/stable/?badge=stable)
 [![Downloads](https://static.pepy.tech/badge/mpcrl)](https://www.pepy.tech/projects/mpcrl)
 [![Maintainability](https://api.codeclimate.com/v1/badges/9a46f52603d29c684c48/maintainability)](https://codeclimate.com/github/FilippoAiraldi/mpc-reinforcement-learning/maintainability)
 [![Test Coverage](https://api.codeclimate.com/v1/badges/9a46f52603d29c684c48/test_coverage)](https://codeclimate.com/github/FilippoAiraldi/mpc-reinforcement-learning/test_coverage)
@@ -16,23 +26,41 @@
 
 ## Introduction
 
-This framework merges two powerful control techinques into a single data-driven one
+This framework, also referred to as _RL with/using MPC_, was first proposed in [[3]](#3)
+and has so far been shown effective in various
+applications, with different learning algorithms and more sound theory, e.g., [[4](#4),
+[5](#5), [7](#7), [8](#8)]. It merges two powerful control techinques into a single
+data-driven one
 
-- MPC, a well-known control methodology that exploits a prediction model to predict the future behaviour of the environment and compute the optimal action
+- MPC, a well-known control methodology that exploits a prediction model to predict the
+  future behaviour of the environment and compute the optimal action
 
-- and RL, a Machine Learning paradigm that showed many successes in recent years (with  games such as chess, Go, etc.) and is highly adaptable to unknown and complex-to-model environments.
+- and RL, a Machine Learning paradigm that showed many successes in recent years (with
+  games such as chess, Go, etc.) and is highly adaptable to unknown and complex-to-model
+  environments.
+
+The figure below shows the main idea behind this learning-based control approach. The
+MPC controller, parametrized in its objective, predictive model and constraints (or a
+subset of these), acts both as policy provider (i.e., providing an action to the
+environment, given the current state) and as function approximation for the state and
+action value functions (i.e., predicting the expected return following the current
+control policy from the given state and state-action pair). Concurrently, an RL
+algorithm is employed to tune this parametrization of the MPC in such a way to increase
+the controller's performance and achieve an (sub)optimal policy. For this purpose,
+different algorithms can be employed, two of the most successful being Q-learning
+[[4]](#4) and Deterministic Policy Gradient (DPG) [[5]](#5).
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/FilippoAiraldi/mpc-reinforcement-learning/main/resources/mpcrl-diagram.png" alt="mpcrl-diagram" height="300">
+  <img src="https://raw.githubusercontent.com/FilippoAiraldi/mpc-reinforcement-learning/main/docs/_static/mpcrl.diagram.light.png" alt="mpcrl-diagram" height="300">
 </div>
-
-The figure shows the main idea behind this learning-based control approach. The MPC controller, parametrized in $\vartheta$, acts both as policy provider (providing an action to the environment, given the current state) and as function approximation for the state and action value functions. Concurrently, an RL agent is employed to tune the parameters of the MPC in such a way to increase the controller's performance and achieve an (sub)optimal policy.
 
 ---
 
 ## Installation
 
-To install the package, run
+### Using `pip`
+
+You can use `pip` to install **mpcrl** with the command
 
 ```bash
 pip install mpcrl
@@ -47,45 +75,251 @@ pip install mpcrl
 - [Numba](https://numba.pydata.org/)
 - [typing_extensions](https://pypi.org/project/typing-extensions/) (only for Python 3.9)
 
-For playing around with the source code instead, run
+If you'd like to play around with the source code instead, run
 
 ```bash
 git clone https://github.com/FilippoAiraldi/mpc-reinforcement-learning.git
+```
+
+The `main` branch contains the main releases of the packages (and the occasional post
+release). The `experimental` branch is reserved for the implementation and test of new
+features and hosts the release candidates. You can then install the package to edit it
+as you wish as
+
+```bash
+pip install -e /path/to/mpc-reinforcement-learning
+```
+
+---
+
+## Getting started
+
+Here we provide the skeleton of a simple application of the library. The aim of the code
+below is to let an MPC control strategy learn how to optimally control a simple Linear
+Time Invariant (LTI) system. The cost (i.e., the opposite of the reward) of controlling
+this system in state $s$ with action $a$ is given by
+
+$$
+L(s,a) = s^\top Q s + a^\top R a,
+$$
+
+where $Q$ and $R$ are suitable positive definite matrices. However, in the context of
+RL, these matrices are not known, but we can only observe realizations of the cost. The
+The system is described by the usual state-space model
+
+$$
+s_{k+1} = A s_k + B a_k,
+$$
+
+whose matrices $A$ and $B$ could again in general be unknown. The control action $a_k$
+is assumed bounded in the interval $[-1,1]$. In what follows we will go through the
+usual steps in setting up and solving such a task.
+
+### Environment
+
+The first ingredient to implement is the LTI system in the form of a `gym.Env` class.
+Fill free to fill in the missing parts based on your needs. The `reset` method should
+initialize the state of the system, while the `step` method should update the state of
+the system based on the action provided and mainly return the new state and the cost.
+
+```python
+from gymnasium import Env
+from gymnasium.wrappers import TimeLimit
+import numpy as np
+
+
+class LtiSystem(Env):
+    ns = ...  # number of states (must be continuous)
+    na = ...  # number of actions (must be continuous)
+    A = ...  # state-space matrix A
+    B = ...  # state-space matrix B
+    Q = ...  # state-cost matrix Q
+    R = ...  # action-cost matrix R
+    action_space = Box(-1.0, 1.0, (na,), np.float64)  # action space
+
+    def reset(self, *, seed=None, options=None):
+        super().reset(seed=seed, options=options)
+        self.s = ...  # set initial state
+        return self.s, {}
+
+    def step(self, action):
+        a = np.reshape(action, self.action_space.shape)
+        assert self.action_space.contains(a)
+        c = self.s.T @ self.Q @ self.s + a.T @ self.R @ a
+        self.s = self.A @ self.s + self.B @ a
+        return self.s, c, False, False, {}
+
+
+# lastly, instantiate the environment with a wrapper to ensure the simulation finishes
+env = TimeLimit(LtiSystem(), max_steps=5000)
+```
+
+### Controller
+
+As aforementioned, we'd like to control this system via an MPC controller. Therefore,
+the next step is to craft one. To do so, we leverage the `csnlp` package, in particular
+its `csnlp.wrappers.Mpc` class (on top of that, under the hood, we exploit this package
+also to compute the sensitivities of the MPC controller w.r.t. its parametrization,
+which are crucial in calculating the RL updates). In mathematical terms, the MPC looks
+like this:
+
+$$
+\min_{\bm{x},\bm{u} \in [-1,1]}{ \sum_{i=0}^{N-1}{ x_i^\top Q x_i + u_i^\top R u_i }
+\quad \text{s.t.} \quad x_0 = s_k, \ x_{i+1} = A x_i + B u_i, \ i=0,\dots,N-1 }
+$$
+
+In code, we can implement this as follows.
+
+```python
+import casadi as cs
+from csnlp import Nlp
+from csnlp.wrappers import Mpc
+
+N = ...  # prediction horizon
+mpc = Mpc[cs.SX](Nlp(), N)
+
+# create the parametrization of the controller
+nx, nu = LtiSystem.ns, LtiSystem.na
+A = mpc.parameter("A", (nx, nx))
+B = mpc.parameter("B", (nx, nu))
+Q = mpc.parameter("Q", (nx, nx))
+R = mpc.parameter("R", (nu, nu))
+
+# create the variables of the controller
+x, _ = mpc.state("x", nx)
+u, _ = mpc.action("u", nu, lb=-1.0, ub=1.0)
+
+# set the dynamics
+mpc.set_dynamics(lambda x, u: A @ x + B @ u, n_in=2, n_out=1)
+
+# set the objective
+mpc.minimize(sum(cs.bilin(Q, x[:, i]) + cs.bilin(R, u[:, i]) for i in range(N)))
+
+# initiliaze the solver with some options
+opts = {
+    "print_time": False,
+    "bound_consistency": True,
+    "calc_lam_x": True,
+    "calc_lam_p": False,
+    "ipopt": {"max_iter": 500, "sb": "yes", "print_level": 0},
+}
+mpc.init_solver(opts, solver="ipopt")
+```
+
+### Learning
+
+The last step is to train the controller using an RL algorithm. For instance, here we
+use Q-Learning. The idea is to let the controller interact with the environment, observe
+the cost, and update the MPC parameters accordingly. This can be done as follows.
+
+```python
+from mpcrl import LearnableParameter, LearnableParametersDict, LstdQLearningAgent
+from mpcrl.optim import GradientDescent
+
+# give some initial values to the learnable parameters (shapes must match!)
+learnable_pars_init = {"A": ..., "B": ..., "Q": ..., "R": ...}
+
+# create the set of parameters that should be learnt
+learnable_pars = LearnableParametersDict[cs.SX](
+    (
+        LearnableParameter(name, val.shape, val, sym=mpc.parameters[name])
+        for name, val in learnable_pars_init.items()
+    )
+)
+
+# instantiate the learning agent
+agent =  LstdQLearningAgent(
+    mpc=mpc,
+    learnable_parameters=learnable_pars,
+    discount_factor=...,  # a number in (0,1], e.g.,  1.0
+    update_strategy=...,  # an integer, e.g., 1
+    optimizer=GradientDescent(learning_rate=...),
+    record_td_errors=True,
+)
+
+# finally, launch the training for 5000 timesteps. The method will return an array of
+# (hopefully) decreasing costs
+costs = agent.train(env=env, episodes=1, seed=69)
 ```
 
 ---
 
 ## Examples
 
-Our [examples](https://github.com/FilippoAiraldi/mpc-reinforcement-learning/tree/main/examples) subdirectory contains an example application on a small linear time-invariant (LTI) system, tackled both with Q-learning and Deterministic Policy Gradient (DPG).
+Our
+[examples](https://github.com/FilippoAiraldi/mpc-reinforcement-learning/tree/main/examples)
+subdirectory contains examples on how to use the library on some academic, small-scale
+application (a small linear time-invariant (LTI) system), tackled both with
+[on-policy Q-learning](https://github.com/FilippoAiraldi/mpc-reinforcement-learning/blob/main/examples/q_learning.py),
+[off-policy Q-learning](https://github.com/FilippoAiraldi/mpc-reinforcement-learning/blob/main/examples/q_learning_offpolicy.py)
+and
+[DPG](https://github.com/FilippoAiraldi/mpc-reinforcement-learning/blob/main/examples/dpg.py).
+While the aforementioned algorithms are all gradient-based, we also provide an
+[example on how to use Bayesian Optimization (BO)](https://github.com/FilippoAiraldi/mpc-reinforcement-learning/blob/main/examples/bayesopt.py)
+[[6]](#6) to tune the MPC parameters in a gradient-free way.
 
 ---
 
 ## License
 
-The repository is provided under the MIT License. See the LICENSE file included with this repository.
+The repository is provided under the MIT License. See the LICENSE file included with
+this repository.
 
 ---
 
 ## Author
 
-[Filippo Airaldi](https://www.tudelft.nl/staff/f.airaldi/), PhD Candidate [f.airaldi@tudelft.nl | filippoairaldi@gmail.com]
+[Filippo Airaldi](https://www.tudelft.nl/staff/f.airaldi/), PhD Candidate
+[f.airaldi@tudelft.nl | filippoairaldi@gmail.com]
 
-> [Delft Center for Systems and Control](https://www.tudelft.nl/en/3me/about/departments/delft-center-for-systems-and-control/) in [Delft University of Technology](https://www.tudelft.nl/en/)
+> [Delft Center for Systems and Control](https://www.tudelft.nl/en/me/about/departments/delft-center-for-systems-and-control/)
+in [Delft University of Technology](https://www.tudelft.nl/en/)
 
-Copyright (c) 2023 Filippo Airaldi.
+Copyright (c) 2024 Filippo Airaldi.
 
-Copyright notice: Technische Universiteit Delft hereby disclaims all copyright interest in the program “mpcrl” (Reinforcement Learning with Model Predictive Control) written by the Author(s). Prof. Dr. Ir. Fred van Keulen, Dean of 3mE.
+Copyright notice: Technische Universiteit Delft hereby disclaims all copyright interest
+in the program “mpcrl” (Reinforcement Learning with Model Predictive Control) written by
+the Author(s). Prof. Dr. Ir. Fred van Keulen, Dean of ME.
 
 ---
 
 ## References
 
 <a id="1">[1]</a>
-S. Gros and M. Zanon, "Data-Driven Economic NMPC Using Reinforcement Learning," in _IEEE Transactions on Automatic Control_, vol. 65, no. 2, pp. 636-648, Feb. 2020, doi: 10.1109/TAC.2019.2913768.
+Sutton, R.S. and Barto, A.G. (2018).
+[Reinforcement learning: An introduction](https://mitpress-mit-edu.tudelft.idm.oclc.org/9780262039246/reinforcement-learning/).
+Cambridge, MIT press.
 
 <a id="2">[2]</a>
-H. N. Esfahani, A. B. Kordabad and S. Gros, "Approximate Robust NMPC using Reinforcement Learning," _2021 European Control Conference (ECC)_, 2021, pp. 132-137, doi: 10.23919/ECC54610.2021.9655129.
+Rawlings, J.B., Mayne, D.Q. and Diehl, M. (2017).
+[Model Predictive Control: theory, computation, and design (Vol. 2)](https://sites.engineering.ucsb.edu/~jbraw/mpc/).
+Madison, WI: Nob Hill Publishing.
 
 <a id="3">[3]</a>
-W. Cai, A. B. Kordabad, H. N. Esfahani, A. M. Lekkas and S. Gros, "MPC-based Reinforcement Learning for a Simplified Freight Mission of Autonomous Surface Vehicles," _2021 60th IEEE Conference on Decision and Control (CDC)_, 2021, pp. 2990-2995, doi: 10.1109/CDC45484.2021.9683750.
+Gros, S. and Zanon, M. (2020).
+[Data-Driven Economic NMPC Using Reinforcement Learning](https://ieeexplore-ieee-org.tudelft.idm.oclc.org/document/8701462).
+IEEE Transactions on Automatic Control, 65(2), 636-648.
+
+<a id="4">[4]</a>
+Esfahani, H. N. and Kordabad,  A. B. and Gros, S. (2021).
+[Approximate Robust NMPC using Reinforcement Learning](https://ieeexplore-ieee-org.tudelft.idm.oclc.org/document/9655129).
+European Control Conference (ECC), 132-137.
+
+<a id="5">[5]</a>
+Cai, W. and Kordabad, A. B. and Esfahani, H. N. and Lekkas, A. M. and Gros, S. (2021).
+[MPC-based Reinforcement Learning for a Simplified Freight Mission of Autonomous Surface Vehicles](https://ieeexplore-ieee-org.tudelft.idm.oclc.org/document/9683750).
+60th IEEE Conference on Decision and Control (CDC), 2990-2995.
+
+<a id="6">[6]</a>
+Garnett, R., 2023. [Bayesian Optimization](https://bayesoptbook.com/).
+Cambridge University Press.
+
+<a id="7">[7]</a>
+Gros, S. and Zanon, M. (2022).
+[Learning for MPC with stability & safety guarantees](https://www.sciencedirect.com/science/article/pii/S0005109822004605).
+Automatica, 164, 110598.
+
+<a id="8">[8]</a>
+Zanon, M. and Gros, S. (2021).
+[Safe Reinforcement Learning Using Robust MPC](https://ieeexplore.ieee.org/abstract/document/9198135/).
+IEEE Transactions on Automatic Control, 66(8), 3638-3652.
