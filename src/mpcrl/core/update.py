@@ -1,7 +1,8 @@
 from collections.abc import Iterator
+from itertools import chain, repeat
 from typing import Literal
 
-from ..util.iters import bool_cycle, chain, repeat
+from ..util.iters import bool_cycle
 
 
 class UpdateStrategy:

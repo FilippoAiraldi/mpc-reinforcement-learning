@@ -1,10 +1,18 @@
-from typing import Callable, Optional, TypeVar
+"""A collection of basic utility functions for control applications. In particular, it
+contains a function for solving the discrete-time LQR problem and a function for
+integrating a continuous-time dynamics using the Runge-Kutta 4 method.
+
+Heavy inspiration was drawn from `MPCtools <https://bitbucket.org/rawlings-group/mpc-tools-casadi/src/master/mpctools/util.py>`_.
+"""
+
+from typing import Callable, Optional
+from typing import TypeVar as _Typevar
 
 import numpy as np
 import numpy.typing as npt
-from scipy.linalg import solve_discrete_are
+from scipy.linalg import solve_discrete_are as _solve_discrete_are
 
-T = TypeVar("T")
+T = _Typevar("T")
 
 
 def dlqr(
@@ -14,11 +22,27 @@ def dlqr(
     R: npt.NDArray[np.floating],
     M: Optional[npt.NDArray[np.floating]] = None,
 ) -> tuple[npt.NDArray[np.floating], npt.NDArray[np.floating]]:
-    """Get the discrete-time LQR for the given system. Stage costs are
-    ```
-        x'Qx + 2*x'Mu + u'Ru
-    ```
-    with `M = 0`, if not provided.
+    r"""Computes the solution to the discrete-time LQR problem.
+
+    The LQR problem is to solve the following optimization problem
+
+    .. math::
+        \min_{u} \sum_{t=0}^{\infty} x_t^\top Q x_t + u_t^\top R u_t + 2 x_t^\top M u_t
+
+    for the linear time-invariant discrete-time system
+
+    .. math:: x_{t+1} = A x_t + B u_t.
+
+    The (famous) solution takes the form of a state feedback law
+
+    .. math:: u_t = -K x_t
+
+    with a quadratic cost-to-go function
+
+    .. math:: V(x_t) = x_t^\top P x_t.
+
+    The function returns the optimal state feedback matrix :math:`K` and the quadratic
+    terminal cost-to-go matrix :math:`P`. If not provided, ``M`` is assumed to be zero.
 
     Parameters
     ----------
@@ -36,13 +60,8 @@ def dlqr(
     Returns
     -------
     tuple of two arrays
-        Returns the optimal state feedback matrix `K` and the quadratic terminal
-        cost-to-go matrix `P`.
-
-    Note
-    ----
-    Inspired by
-    https://bitbucket.org/rawlings-group/mpc-tools-casadi/src/master/mpctools/util.py.
+        Returns the optimal state feedback matrix :math:`K` and the quadratic terminal
+        cost-to-go matrix :math:`P`.
     """
     if M is not None:
         RinvMT = np.linalg.solve(R, M.T)
@@ -52,14 +71,18 @@ def dlqr(
         Atilde = A
         Qtilde = Q
         M = np.zeros(B.shape)
-    P = solve_discrete_are(Atilde, B, Qtilde, R)
+    P = _solve_discrete_are(Atilde, B, Qtilde, R)
     K = np.linalg.solve(B.T.dot(P).dot(B) + R, B.T.dot(P).dot(A) + M.T)
     return K, P
 
 
 def rk4(f: Callable[[T], T], x0: T, dt: float = 1, M: int = 1) -> T:
-    """Computes the Runge-Kutta 4 integration of the given function `f` with initial
-    state x0.
+    r"""Computes the Runge-Kutta 4 integration of the given function ``f`` with initial
+    state ``x0``.
+
+    In mathematical terms, given a continuous-time dynamics function
+    :math:`\dot{x} = f(x)`, this method returns a discretized version of the dynamics
+    :math:`x_{k+1} = f_d(x_k)` using the Runge-Kutta 4 method.
 
     Parameters
     ----------
@@ -67,21 +90,16 @@ def rk4(f: Callable[[T], T], x0: T, dt: float = 1, M: int = 1) -> T:
         A function that takes a state as input and returns the derivative of the state,
         i.e., continuous-time dynamics.
     x0 : casadi or array
-        The initial state. Must be compatible as argument to `f`.
+        The initial state. Must be compatible as an argument to ``f``.
     dt : float, optional
-        The discretization timestep, by default `1`.
+        The discretization timestep, by default ``1``.
     M : int, optional
-        How many RK4 steps to take in one `dt` interval, by default `1`.
+        How many RK4 steps to take in one ``dt`` interval, by default ``1``.
 
     Returns
     -------
     new state : casadi or array
-        The new state after `dt` time, according to the discretization.
-
-    Note
-    ----
-    Inspired by
-    https://bitbucket.org/rawlings-group/mpc-tools-casadi/src/master/mpctools/util.py.
+        The new state after ``dt`` time, according to the discretization.
     """
     dt /= M
     x = x0

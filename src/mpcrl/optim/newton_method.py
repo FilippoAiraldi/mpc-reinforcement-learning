@@ -5,7 +5,7 @@ import numpy.typing as npt
 from scipy.linalg import cho_solve
 
 from ..core.schedulers import Scheduler
-from ..util.math import cholesky_added_multiple_identities
+from ..util.math import cholesky_added_multiple_identity
 from .gradient_based_optimizer import GradientBasedOptimizer, LrType, SymType
 
 
@@ -97,7 +97,7 @@ class NetwonMethod(GradientBasedOptimizer[SymType, LrType]):
         lr = self.lr_scheduler.value
         w = self.weight_decay
         cho_kw = self.cho_solve_kwargs
-        L = cholesky_added_multiple_identities(hessian, maxiter=self.cho_maxiter)
+        L = cholesky_added_multiple_identity(hessian, maxiter=self.cho_maxiter)
 
         # if unconstrained, apply the update directly; otherwise, solve the QP
         solver = self._update_solver
