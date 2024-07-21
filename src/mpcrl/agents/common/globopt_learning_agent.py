@@ -12,30 +12,32 @@ from .learning_agent import LearningAgent
 
 
 class GlobOptLearningAgent(LearningAgent[SymType, None], ABC, Generic[SymType]):
-    """Class for learning agents that employe gradient-free Global Optimization
+    """Class for learning agents that employ gradient-free Global Optimization
     strategies (e.g., Bayesian Optimization) to learn/improve the MPC policy.
 
-    An instance of this class requires a gradient-free optimizer that adheres to the
-    ask-tell interface, i..e., it must implement the `ask` and `tell` methods.
+    Contrary to :class:`RlLearningAgent`, this class does not require a discount factor,
+    but requires an instance of a :class:`optim.GradientFreeOptimizer` that
+    adheres to the ask-tell interface, i.e., it must implement the
+    :func:`optim.GradientFreeOptimizer.ask` and
+    :func:`optim.GradientFreeOptimizer.tell` methods.
+
+    Parameters
+    ----------
+    optimizer : GradientFreeOptimizer
+        An instance of :class:`optim.GradientFreeOptimizer` optimizer to ask for
+        a suggested set of  parameters to try out, and later tell the value of the
+        objective function for that suggested set of parameters.
+    kwargs
+        Additional arguments to be passed to :class:`LearningAgent`.
+
+        Note: the following kwargs are not yet supported
+         - ``"experience"``: usually, GO strategies do not require experience replay
+         - ``"update_strategy"``: updates are fixed at the end of each episode.
     """
 
     def __init__(
         self, optimizer: GradientFreeOptimizer[SymType], **kwargs: Any
     ) -> None:
-        """Instantiates the RL learning agent.
-
-        Parameters
-        ----------
-        optimizer : GradientFreeOptimizer
-            A gradient-free optimizer to ask for parameters and tell the values of the
-            objective function.
-        kwargs
-            Additional arguments to be passed to `LearningAgent`.
-
-            Note: the following kwargs are not yet supported
-             - "experience": usually, GO strategies do not require experience replay
-             - "update_strategy": updates are fixed at the end of each episode
-        """
         for key in ("experience", "update_strategy"):
             if key in kwargs:
                 raise ValueError(

@@ -34,26 +34,125 @@ ExpType: TypeAlias = tuple[
 
 
 class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, LrType]):
-    """Least-Squares Temporal Difference (LSTD) Deterministic Policy Gradient (DPG)
-    agent, as first introduced in [1] as its stochastic counterpart, and then refined in
-    [2]. An application can be found in [3].
+    r"""Least-Squares Temporal Difference (LSTD) Deterministic Policy Gradient (DPG)
+    agent, as introduced in :cite:`gros_reinforcement_2021` as its stochastic
+    counterpart, and refined in :cite:`gros_towards_2019`. An application can be found
+    in :cite:`cai_mpcbased_2021`.
 
     The DPG agent uses an MPC controller as policy provider and function approximation,
     and adjusts its parametrization according to the temporal-difference error, with the
     goal of improving the policy, in a direct fashion by estimating the gradient of the
     policy and descending in its direction.
 
-    References
+    Parameters
     ----------
-    [1] Gros, S. and Zanon, M., 2021, May. Reinforcement Learning based on MPC
-        and the Stochastic Policy Gradient Method. In 2021 American Control
-        Conference (ACC) (pp. 1947-1952). IEEE.
-    [2] Gros, S. and Zanon, M., 2019. Towards Safe Reinforcement Learning Using NMPC and
-        Policy Gradients: Part II - Deterministic Case. arXiv preprint arXiv:1906.04034.
-    [3] Cai, W., Kordabad, A.B., Esfahani, H.N., Lekkas, A.M. and Gros, S., 2021,
-        December. MPC-based reinforcement learning for a simplified freight mission of
-        autonomous surface vehicles. In 2021 60th IEEE Conference on Decision and
-        Control (CDC) (pp. 2990-2995). IEEE.
+    mpc : :class:`csnlp.wrappers.Mpc`
+        The MPC controller used as policy provider by this agent. The instance is
+        modified in place to create the approximations of the state function
+        :math:`V_\theta(s)` and action value function :math:`Q_\theta(s,a)`, so it is
+        recommended not to modify it further after initialization of the agent.
+        Moreover, some parameter and constraint names will need to be created, so an
+        error is thrown if these names are already in use in the mpc.
+    update_strategy : UpdateStrategy or int
+        The strategy used to decide which frequency to update the mpc parameters with.
+        If an ``int`` is passed, then the default strategy that updates every ``n``
+        env's steps is used (where ``n`` is the argument passed); otherwise, an instance
+        of :class:`core.update.UpdateStrategy` can be passed to specify the desired
+        strategy in more details.
+    discount_factor : float
+        In RL, the factor that discounts future rewards in favor of immediate rewards.
+        Usually denoted as :math:`\gamma`. It should satisfy :math:`\gamma \in (0, 1]`.
+    optimizer : GradientBasedOptimizer
+        A gradient-based optimizer (e.g., :class:`optim.GradientDescent`) to
+        compute the updates of the learnable parameters, based on the current
+        gradient-based RL algorithm.
+    learnable_parameters : :class:`core.parameters.LearnableParametersDict`
+        A special dict containing the learnable parameters of the MPC (usually referred
+        to as :math:`\theta`), together with their bounds and values. This dict is
+        complementary to :attr:`fixed_parameters`, which contains the MPC parameters
+        that are not learnt by the agent.
+    exploration : :class:`core.exploration.ExplorationStrategy`
+        Exploration strategy for inducing exploration in the online MPC policy. It is
+        mandatory for DPG agents to have exploration.
+    fixed_parameters : dict of (str, array_like) or collection of, optional
+        A dict (or collection of dict, in case of the ``mpc`` wrapping an underlying
+        :class:`csnlp.multistart.MultistartNlp` instance) whose keys are the names of
+        the MPC parameters and the values are their corresponding values. Use this to
+        specify fixed parameters, that is, non-learnable. If ``None``, then no fixed
+        parameter is assumed.
+    experience : int or ExperienceReplay, optional
+        The container for experience replay memory. If ``None`` is passed, then a memory
+        with unitary length is created, i.e., it keeps only the latest memory
+        transition. If an integer ``n`` is passed, then a memory with the length ``n``
+        is created and with sample size ``n``. Otherwise, pass an instance of
+        :class:`core.experience.ExperienceReplay` to specify the requirements in more
+        details.
+    warmstart : "last" or "last-successful" or WarmStartStrategy, optional
+        The warmstart strategy for the MPC's NLP. If ``"last-successful"``, the last
+        successful solution is used to warmstart the solver for the next iteration.
+        If ``"last"``, the last solution is used, regardless of success or failure.
+        Furthermore, an instance of :class:`core.warmstart.WarmStartStrategy` can
+        be passed to specify a strategy for generating multiple warmstart points for the
+        MPC's NLP instance. This is useful to generate multiple initial conditions for
+        highly non-convex, nonlinear problems. This feature Can only be used with an
+        MPC that has an underlying multistart NLP problem (see :mod:`csnlp.multistart`).
+    hessian_type : {"none", "natural"}, optional
+        The type of hessian to use in this (potentially) second-order algorithm.
+        If ``"none"``, no second order information is used. If ``"natural"``, the Fisher
+        information matrix is used to perform a natural policy gradient update. This
+        option must be in accordance with the choice of ``optimizer``, that is, if the
+        optimizer does not use second order information, then this option must be set to
+        ``none``.
+    rollout_length : int, optional
+        Number of steps of each closed-loop simulation, which defines a complete
+        trajectory of the states (i.e., a rollout), and is saved in the experience as a
+        single item (since LSTD DPG needs to draw samples of trajectories). In case the
+        env is episodic, it can be ``-1``, in which case the rollout length coincides
+        with the episode's length. In case the env is not episodic, i.e., it never
+        terminates, a length ``>0`` must be given in order to know when to save the
+        current trajectory as an atomic item in memory.
+    record_policy_performance: bool, optional
+        If ``True``, the performance of each rollout is stored in the field
+        :attr:`policy_performances`, which otherwise is ``None``. By default, does not
+        record them.
+    record_policy_gradient: bool, optional
+        If ``True``, the (estimated) policy gradient of each update is stored in the
+        field :attr:`policy_gradients`, which otherwise is `None`. By default, does not
+        record them.
+    state_features : casadi.Function, optional
+        The state feature vector to be used in the linear approximation of the
+        value function, which takes the form of
+
+        .. math:: V_v(s) = \Phi(s)^\top v,
+
+        where :math:`s` is the state, :math:`v` are the weights, and :math:`\Phi(s)` is
+        the state feature vector. This function is assumed to have one input and one
+        output. By default, if not provided, it is designed as all monomials of the
+        state with degrees ``<= 2`` (see :func:`util.math.monomials_basis_function`).
+    linsolver : "csparse" or "mldivide", optional
+        The type of linear solver to be used for solving the linear system derived
+        from the KKT conditions and used to estimate the gradient of the policy. By
+        default, ``"csparse"`` is chosen as the KKT matrix is most often sparse.
+    ridge_regression_regularization : float, optional
+        Ridge regression regularization used during the computations of the LSTD
+        weights via least-squares. By default, ``1e-6``.
+    use_last_action_on_fail : bool, optional
+        In case the MPC solver fails
+         - if ``False``, the action from the last solver's iteration is returned anyway
+           (though suboptimal)
+         - if ``True``, the action from the last successful call to the MPC is returned
+           instead (if the MPC has been solved at least once successfully).
+
+        By default, ``False``.
+    name : str, optional
+        Name of the agent. If ``None``, one is automatically created from a counter of
+        the class' instancies.
+
+    Raises
+    ------
+    ValueError
+        If the exploration strategy is ``None`` or an instance of ``NoExploration``, as
+        DPG requires exploration.
     """
 
     def __init__(
@@ -63,7 +162,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         discount_factor: float,
         optimizer: GradientBasedOptimizer,
         learnable_parameters: LearnableParametersDict[SymType],
-        exploration: Optional[ExplorationStrategy],
+        exploration: ExplorationStrategy,
         fixed_parameters: Union[
             None, dict[str, npt.ArrayLike], Collection[dict[str, npt.ArrayLike]]
         ] = None,
@@ -81,126 +180,6 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         use_last_action_on_fail: bool = False,
         name: Optional[str] = None,
     ) -> None:
-        """Instantiates the LSTD DPG agent.
-
-        Parameters
-        ----------
-        mpc : Mpc[casadi.SX or MX]
-            The MPC controller used as policy provider by this agent. The instance is
-            modified in place to create the approximations of the state function `V(s)`
-            and action value function `Q(s,a)`, so it is recommended not to modify it
-            further after initialization of the agent. Moreover, some parameter and
-            constraint names will need to be created, so an error is thrown if these
-            names are already in use in the mpc. These names are under the attributes
-            `perturbation_parameter`, `action_parameter` and `action_constraint`.
-        update_strategy : UpdateStrategy or int
-            The strategy used to decide which frequency to update the mpc parameters
-            with. If an `int` is passed, then the default strategy that updates every
-            `n` episodes is used (where `n` is the argument passed); otherwise, an
-            instance of `UpdateStrategy` can be passed to specify these in more details.
-        discount_factor : float
-            In RL, the factor that discounts future rewards in favor of immediate
-            rewards. Usually denoted as `\\gamma`. Should be a number in (0, 1).
-        optimizer : GradientBasedOptimizer
-            A gradient-based optimizer (e.g., `mpcrl.optim.GradientDescent`) to compute
-            the updates of the learnable parameters, based on the current gradient-based
-            RL algorithm.
-        learnable_parameters : LearnableParametersDict
-            A special dict containing the learnable parameters of the MPC, together with
-            their bounds and values. This dict is complementary with `fixed_parameters`,
-            which contains the MPC parameters that are not learnt by the agent.
-        exploration : ExplorationStrategy, optional
-            Exploration strategy for inducing exploration in the online MPC policy (it
-            is mandatory to explore in DPG).
-        fixed_parameters : dict[str, array_like] or collection of, optional
-            A dict (or collection of dict, in case of `csnlp.MultistartNlp`) whose keys
-            are the names of the MPC parameters and the values are their corresponding
-            values. Use this to specify fixed parameters, that is, non-learnable. If
-            `None`, then no fixed parameter is assumed.
-        experience : int or ExperienceReplay, optional
-            The container for experience replay memory. If `None` is passed, then a
-            memory with length 1 is created, i.e., it keeps only the latest memory
-            transition. If an integer `n` is passed, then a memory with the length `n`
-            is created and with sample size `n`.
-            In case of LSTD DPG, each memory item is obtain from a single rollout, and
-            is a 4-tuple that contains: costs, state vector features (Phi), Psi (a
-            temporary value), and the gradient of the policy.
-        max_percentage_update : float, optional
-            A positive float that specifies the maximum percentage the parameters can be
-            changed during each update. For example, `max_percentage_update=0.5` means
-            that the parameters can be updated by up to 50% of their current value. By
-            default, it is set to `+inf`.
-        weight_decay : float, optional
-            A positive float that specifies the decay of the learnable parameters in the
-            form of an L2 regularization term. By default, it is set to `0.0`, so no
-            decay/regularization takes place.
-        warmstart: "last" or "last-successful" or WarmStartStrategy, optional
-            The warmstart strategy for the MPC's NLP. If `last-successful`, the last
-            successful solution is used to warm start the solver for the next iteration.
-            If `last`, the last solution is used, regardless of success or failure.
-            Furthermoer, a `WarmStartStrategy` object can be passed to specify a
-            strategy for generating multiple warmstart points for the NLP. This is
-            useful to generate multiple initial conditions for very non-convex problems.
-            Can only be used with an MPC that has an underlying multistart NLP problem
-            (see `csnlp.MultistartNlp`).
-        hessian_type : {'none', 'natural'}, optional
-            The type of hessian to use in this (potentially) second-order algorithm.
-            If 'none', no second order information is used. If `natural`, the Fisher
-            information matrix is used to perform a natural policy gradient update. This
-            option must be in accordance with the choice of `optimizer`, that is, if the
-            optimizer does not use second order information, then this option must be
-            set to `none`.
-        rollout_length : int, optional
-            Number of steps of each closed-loop simulation, which defines a complete
-            trajectory of the states (i.e., a rollout), and is saved in the experience
-            as a single item (since LSTD DPG needs to draw samples of trajectories). In
-            case the env is episodic, it can be `-1`, in which case the rollout length
-            coincides with the episode's length. In case the env is not episodic, i.e.,
-            it never terminates, a length `>0` must be given in order to know when to
-            save the current trajectory as an atomic item in memory.
-        record_policy_performance: bool, optional
-            If `True`, the performance of each rollout is stored in the field
-            `policy_performances`, which otherwise is `None`. By default, does not
-            record them.
-        record_policy_gradient: bool, optional
-            If `True`, the (estimated) policy gradient of each update is stored in the
-            field `policy_gradients`, which otherwise is `None`. By default, does not
-            record them.
-        state_features : casadi.Function, optional
-            The state feature vector to be used in the linear approximation of the
-            value function, which takes the form of
-            ```
-            V_v(s) = Phi(s)^T * v
-            ```
-            where `s` is the state, `v` are the weights, and `Phi(s)` is the state
-            feature vector. This function is assumed to have one input and one output.
-            By default, if not provided, it is designed as all monomials of the state
-            with degrees <= 2 (see `mpcrl.util.math.monomials_basis_function`).
-        linsolver : "csparse" or "mldivide", optional
-            The type of linear solver to be used for solving the linear system derived
-            from the KKT conditions and used to estimate the gradient of the policy. By
-            default, `"csparse"` is chosen as the KKT matrix is most often sparse.
-        ridge_regression_regularization : float, optional
-            Ridge regression regularization used during the computations of the LSTD
-            weights via least-squares. By default, `1e-6`.
-        use_last_action_on_fail : bool, optional
-            In case the MPC solver fails
-             * if `False`, the action from the last solver's iteration is returned
-               anyway (though suboptimal)
-             * if `True`, the action from the last successful call to the MPC is
-               returned instead (if the MPC has been solved at least once successfully).
-
-            By default, `False`.
-        name : str, optional
-            Name of the agent. If `None`, one is automatically created from a counter of
-            the class' instancies.
-
-        Raises
-        ------
-        ValueError
-            If the exploration strategy is `None` or an instance of `NoExploration`, as
-            DPG requires exploration.
-        """
         if exploration is None or isinstance(exploration, NoExploration):
             raise ValueError("DPG requires exploration, but none was provided.")
         # change default update hook to 'on_episode_end'
@@ -417,7 +396,7 @@ def _consolidate_rollout(
 def _compute_cafa_weight_v(
     Phi_all: np.ndarray, L: np.ndarray, discount_factor: float, regularization: float
 ) -> np.ndarray:
-    """Compute the CAFA weight v via ridge regression."""
+    """Compute the CAFA weight ``v`` via ridge regression."""
     # solve for v via ridge regression: -phi'(gamma phi+ - phi) v = phi'L
     Phi = Phi_all[:-1]
     Phi_next = Phi_all[1:]
@@ -436,7 +415,7 @@ def _compute_cafa_weight_w(
     discount_factor: float,
     regularization: float,
 ) -> np.ndarray:
-    """Compute the CAFA weight w via ridge regression."""
+    """Compute the CAFA weight ``w`` via ridge regression."""
     # solve for w via ridge regression: psi' psi w = psi' (L + (gamma phi+ - phi) v)
     Phi = Phi_all[:-1]
     Phi_next = Phi_all[1:]
@@ -453,8 +432,8 @@ def _estimate_gradient_update(
     regularization: float,
     return_fisher_hessian: bool,
 ) -> Union[np.ndarray, tuple[np.ndarray, np.ndarray]]:
-    """Internal utility to estimate the gradient of the policy and possibly the
-    Fisher information matrix as well."""
+    """Internal utility to estimate the gradient of the policy and possibly the Fisher
+    information matrix as well."""
     # compute average v and w
     sample_ = list(sample)  # load whole iterator into a list
     v = np.mean([o[4] for o in sample_], 0)

@@ -227,7 +227,7 @@ class TestAgent(unittest.TestCase):
         else:
             mpc.nlp.solve = MagicMock(return_value=sol)
 
-        agent.solve_mpc(mpc, state=s, action=a, perturbation=pert)
+        agent._solve_mpc(mpc, state=s, action=a, perturbation=pert)
 
         call_pars = {
             **fixed_pars,

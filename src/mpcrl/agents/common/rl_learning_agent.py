@@ -11,8 +11,23 @@ ExpType = TypeVar("ExpType")
 class RlLearningAgent(
     LearningAgent[SymType, ExpType], ABC, Generic[SymType, ExpType, LrType]
 ):
-    """Base class for learning agents that employe gradient-based RL strategies to
-    learn/improve the MPC policy."""
+    r"""Base abstract class for learning agents that employe gradient-based RL
+    strategies to learn/improve the MPC policy. The only difference with the
+    :class:`LearningAgent` is that this class accepts the RL task's discount factor and
+    a gradient-based optimizer that dictates how the learnable parameters are updated.
+
+    Parameters
+    ----------
+    discount_factor : float
+        In RL, the factor that discounts future rewards in favor of immediate rewards.
+        Usually denoted as :math:`\gamma`. It should satisfy :math:`\gamma \in (0, 1]`.
+    optimizer : GradientBasedOptimizer
+        A gradient-based optimizer (e.g., :class:`optim.GradientDescent`) to
+        compute the updates of the learnable parameters, based on the current
+        gradient-based RL algorithm.
+    kwargs
+        Additional arguments to be passed to :class:`LearningAgent`.
+    """
 
     def __init__(
         self,
@@ -20,20 +35,6 @@ class RlLearningAgent(
         optimizer: GradientBasedOptimizer[SymType, LrType],
         **kwargs: Any,
     ) -> None:
-        """Instantiates the RL learning agent.
-
-        Parameters
-        ----------
-        discount_factor : float
-            In RL, the factor that discounts future rewards in favor of immediate
-            rewards. Usually denoted as `\\gamma`. Should be a number in (0, 1).
-        optimizer : GradientBasedOptimizer
-            A gradient-based optimizer (e.g., `mpcrl.optim.GradientDescent`) to compute
-            the updates of the learnable parameters, based on the current gradient-based
-            RL algorithm.
-        kwargs
-            Additional arguments to be passed to `LearningAgent`.
-        """
         self.discount_factor = discount_factor
         self.optimizer = optimizer
         super().__init__(**kwargs)

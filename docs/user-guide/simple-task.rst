@@ -1,6 +1,6 @@
-------------------------------------
-A simple Reinforcement Learning task
-------------------------------------
+------------------------------------------------------
+A simple Reinforcement Learning task for an LTI system
+------------------------------------------------------
 
 Here we provide the skeleton of a simple application of the library. The aim of the code
 below is to let an MPC control strategy learn how to optimally control a simple Linear

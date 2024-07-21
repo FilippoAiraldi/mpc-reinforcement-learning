@@ -10,7 +10,7 @@ from ..util.seeding import RngType
 
 
 class WarmStartStrategy:
-    """Class containing all the information to guide the warm start strategy for the
+    """Class containing all the information to guide the warmstart strategy for the
     MPC's NLP in order to speed up computations (by selecting appropriate initial
     conditions) and to support multiple initial conditions."""
 
@@ -22,13 +22,13 @@ class WarmStartStrategy:
         update_biases_for_random_points: bool = True,
         seed: RngType = None,
     ) -> None:
-        """Instantiates a warm start strategy for solving the MPC's NLP.
+        """Instantiates a warmstart strategy for solving the MPC's NLP.
 
         Parameters
         ----------
         warmstart: "last" or "last-successful", optional
             The warmstart strategy for the MPC's NLP. If `last-successful`, the last
-            successful solution is used to warm start the solver for the next iteration.
+            successful solution is used to warmstart the solver for the next iteration.
             If `last`, the last solution is used, regardless of success or failure.
         structured_points : StructuredStartPoint, optional
             Class containing info on how to generate structured starting points for the

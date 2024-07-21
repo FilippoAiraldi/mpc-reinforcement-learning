@@ -33,21 +33,94 @@ ExpType: TypeAlias = Union[
 class LstdQLearningAgent(
     RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, LrType]
 ):
-    """Second-order Least-Squares Temporal Difference (LSTD) Q-learning agent, as first
-    proposed in a simpler format in [1], and then in [2].
+    r"""Second-order Least-Squares Temporal Difference (LSTD) Q-learning agent, as first
+    proposed in a simpler format in :cite:`gros_datadriven_2020`, and then in
+    :cite:`esfahani_approximate_2021`.
 
     The Q-learning agent uses an MPC controller as policy provider and function
     approximation, and adjusts its parametrization according to the temporal-difference
     error, with the goal of improving the policy, in an indirect fashion by learning the
     action value function.
 
-    References
+    Parameters
     ----------
-    [1] Gros, S. and Zanon, M., 2019. Data-driven economic NMPC using reinforcement
-        learning. IEEE Transactions on Automatic Control, 65(2), pp. 636-648.
-    [2] Esfahani, H.N., Kordabad, A.B. and Gros, S., 2021, June. Approximate Robust NMPC
-        using Reinforcement Learning. In 2021 European Control Conference (ECC), pp.
-        132-137. IEEE.
+    mpc : :class:`csnlp.wrappers.Mpc`
+        The MPC controller used as policy provider by this agent. The instance is
+        modified in place to create the approximations of the state function
+        :math:`V_\theta(s)` and action value function :math:`Q_\theta(s,a)`, so it is
+        recommended not to modify it further after initialization of the agent.
+        Moreover, some parameter and constraint names will need to be created, so an
+        error is thrown if these names are already in use in the mpc.
+    update_strategy : UpdateStrategy or int
+        The strategy used to decide which frequency to update the mpc parameters with.
+        If an ``int`` is passed, then the default strategy that updates every ``n``
+        env's steps is used (where ``n`` is the argument passed); otherwise, an instance
+        of :class:`core.update.UpdateStrategy` can be passed to specify the desired
+        strategy in more details.
+    discount_factor : float
+        In RL, the factor that discounts future rewards in favor of immediate rewards.
+        Usually denoted as :math:`\gamma`. It should satisfy :math:`\gamma \in (0, 1]`.
+    optimizer : GradientBasedOptimizer
+        A gradient-based optimizer (e.g., :class:`optim.GradientDescent`) to
+        compute the updates of the learnable parameters, based on the current
+        gradient-based RL algorithm.
+    learnable_parameters : :class:`core.parameters.LearnableParametersDict`
+        A special dict containing the learnable parameters of the MPC (usually referred
+        to as :math:`\theta`), together with their bounds and values. This dict is
+        complementary to :attr:`fixed_parameters`, which contains the MPC parameters
+        that are not learnt by the agent.
+    fixed_parameters : dict of (str, array_like) or collection of, optional
+        A dict (or collection of dict, in case of the ``mpc`` wrapping an underlying
+        :class:`csnlp.multistart.MultistartNlp` instance) whose keys are the names of
+        the MPC parameters and the values are their corresponding values. Use this to
+        specify fixed parameters, that is, non-learnable. If ``None``, then no fixed
+        parameter is assumed.
+    exploration : :class:`core.exploration.ExplorationStrategy`, optional
+        Exploration strategy for inducing exploration in the online MPC policy. By
+        default ``None``, in which case :class:`core.exploration.NoExploration` is used.
+    experience : int or ExperienceReplay, optional
+        The container for experience replay memory. If ``None`` is passed, then a memory
+        with unitary length is created, i.e., it keeps only the latest memory
+        transition. If an integer ``n`` is passed, then a memory with the length ``n``
+        is created and with sample size ``n``. Otherwise, pass an instance of
+        :class:`core.experience.ExperienceReplay` to specify the requirements in more
+        details.
+    warmstart : "last" or "last-successful" or WarmStartStrategy, optional
+        The warmstart strategy for the MPC's NLP. If ``"last-successful"``, the last
+        successful solution is used to warmstart the solver for the next iteration. If
+        ``"last"``, the last solution is used, regardless of success or failure.
+        Furthermore, an instance of :class:`core.warmstart.WarmStartStrategy` can
+        be passed to specify a strategy for generating multiple warmstart points for the
+        MPC's NLP instance. This is useful to generate multiple initial conditions for
+        highly non-convex, nonlinear problems. This feature Can only be used with an
+        MPC that has an underlying multistart NLP problem (see :mod:`csnlp.multistart`).
+    hessian_type : {"none", "approx", "full"}, optional
+        The type of hessian to use in this (potentially) second-order algorithm.
+        If ``"none"``, no second order information is used. If ``"approx"``, an easier
+        approximation of it is used; otherwise, the full hessian is computed, but
+        this is usually much more expensive. This option must be in accordance with the
+        choice of ``optimizer``, that is, if the optimizer does not use second order
+        information, then this option must be set to ``none``.
+    record_td_errors: bool, optional
+        If ``True``, the TD errors are recorded in the field :attr:`td_errors`, which
+        otherwise is ``None``. By default, does not record them.
+    use_last_action_on_fail : bool, optional
+        In case the MPC solver fails
+         - if ``False``, the action from the last solver's iteration is returned anyway
+           (though suboptimal)
+         - if ``True``, the action from the last successful call to the MPC is returned
+           instead (if the MPC has been solved at least once successfully).
+
+        By default, ``False``.
+    remove_bounds_on_initial_action : bool, optional
+        When ``True``, the upper and lower bounds on the initial action are removed in
+        the action-value function approximator :math:`Q_\theta(s,a)` since the first
+        action is constrained to be equal to the provided action :math:`a`. This is
+        useful to avoid issues in the LICQ of the NLP. However, it can lead to numerical
+        problems. By default, ``False``.
+    name : str, optional
+        Name of the agent. If ``None``, one is automatically created from a counter of
+        the class' instancies.
     """
 
     def __init__(
@@ -71,89 +144,6 @@ class LstdQLearningAgent(
         remove_bounds_on_initial_action: bool = False,
         name: Optional[str] = None,
     ) -> None:
-        """Instantiates the LSTD Q-learning agent.
-
-        Parameters
-        ----------
-        mpc : Mpc[casadi.SX or MX]
-            The MPC controller used as policy provider by this agent. The instance is
-            modified in place to create the approximations of the state function `V(s)`
-            and action value function `Q(s,a)`, so it is recommended not to modify it
-            further after initialization of the agent. Moreover, some parameter and
-            constraint names will need to be created, so an error is thrown if these
-            names are already in use in the mpc. These names are under the attributes
-            `perturbation_parameter`, `action_parameter` and `action_constraint`.
-        update_strategy : UpdateStrategy or int
-            The strategy used to decide which frequency to update the mpc parameters
-            with. If an `int` is passed, then the default strategy that updates every
-            `n` env's steps is used (where `n` is the argument passed); otherwise, an
-            instance of `UpdateStrategy` can be passed to specify these in more details.
-        discount_factor : float
-            In RL, the factor that discounts future rewards in favor of immediate
-            rewards. Usually denoted as `\\gamma`. Should be a number in (0, 1].
-        optimizer : GradientBasedOptimizer
-            A gradient-based optimizer (e.g., `mpcrl.optim.GradientDescent`) to compute
-            the updates of the learnable parameters, based on the current gradient-based
-            RL algorithm.
-        learnable_parameters : LearnableParametersDict
-            A special dict containing the learnable parameters of the MPC, together with
-            their bounds and values. This dict is complementary with `fixed_parameters`,
-            which contains the MPC parameters that are not learnt by the agent.
-        fixed_parameters : dict[str, array_like] or collection of, optional
-            A dict (or collection of dict, in case of `csnlp.MultistartNlp`) whose keys
-            are the names of the MPC parameters and the values are their corresponding
-            values. Use this to specify fixed parameters, that is, non-learnable. If
-            `None`, then no fixed parameter is assumed.
-        exploration : ExplorationStrategy, optional
-            Exploration strategy for inducing exploration in the online MPC policy. By
-            default `None`, in which case `NoExploration` is used. Should not be set
-            when offpolicy learning, as the exploration should be taken care in the
-            offpolicy data generation.
-        experience : int or ExperienceReplay, optional
-            The container for experience replay memory. If `None` is passed, then a
-            memory with length 1 is created, i.e., it keeps only the latest memory
-            transition.  If an integer `n` is passed, then a memory with the length `n`
-            is created and with sample size `n`.
-            In the case of LSTD Q-learning, each memory item consists of the action
-            value function's gradient and hessian computed at each (succesful) env's
-            step.
-        warmstart: "last" or "last-successful" or WarmStartStrategy, optional
-            The warmstart strategy for the MPC's NLP. If `last-successful`, the last
-            successful solution is used to warm start the solver for the next iteration.
-            If `last`, the last solution is used, regardless of success or failure.
-            Furthermoer, a `WarmStartStrategy` object can be passed to specify a
-            strategy for generating multiple warmstart points for the NLP. This is
-            useful to generate multiple initial conditions for very non-convex problems.
-            Can only be used with an MPC that has an underlying multistart NLP problem
-            (see `csnlp.MultistartNlp`).
-        hessian_type : {'none', 'approx', 'full'}, optional
-            The type of hessian to use in this (potentially) second-order algorithm.
-            If 'none', no second order information is used. If `approx`, an easier
-            approximation of it is used; otherwise, the full hessian is computed but
-            this is much more expensive. This option must be in accordance with the
-            choice of `optimizer`, that is, if the optimizer does not use second order
-            information, then this option must be set to `none`.
-        record_td_errors: bool, optional
-            If `True`, the TD errors are recorded in the field `td_errors`, which
-            otherwise is `None`. By default, does not record them.
-        use_last_action_on_fail : bool, optional
-            In case the MPC solver fails
-             * if `False`, the action from the last solver's iteration is returned
-               anyway (though suboptimal)
-             * if `True`, the action from the last successful call to the MPC is
-               returned instead (if the MPC has been solved at least once successfully).
-
-            By default, `False`.
-        remove_bounds_on_initial_action : bool, optional
-            When `True`, the upper and lower bounds on the initial action are removed in
-            the action-value function approximator Q(s,a) since the first action is
-            constrained to be equal to the initial action. This is useful to avoid
-            issues in the LICQ of the NLP. However, it can lead to numerical problems.
-            By default, `False`.
-        name : str, optional
-            Name of the agent. If `None`, one is automatically created from a counter of
-            the class' instancies.
-        """
         super().__init__(
             mpc=mpc,
             update_strategy=update_strategy,
@@ -251,8 +241,8 @@ class LstdQLearningAgent(
     ) -> Union[
         Callable[[cs.DM], np.ndarray], Callable[[cs.DM], tuple[np.ndarray, np.ndarray]]
     ]:
-        """Internal utility to compute the derivative of Q(s,a) w.r.t. the learnable
-        parameters, a.k.a., theta."""
+        """Internal utility to compute the derivative of ``Q(s,a)`` w.r.t. the learnable
+        parameters, a.k.a., ``theta``."""
         order = self.optimizer._order
         theta = cs.vvcat(self._learnable_pars.sym.values())
         nlp = self._Q.nlp
@@ -305,8 +295,8 @@ class LstdQLearningAgent(
         self, cost: SupportsFloat, solQ: Solution[SymType], solV: Solution[SymType]
     ) -> bool:
         """Internal utility that tries to store the gradient and hessian for the current
-        transition in memory, if both V and Q were successful; otherwise, does not store
-        it. Returns whether it was successful or not."""
+        transition in memory, if both ``V`` and ``Q`` were successful; otherwise, does
+        not store it. Returns whether it was successful or not."""
         success = solQ.success and solV.success
         if success:
             sol_values = solQ.all_vals
