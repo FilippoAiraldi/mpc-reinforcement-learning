@@ -183,7 +183,6 @@ class TestAgent(unittest.TestCase):
     def test_solve_mpc__calls_mpc_with_correct_args(
         self, mpctype: str, vector: bool, multiple_pars: bool
     ):
-        # sourcery skip: low-code-quality
         starts = 3
         horizon = 3
         if not self.multistart_nlp:
@@ -261,7 +260,7 @@ class TestAgent(unittest.TestCase):
     @parameterized.expand(product((False, True), (False, True)))
     def test_state_value__computes_right_solution(
         self, vector: bool, deterministic: bool
-    ):  # sourcery skip: move-assign
+    ):
         starts = 3
         horizon = 100
         fixed_pars = {"d": cs.DM([5, 6, 7])}
@@ -302,7 +301,6 @@ class TestAgent(unittest.TestCase):
 
     @parameterized.expand(product((False, True), (False, True)))
     def test_action_value__computes_right_solution(self, vector: bool, a_optimal: bool):
-        # sourcery skip: move-assign
         starts = 3
         horizon = 100
         fixed_pars = {"d": cs.DM([5, 6, 7])}

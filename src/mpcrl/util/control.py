@@ -87,8 +87,8 @@ def rk4(f: Callable[[T], T], x0: T, dt: float = 1, M: int = 1) -> T:
     x = x0
     for _ in range(M):
         k1 = f(x)
-        k2 = f(x + k1 * dt / 2)  # type: ignore
-        k3 = f(x + k2 * dt / 2)  # type: ignore
-        k4 = f(x + k3 * dt)  # type: ignore
-        x = x + (k1 + 2 * k2 + 2 * k3 + k4) * dt / 6  # type: ignore
+        k2 = f(x + k1 * dt / 2)
+        k3 = f(x + k2 * dt / 2)
+        k4 = f(x + k3 * dt)
+        x = x + (k1 + 2 * k2 + 2 * k3 + k4) * dt / 6
     return x

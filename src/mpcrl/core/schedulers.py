@@ -5,9 +5,9 @@ from operator import mul
 from typing import Generic, TypeVar, Union
 
 import numpy as np
+import numpy.typing as npt
 
-ScType = TypeVar("ScType")
-ScType.__doc__ = "A type that supports basic algebraic operations."
+ScType = TypeVar("ScType", int, float, npt.NDArray[np.int_], npt.NDArray[np.floating])
 
 
 class Scheduler(ABC, Generic[ScType]):
@@ -75,7 +75,7 @@ class ExponentialScheduler(Scheduler[ScType]):
         self.factor = factor
 
     def step(self) -> None:
-        self.value *= self.factor  # type: ignore[operator]
+        self.value *= self.factor
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(x={self.value},factor={self.factor})"
@@ -90,20 +90,8 @@ class LinearScheduler(Scheduler[ScType]):
     def __init__(
         self, init_value: ScType, final_value: ScType, total_steps: int
     ) -> None:
-        """Builds the exponential scheduler.
-
-        Parameters
-        ----------
-        init_value : supports-algebraic-operations
-            Initial value that will be updated by this scheduler.
-        final_value : supports-algebraic-operations
-            Final value that will be reached by the scheduler after `total_steps`.
-        total_steps : int
-            Total number of steps to linearly interpolate between `init_value` and
-            `final_value`.
-        """
         super().__init__(init_value)
-        increment = (final_value - init_value) / total_steps  # type: ignore[operator]
+        increment = (final_value - init_value) / total_steps
         self.init_value = init_value
         self.final_value = final_value
         self.total_steps = total_steps
@@ -130,9 +118,7 @@ class LogLinearScheduler(ExponentialScheduler[ScType]):
     def __init__(
         self, init_value: ScType, final_value: ScType, total_steps: int
     ) -> None:
-        factor = np.exp(
-            np.log(final_value / init_value) / total_steps  # type: ignore[operator]
-        )
+        factor = np.exp(np.log(final_value / init_value) / total_steps)
         super().__init__(init_value, factor)
         self.init_value = init_value
         self.final_value = final_value
