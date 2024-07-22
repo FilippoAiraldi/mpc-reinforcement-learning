@@ -1,3 +1,9 @@
+"""This submodule contains the optimizers that are used to update the parameters of the
+agent's MPC scheme. These are mainly gradient-based, i.e., they exploit Jacobian (and
+possibly Hessian) information to update the parameters. However, as we will see below,
+the submodule also allows for gradient-free optimization techniques (to be combined with
+:class:`mpcrl.GlobOptLearningAgent`)."""
+
 __all__ = [
     "Adam",
     "GradientBasedOptimizer",

@@ -11,13 +11,16 @@ class GradientFreeOptimizer(BaseOptimizer[SymType], ABC):
     """Base class for gradient-free optimization algorithms, e.g., Bayesian
     Optimization.
 
-    This optimizer adopts the ask-tell interface, i.e., it must implement the `ask` and
-    `tell` methods. The former allows the agent to ask for a new set of parameters to
-    evaluate, while the latter allows the agent to tell the optimizer the values of the
-    objective function(s) for the set of parameters it asked for.
+    This optimizer adopts the ask-tell interface, i.e., it must implement the
+    :meth:`GradientFreeOptimizer.ask` and :meth:`GradientFreeOptimizer.tell` methods.
+    The former allows the agent to ask for a new set of parameters to evaluate, while
+    the latter allows the agent to tell the optimizer the values of the objective
+    function(s) for the set of parameters it asked for.
     """
 
     prefers_dict: bool
+    """A flag that specifies whether the optimizer prefers to receive the learnable
+    parameters as a dictionary of names and values or as a single concatenated array."""
 
     @abstractmethod
     def ask(
@@ -52,7 +55,7 @@ class GradientFreeOptimizer(BaseOptimizer[SymType], ABC):
             A dictionary of learnable parameter names and their corresponding values for
             which the objective function(s) was (were) evaluated. Or a single array that
             results from the concatenation of the parameter values. This depends on the
-            optimizer's `prefers_dict` class attribute.
+            optimizer's :attr:`prefers_dict` class attribute.
         objective : float or array
             Value(s) of the objective function(s) for the set of parameters. Can be
             single-objective or multi-objective.

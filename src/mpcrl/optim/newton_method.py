@@ -10,7 +10,91 @@ from .gradient_based_optimizer import GradientBasedOptimizer, LrType, SymType
 
 
 class NetwonMethod(GradientBasedOptimizer[SymType, LrType]):
-    """Netwon Method."""
+    r"""Second-order gradient-based Netwon's method.
+
+    In constrast to the first-order methods, the Netwon's method uses also the Hessian
+    of the loss function to compute the update. The unconstrained update is given by
+
+    .. math:: \theta \gets \theta - \alpha H^{-1} g.
+
+    However, we do not directly use the provided Hessian, but rather its Cholesky
+    decomposition after having ensured it is positive semi-definite via
+    :meth:`cholesky_added_multiple_identity`. As usual, weight decay can be added, but
+    for sake of simplicity it is not included in the formula above. In case there are
+    constraints on the learnable parameters, the update is solved as a Quadratic
+    Programming (QP) problem, which is slower than the unconstrained counterpart. This
+    QP takes the form
+
+    .. math::
+
+        \begin{aligned}
+            \min_{\Delta\theta} & \quad \frac{1}{2} \Delta\theta^\top H \Delta\theta + \alpha g^\top \Delta\theta \\
+            \text{s.t.} & \quad \theta_{\text{lower}} \leq \theta + \Delta\theta \leq \theta_{\text{upper}}
+        \end{aligned}
+
+    if ``cho_before_update=False``; otherwise, the objective is
+    :math:`\frac{1}{2} \lVert \Delta\theta \rVert_2^2 + \alpha (H^{-1} g)^\top \Delta\theta`.
+
+    Parameters
+    ----------
+    learning_rate : float or array or :class:`mpcrl.schedulers.Scheduler`
+        The learning rate of the optimizer. It can be:
+
+        - a float, in case the learning rate must stay constant and is the same for all
+          learnable parameters
+
+        - an array, in case the learning rate must stay constant but is different for
+          each parameter (should have the same size as the number of learnable
+          parameters)
+
+        - a :class:`mpcrl.schedulers.Scheduler`, in case the learning rate can vary
+          during the learning process (usually, it is set to decay). See the ``hook``
+          argument for more details on when this scheduler is stepped.
+    weight_decay : float, optional
+        A positive float that specifies the decay of the learnable parameters in the
+        form of an L2 regularization term. By default, it is set to ``0.0``, so no
+        decay/regularization takes place.
+    cho_before_update : bool, optional
+        Whether to perform a Cholesky's factorization of the hessian in preparation
+        of each update. If ``False``, the quadratic form in the QP objective hosts the
+        Hessian matrix; else if ``True``, the linear system :math:`H^{-1} g` is first
+        solved via Cholesky's factorization, and the QP update's Hessian is downgraded
+        to an identity matrix. Only relevant if the update is constrained. By
+        default, ``False``.
+    cho_maxiter : int, optional
+        Maximum number of iterations in the Cholesky's factorization with additive
+        multiples of the identity to ensure positive definiteness of the hessian. By
+        default, ``1000``.
+    cho_solve_kwargs : kwargs for :func:`scipy.linalg.cho_solve`, optional
+        The optional kwargs to be passed to :func:`scipy.linalg.cho_solve` to solve
+        linear systems with the Hessian's Cholesky decomposition. If ``None``, it is set
+        by default to ``cho_solve_kwargs = {"check_finite": False }``. Only relevant if
+        no weight decay is given.
+    hook : {"on_update", "on_episode_end", "on_timestep_end"}, optional
+        Specifies when to step the optimizer's learning rate's scheduler to decay
+        its value. This allows to vary the rate over the learning iterations. The
+        options are:
+
+        - ``"on_update"`` steps the learning rate after each agent's update
+
+        - ``"on_episode_end"`` steps the learning rate after each episode's end
+
+        - ``"on_timestep_end"`` steps the learning rate after each env's timestep.
+
+        By default, ``"on_update"`` is selected.
+    max_percentage_update : float, optional
+        A positive float that specifies the maximum percentage change the learnable
+        parameters can experience in each update. For example,
+        ``max_percentage_update=0.5`` means that the parameters can be updated by up
+        to 50% of their current value. By default, it is set to ``+inf``.
+        If specified, the update becomes constrained and has to be solved as a QP, which
+        is inevitably slower than its unconstrained counterpart (a linear system).
+    bound_consistency : bool, optional
+        A boolean that, if ``True``, forces the learnable parameters to lie in their
+        bounds when updated. This is done via :func:`numpy.clip`. Only beneficial if
+        numerical issues arise during updates, e.g., due to the QP solver not being able
+        to guarantee bounds.
+    """
 
     _order = 2
     _hessian_sparsity = "dense"
@@ -26,60 +110,6 @@ class NetwonMethod(GradientBasedOptimizer[SymType, LrType]):
         max_percentage_update: float = float("+inf"),
         bound_consistency: bool = False,
     ) -> None:
-        """Instantiates the optimizer.
-
-        Parameters
-        ----------
-        learning_rate : float/array, scheduler
-            The learning rate of the optimizer. A float/array can be passed in case the
-            learning rate must stay constant; otherwise, a scheduler can be passed which
-            will be stepped `on_update` by default (see `hook` argument).
-        weight_decay : float, optional
-            A positive float that specifies the decay of the learnable parameters in the
-            form of an L2 regularization term. By default, it is set to `0.0`, so no
-            decay/regularization takes place.
-        cho_before_update : bool, optional
-            Whether to perform a Cholesky's factorization of the hessian in preparation
-            of each update. If `False`, the QP update's objective is
-            ```math
-                min 1/2 * dtheta' * H * dtheta + (lr * g)' * dtheta
-            ```
-            else, if `True`, the objective is
-            ```math
-                min 1/2 * ||dtheta||^2' + (lr * H^-1 * g)' * dtheta
-            ```
-            where the hessian linear system is performed via Cholesky's factorization.
-            Only relevant if the update is  constrained. By default, `False`.
-        cho_maxiter : int, optional
-            Maximum number of iterations in the Cholesky's factorization with additive
-            multiples of the identity to ensure positive definiteness of the hessian. By
-            default, `1000`.
-        cho_solve_kwargs : kwargs for `scipy.linalg.cho_solve`, optional
-            The optional kwargs to be passed to `scipy.linalg.cho_solve` to solve linear
-            systems with the hessian's Cholesky decomposition. If `None`, it is
-            equivalent to `cho_solve_kwargs = {'check_finite': False }`.
-        hook : {'on_update', 'on_episode_end', 'on_timestep_end'}, optional
-            Specifies when to step the optimizer's learning rate's scheduler to decay
-            its value (see `step` method also). This allows to vary the rate over the
-            learning iterations. The options are:
-             - `on_update` steps the learning rate after each agent's update
-             - `on_episode_end` steps the learning rate after each episode's end
-             - `on_timestep_end` steps the learning rate after each env's timestep.
-
-            By default, 'on_update' is selected.
-        max_percentage_update : float, optional
-            A positive float that specifies the maximum percentage change the learnable
-            parameters can experience in each update. For example,
-            `max_percentage_update=0.5` means that the parameters can be updated by up
-            to 50% of their current value. By default, it is set to `+inf`. If
-            specified, the update becomes constrained and has to be solved as a QP,
-            which is inevitably slower than its unconstrained counterpart.
-        bound_consistency : bool, optional
-            A boolean that, if `True`, forces the learnable parameters to lie in their
-            bounds when updated. This is done `np.clip`. Only beneficial if numerical
-            issues arise during updates, e.g., due to the QP solver not being able to
-            guarantee bounds.
-        """
         if cho_before_update:
             self._hessian_sparsity = "diag"
         super().__init__(learning_rate, hook, max_percentage_update, bound_consistency)

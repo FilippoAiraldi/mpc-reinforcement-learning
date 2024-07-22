@@ -61,6 +61,62 @@ techniques. See also class:`optim.GradientFreeOptimizer`.
 
    GlobOptLearningAgent
 
+---------------
+Core components
+---------------
+
+Here we list core elements that are used during training and evaluation of agents, but
+are not the agents themselves. These can be employed by users to customize the
+hyperparameters of the training process, or to modify the behaviour of the agents.
+
+----------
+Optimizers
+----------
+
+.. automodule:: mpcrl.optim
+
+.. inheritance-diagram::
+   mpcrl.optim.base_optimizer.BaseOptimizer
+   GradientFreeOptimizer
+   GradientBasedOptimizer
+   Adam
+   GradientDescent
+   NetwonMethod
+   RMSprop
+   :parts: 1
+
+Base optimizers
+===============
+
+These are the base abstract optimizer classes that lay the skeleton for the
+gradient-based updates of the MPC parametrization. We also offer an interface for
+gradient-free optimizers, which can be used to tune the parameters of the MPC controller
+via global optimization strategies such as Bayesian Optimization.
+
+.. autosummary::
+   :toctree: generated
+   :template: class.rst
+   :caption: Base optimizers
+   :nosignatures:
+
+   mpcrl.optim.base_optimizer.BaseOptimizer
+   GradientBasedOptimizer
+   GradientFreeOptimizer
+
+Gradient-based optimizers
+=========================
+
+.. autosummary::
+   :toctree: generated
+   :template: class.rst
+   :caption: Gradient-based optimizers
+   :nosignatures:
+
+   GradientDescent
+   NetwonMethod
+   Adam
+   RMSprop
+
 ----------------
 Other submodules
 ----------------

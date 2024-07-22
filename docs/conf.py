@@ -32,6 +32,7 @@ else:
 extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
+    "sphinx.ext.inheritance_diagram",
     "sphinx.ext.intersphinx",
     "sphinx.ext.todo",
     "sphinx.ext.viewcode",
@@ -53,6 +54,7 @@ intersphinx_mapping = {
     "matplotlib": ("https://matplotlib.org/stable/", None),
     "joblib": ("https://joblib.readthedocs.io/en/stable/", None),
     "gymnasium": ("https://gymnasium.farama.org/", None),
+    "torch": ("https://pytorch.org/docs/stable/", None),
     "typing_extensions": ("https://typing-extensions.readthedocs.io/en/stable/", None),
 }
 
@@ -73,6 +75,9 @@ sphinx_gallery_conf = {
 
 # for references
 bibtex_bibfiles = ["references.bib"]
+
+# for inheritance diagrams
+inheritance_graph_attrs = {"rankdir": "TB", "ratio": "compress", "size": '""'}
 
 # other options
 add_function_parentheses = False
