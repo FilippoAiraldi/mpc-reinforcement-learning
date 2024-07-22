@@ -9,7 +9,7 @@ ObsType = TypeVar("ObsType")
 ActType = TypeVar("ActType")
 
 
-def compact_dicts(
+def _compact_dicts(
     dicts: Iterable[dict[str, Any]], fill_value: Any = None
 ) -> dict[str, list[Any]]:
     """Compacts an iterable of dictionaries into a single dict with lists of entries. If
@@ -101,7 +101,7 @@ class MonitorInfos(
             A unique dict containing for each entry returned in the reset info the
             corresponding list of entries, one per each reset call.
         """
-        return compact_dicts(self.reset_infos, fill_value)
+        return _compact_dicts(self.reset_infos, fill_value)
 
     def finalized_step_infos(
         self, fill_value: Any = None

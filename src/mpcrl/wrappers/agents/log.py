@@ -135,15 +135,15 @@ class Log(Wrapper[SymType]):
                 self.log_frequencies.pop(cb, None)
         super().__init__(agent)
 
-    def establish_callback_hooks(self) -> None:
-        super().establish_callback_hooks()
+    def _establish_callback_hooks(self) -> None:
+        super()._establish_callback_hooks()
         # hook only the callbacks for which a frequency was given + the mandatory ones
         repr_self = repr(self)
         optional_cbs = self.log_frequencies.keys()
         mandatory_cbs = _MANDATORY_CALLBACKS.difference(self.exclude_mandatory)
         for name in chain(optional_cbs, mandatory_cbs):
             method = getattr(self, f"_{name}")
-            self.hook_callback(repr_self, name, _generate_method_caller(method))
+            self._hook_callback(repr_self, name, _generate_method_caller(method))
 
     # callbacks for Agent
 

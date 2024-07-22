@@ -23,7 +23,7 @@ from mpcrl import (
     wrappers_agents,
     wrappers_envs,
 )
-from mpcrl.wrappers.envs.monitor_infos import compact_dicts
+from mpcrl.wrappers.envs.monitor_infos import _compact_dicts
 
 
 @lru_cache
@@ -389,7 +389,7 @@ class TestEvaluate(unittest.TestCase):
 
 class TestMonitorEpisodesAndInfos(unittest.TestCase):
     def test__compact_dicts(self):
-        act = compact_dicts(
+        act = _compact_dicts(
             [
                 {"a": 3, "b": 2},
                 {"b": 3, "c": 2},

@@ -39,9 +39,9 @@ class RlLearningAgent(
         super().__init__(**kwargs)
         self.optimizer.set_learnable_parameters(self._learnable_pars)
 
-    def establish_callback_hooks(self) -> None:
-        super().establish_callback_hooks()
+    def _establish_callback_hooks(self) -> None:
+        super()._establish_callback_hooks()
         optim = self.optimizer
         optimizer_hook = optim.hook
         if optimizer_hook is not None:
-            self.hook_callback(repr(optim), optimizer_hook, optim.step)
+            self._hook_callback(repr(optim), optimizer_hook, optim.step)

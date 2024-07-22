@@ -106,6 +106,6 @@ class Evaluate(LearningWrapper[SymType, ExpType]):
             self._is_eval_in_progress = False
             unwrapped_agent._updates_enabled = updates_flag
 
-    def establish_callback_hooks(self) -> None:
-        super().establish_callback_hooks()
-        self.hook_callback(repr(self), self._hook, self._evaluate)
+    def _establish_callback_hooks(self) -> None:
+        super()._establish_callback_hooks()
+        self._hook_callback(repr(self), self._hook, self._evaluate)

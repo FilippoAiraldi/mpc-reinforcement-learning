@@ -36,5 +36,4 @@ from .core.experience import ExperienceReplay
 from .core.parameters import LearnableParameter, LearnableParametersDict
 from .core.update import UpdateStrategy
 from .core.warmstart import WarmStartStrategy
-from .wrappers import agents as wrappers_agents
-from .wrappers import envs as wrappers_envs
+from .wrappers import wrappers_agents, wrappers_envs

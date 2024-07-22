@@ -66,7 +66,6 @@ class LearningAgent(
         """
         Agent.__init__(self, **kwargs)
         LearningAgentCallbackMixin.__init__(self)
-        self._raises: bool = True
         self._learnable_pars = learnable_parameters
         if experience is None:
             experience = ExperienceReplay(maxlen=1)
@@ -76,8 +75,9 @@ class LearningAgent(
         if not isinstance(update_strategy, UpdateStrategy):
             update_strategy = UpdateStrategy(update_strategy, "on_timestep_end")
         self._update_strategy = update_strategy
-        self._updates_enabled = True
-        self.establish_callback_hooks()
+        self._raises: bool
+        self._is_training = False
+        self._establish_callback_hooks()
 
     @property
     def experience(self) -> ExperienceReplay[ExpType]:
@@ -93,6 +93,17 @@ class LearningAgent(
     def learnable_parameters(self) -> LearnableParametersDict[SymType]:
         """Gets the parameters of the MPC that can be learnt by the agent."""
         return self._learnable_pars
+
+    @property
+    def is_training(self) -> bool:
+        """Gets whether the agent is training or not.
+
+        Returns
+        -------
+        bool
+            ``True`` if the agent is training; ``False`` otherwise.
+        """
+        return self._is_training
 
     def reset(self, seed: RngType = None) -> None:
         """Resets agent's internal variables, exploration and experience's RNG"""
@@ -110,7 +121,7 @@ class LearningAgent(
         self._experience.append(item)
 
     def evaluate(self, *args: Any, **kwargs: Any) -> npt.NDArray[np.floating]:
-        self._updates_enabled = False
+        self._is_training = False
         return super().evaluate(*args, **kwargs)
 
     def train(
@@ -155,7 +166,7 @@ class LearningAgent(
             assert isinstance(env.action_space, Box), "Env action space must be a Box,"
         rng = np.random.default_rng(seed)
         self.reset(rng)
-        self._updates_enabled = True
+        self._is_training = True
         self._raises = raises
         returns = np.zeros(episodes, float)
 
@@ -243,7 +254,7 @@ class LearningAgent(
         self._raises = raises
         env_proxy = "off-policy"
 
-        self._updates_enabled = True
+        self._is_training = True
         self.on_training_start(env_proxy)
         for episode, rollout in enumerate(episode_rollouts):
             self.on_episode_start(env_proxy, episode, float("nan"))
@@ -292,12 +303,12 @@ class LearningAgent(
             or warning; otherwise, `None` is returned.
         """
 
-    def establish_callback_hooks(self) -> None:
-        super().establish_callback_hooks()
+    def _establish_callback_hooks(self) -> None:
+        super()._establish_callback_hooks()
         # hook exploration (only if necessary)
         exploration_hook = self._exploration.hook
         if exploration_hook is not None:
-            self.hook_callback(
+            self._hook_callback(
                 repr(self._exploration), exploration_hook, self._exploration.step
             )
         # hook updates (always necessary)
@@ -307,11 +318,11 @@ class LearningAgent(
             if update_hook == "on_episode_end"
             else (lambda _, e, t: self._check_and_perform_update(e, t))
         )
-        self.hook_callback(repr(self._update_strategy), update_hook, func)
+        self._hook_callback(repr(self._update_strategy), update_hook, func)
 
     def _check_and_perform_update(self, episode: int, timestep: Optional[int]) -> None:
         """Internal utility to check if an update is due and perform it."""
-        if not self._updates_enabled or not self._update_strategy.can_update():
+        if not self._is_training or not self._update_strategy.can_update():
             return
         update_msg = self.update()
         if update_msg is not None:
