@@ -88,36 +88,17 @@ class LearningAgent(
 
     @property
     def experience(self) -> ExperienceReplay[ExpType]:
-        """Gets the experience replay memory of the agent.
-
-        Returns
-        -------
-        ExperienceReplay[ExpType]
-            A reference to the instance of experience replay memory of the agent.
-        """
+        """Gets the experience replay memory of the agent."""
         return self._experience
 
     @property
     def update_strategy(self) -> UpdateStrategy:
-        """Gets the update strategy of the agent.
-
-        Returns
-        -------
-        UpdateStrategy
-            A reference to the instance of update strategy of the agent.
-        """
+        """Gets the update strategy of the agent."""
         return self._update_strategy
 
     @property
     def learnable_parameters(self) -> LearnableParametersDict[SymType]:
-        """Gets the parameters of the MPC that can be learnt by the agent.
-
-
-        Returns
-        -------
-        LearnableParametersDict[SymType]
-            The dictionary containing the learnable parameters of the MPC.
-        """
+        """Gets the parameters of the MPC that can be learnt by the agent."""
         return self._learnable_pars
 
     def reset(self, seed: RngType = None) -> None:

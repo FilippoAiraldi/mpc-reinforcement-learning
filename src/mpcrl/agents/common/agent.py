@@ -172,13 +172,7 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
     @property
     def unwrapped(self) -> "Agent":
         """Gets the underlying wrapped instance of an agent. In this case, since the
-        agent is not wrapped at all, returns itself.
-
-        Returns
-        -------
-        Agent
-            Returns itself.
-        """
+        agent is not wrapped at all, returns itself."""
         return self
 
     def is_wrapped(self, *args: Any, **kwargs: Any) -> bool:
@@ -194,27 +188,13 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
     @property
     def V(self) -> Mpc[SymType]:
         r"""Gets the MPC function approximation of the state value function
-        :math:`V_\theta(s)`.
-
-        Returns
-        -------
-        Mpc
-            A reference to the internally-created MPC instance approximating the state
-            value function :math:`V_\theta(s)`.
-        """
+        :math:`V_\theta(s)`."""
         return self._V
 
     @property
     def Q(self) -> Mpc[SymType]:
         r"""Gets the MPC function approximation of the action value function
-        :math:`Q_\theta(s,a)`.
-
-        Returns
-        -------
-        Mpc
-            A reference to the internally-created MPC instance approximating the action
-            value function :math:`Q_\theta(s,a)`.
-        """
+        :math:`Q_\theta(s,a)`."""
         return self._Q
 
     @property
@@ -243,25 +223,13 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
     @property
     def exploration(self) -> ExplorationStrategy:
         r"""Gets the exploration strategy used within this agent to perturb the
-        policy provided by the MPC controller via :math:`V_\theta(s)`.
-
-        Returns
-        -------
-        :class:`core.exploration.ExplorationStrategy`
-            The exploration strategy used by this agent.
-        """
+        policy provided by the MPC controller via :math:`V_\theta(s)`."""
         return self._exploration
 
     @property
     def warmstart(self) -> WarmStartStrategy:
         """Gets the warmstart strategy used within this agent. This strategy is used to
-        generate the initial guess for the solver to optimize the MPC's NLP.
-
-        Returns
-        -------
-        :class:`core.warmstart.WarmStartStrategy`
-            The warmstart strategy used by this agent.
-        """
+        generate the initial guess for the solver to optimize the MPC's NLP."""
         return self._warmstart
 
     def reset(self, seed: RngType = None) -> None:

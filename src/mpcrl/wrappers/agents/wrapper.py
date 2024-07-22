@@ -29,13 +29,7 @@ class Wrapper(SupportsDeepcopyAndPickle, CallbackMixin, Generic[SymType]):
 
     @property
     def unwrapped(self) -> Union[Agent[SymType], LearningAgent[SymType, ExpType]]:
-        """Returns the original agent of the wrapper.
-
-        Returns
-        -------
-        Agent or LearningAgent
-            The original agent's instance that is wrapped by this wrapper.
-        """
+        """Returns the original agent wrapped by this wrapper."""
         return self.agent.unwrapped
 
     def is_wrapped(self, wrapper_type: type["Wrapper[SymType]"]) -> bool:
