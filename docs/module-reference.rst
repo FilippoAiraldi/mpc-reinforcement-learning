@@ -6,6 +6,22 @@ This section contains detailed information about the modules and classes in **mp
 First, we introduce the main components of the package, which are likely to be the  ones
 most users will employe. Then, the rest of the package is presented in details.
 
+Learnable parameters
+--------------------
+
+.. automodule:: mpcrl.core.parameters
+
+.. currentmodule:: mpcrl
+
+.. autosummary::
+   :toctree: generated
+   :template: class.rst
+   :caption: Learnable parameters
+   :nosignatures:
+
+   LearnableParameter
+   LearnableParametersDict
+
 Scheduling quantities
 ---------------------
 
@@ -14,6 +30,8 @@ The following submodule provides a set of schedulers that can be used to update 
 different quantities, such as learning rates or exploration probability, over time. Most
 of the agents will then accept a scheduler as an argument, which will be updated
 according to the user-specified way.
+
+.. currentmodule:: mpcrl.core
 
 .. autosummary::
    :toctree: generated

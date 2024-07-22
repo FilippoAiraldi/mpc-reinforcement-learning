@@ -1,3 +1,13 @@
+"""Given an MPC controller with several symbolic parameters (some meant to be learned,
+some other not), we need a way to specify to the agent of choice which of these are
+indeed learnable. This is done by the use of the two classes introduced in this
+submodule.
+
+Namely, :class:`LearnableParameter` allows to embed a single parameter and its
+information, while :class:`LearnableParametersDict` is a dictionary-like class that
+contains several of these :class:`LearnableParameter` instances, and offers different
+properties and methods to manage them in bulk."""
+
 from collections.abc import Iterable
 from functools import cached_property
 from itertools import chain
@@ -15,8 +25,32 @@ SymType = TypeVar("SymType")  # most likely, T is cs.SX or MX
 
 
 class LearnableParameter(SupportsDeepcopyAndPickle, Generic[SymType]):
-    """A parameter that is learnable, that is, it can be adjusted via RL. This class
-    is useful for managing symbols, bounds and value of learnable parameters."""
+    """A parameter that is learnable, that is, it can be adjusted via RL or any other
+    learning strategy. This class is useful for managing symbols, bounds and value of
+    the learnable parameter.
+
+    Parameters
+    ----------
+    name : str
+        Name of the learnable parameter.
+    shape : int or tuple of ints
+        Shape of the parameter.
+    value : array_like
+        Starting value of the parameter.
+    lb : array_like, optional
+        Lower bound of the parameter values. If not specified, it is unbounded.
+    ub : array_like, optional
+        Upper bound of the parameter values. If not specified, it is unbounded.
+    sym : T, optional
+        An optional reference to a symbolic variable representing this parameter.
+
+    Raises
+    ------
+    ValueError
+        Raises if ``value``, ``lb`` or ``ub`` cannot be broadcasted to a 1D vector with
+        shape equal to ``shape``; or if the shape of the symbolic variable ``sym`` does
+        not match the shape of the parameter.
+    """
 
     def __init__(
         self,
@@ -27,30 +61,6 @@ class LearnableParameter(SupportsDeepcopyAndPickle, Generic[SymType]):
         ub: npt.ArrayLike = +np.inf,
         sym: Optional[SymType] = None,
     ) -> None:
-        """Instantiates a learnable parameter.
-
-        Parameters
-        ----------
-        name : str
-            Name of the learnable parameter.
-        shape : int or tuple of ints
-            Shape of the parameter.
-        value : array_like
-            Starting value of the parameter. This can then be updated via `update`.
-        lb : array_like, optional
-            Lower bound of the parameter values. If not specified, it is unbounded.
-        ub : array_like, optional
-            Upper bound of the parameter values. If not specified, it is unbounded.
-        sym : T, optional
-            An optional reference to a symbolic variable representing this parameter.
-
-        Raises
-        ------
-        ValueError
-            Raises if `value`, `lb` or `ub` cannot be broadcasted to a 1D vector with
-            shape equal to `shape`; or if the shape of the symbolic variable `sym` does
-            not match the shape of the parameter.
-        """
         super().__init__()
         self.name = name
         self.shape: tuple[int, ...] = (shape,) if isinstance(shape, Integral) else shape
@@ -73,15 +83,15 @@ class LearnableParameter(SupportsDeepcopyAndPickle, Generic[SymType]):
         new_value : array_like
             New value of the parameter.
         is_close_kwargs
-            Additional kwargs for `np.isclose`, e.g., `rtol` and `atol`, for checking
-            numerical values close to a bound.
+            Additional kwargs for :func:`numpy.isclose`, e.g., ``rtol`` and ``atol``,
+            for checking numerical values close to a bound.
 
         Raises
         ------
         ValueError
-            Raises if `new_value` cannot be broadcasted to a 1D vector with shape equal
-            to `shape`; or if it does not lie inside the upper and lower bounds within
-            the specified tolerances.
+            Raises if ``new_value`` cannot be broadcasted to a 1D vector with shape
+            equal to ``shape``; or if it does not lie inside the upper and lower bounds
+            within the specified tolerances.
         """
         v = np.broadcast_to(v, self.shape)
         lb = self.lb
@@ -114,22 +124,29 @@ class LearnableParameter(SupportsDeepcopyAndPickle, Generic[SymType]):
 class LearnableParametersDict(
     dict[str, LearnableParameter[SymType]], SupportsDeepcopyAndPickle
 ):
-    """dict-based collection of `LearnableParameter` instances that simplifies the
-    process of managing and updating these. The dict contains pairs of parameter's name
-    vs parameter's instance.
+    """:class:`dict`-based collection of :class:`LearnableParameter` instances that
+    simplifies the process of managing and updating these. The dict contains pairs of
+    parameter's name and parameter's instance.
 
-    Note: to speed up computations, properties of this class are often cached for faster
-    calls to the same methods. However, these are cleared when the underlying dict is
-    modified."""
+    Parameters can be retrieved as a normal dictionary by their names, but the class
+    also offers several properties that are useful for managing the parameters in bulk,
+    such as :attr:`lb`, :attr:`ub`, :attr:`value`, :attr:`value_as_dict` and
+    :attr:`sym`. With a single call to :meth:`update_values`, the values of the
+    parameters can also be updated.
+
+    Parameters
+    ----------
+    pars : iterable of :class:`LearnableParameter`, optional
+        An optional iterable of parameters to insert into the dict by their names.
+
+    Notes
+    -----
+    To speed up computations, properties of this class are often cached for faster
+    calls to the same methods. However, these are automatically cleared when the
+    underlying dict is modified.
+    """
 
     def __init__(self, pars: Optional[Iterable[LearnableParameter[SymType]]] = None):
-        """Initializes the collection of learnable parameters.
-
-        Parameters
-        ----------
-        pars : iterable of LearnableParameter, optional
-            An optional iterable of parameters to insert into the dict by their names.
-        """
         if pars is None:
             dict.__init__(self)
         else:
@@ -170,13 +187,13 @@ class LearnableParametersDict(
 
     @cached_property
     def value_as_dict(self) -> dict[str, npt.NDArray[np.floating]]:
-        """Gets the values of all the learnable parameters, in a dict."""
+        """Gets the values of all the learnable parameters as a :class:`dict`."""
         return {p.name: p.value for p in self.values()}
 
     @cached_property
     def sym(self) -> dict[str, Optional[SymType]]:
         """Gets symbols of all the learnable parameters, in a dict. If one parameter
-        does not possess the symbol, `None` is put."""
+        does not possess the symbol, ``None`` is put."""
         return {
             parname: None if par.sym is None else par.sym
             for parname, par in self.items()
@@ -192,19 +209,19 @@ class LearnableParametersDict(
 
         Parameters
         ----------
-        new_values : array_like or dict[str, array_like]
+        new_values : array_like or dict of (str, array_like)
             The parameters' new values, either as a single concatenated array (which
             will be splitted according to the sizes and each piece sequentially assigned
             to each parameter), or as a dict of parameter's name vs parameter's new
             value.
         is_close_kwargs
-            Additional kwargs for `np.isclose`, e.g., `rtol` and `atol`, for checking
-            numerical values of parameters close to a bound.
+            Additional kwargs for :func:`numpy.isclose`, e.g., ``rtol`` and ``atol``,
+            for checking numerical values of parameters close to a bound.
 
         Raises
         ------
         ValueError
-            In case of array-like, raises if `new_values` cannot be split according to
+            In case of array-like, raises if ``new_values`` cannot be split according to
             the sizes of parameters; or if the new values cannot be broadcasted to 1D
             vectors according to each parameter's size; or if the new values lie outside
             either the lower or upper bounds of each parameter.
@@ -253,13 +270,13 @@ class LearnableParametersDict(
         Parameters
         ----------
         deep : bool, optional
-            If `True`, a deepcopy of the dict and its parameters is returned; otherwise,
-            the copy is only shallow.
+            If ``True``, a deepcopy of the dict and its parameters is returned;
+            otherwise, the copy is only shallow.
         invalidate_caches : bool, optional
-            If `True`, methods decorated with `csnlp.util.funcs.invalidate_cache` are
-            called to clear cached properties/lru caches in the copied instance.
-            Otherwise, caches in the copy are not invalidated. By default, `True`.
-            Only relevant when `deep=True`.
+            If `True`, methods decorated with :func:`csnlp.core.cache.invalidate_cache`
+            are called to clear cached properties/lru caches in the copied instance.
+            Otherwise, caches in the copy are not invalidated. By default, ``True``.
+            Only relevant when ``deep=True``.
 
         Returns
         -------
@@ -280,12 +297,13 @@ class LearnableParametersDict(
         Parameters
         ----------
         summarize : bool, optional
-            If `True` (default), array parameters are summarized; otherwise, the entire
-            array is printed.
+            If ``True`` (default), array parameters are summarized; otherwise, the
+            entire array is printed.
         precision : int, optional
             The printing precision of floating point numbers.
         ddof : int, optional
-            Degrees of freedom for computing standard deviations (see `numpy.std`).
+            Degrees of freedom for computing standard deviations (see
+            :func:`numpy.std`).
 
         Returns
         -------
