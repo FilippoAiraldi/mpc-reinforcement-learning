@@ -57,7 +57,7 @@ class CallbackMixin:
             for key, value in slotstate.items():
                 setattr(self, key, value)
         # re-establish hooks
-        self.establish_callback_hooks()
+        self._establish_callback_hooks()
 
     def _run_hooks(self, method_name: str, *args: Any) -> None:
         """Runs the internal hooks attached to the given method."""
@@ -65,12 +65,12 @@ class CallbackMixin:
             for hook in hooks.values():
                 hook(*args)
 
-    def establish_callback_hooks(self) -> None:
+    def _establish_callback_hooks(self) -> None:
         """This method must be used to perform the connections between callbacks and any
         invokable method (hook). If the object has no hooks, then this method does
         nothing."""
 
-    def hook_callback(
+    def _hook_callback(
         self, attachername: str, callbackname: str, func: Callable[..., None]
     ) -> None:
         """Hooks a function to be called each time a callback is invoked.

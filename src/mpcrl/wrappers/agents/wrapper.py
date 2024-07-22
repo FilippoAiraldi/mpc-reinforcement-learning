@@ -25,7 +25,7 @@ class Wrapper(SupportsDeepcopyAndPickle, CallbackMixin, Generic[SymType]):
         del self._hooks  # keep only one dict of hooks, i.e., the agent's one
         self.agent = agent
         self._hooked_callbacks: dict[str, list[str]] = {}
-        self.establish_callback_hooks()
+        self._establish_callback_hooks()
 
     @property
     def unwrapped(self) -> Union[Agent[SymType], LearningAgent[SymType, ExpType]]:
@@ -49,13 +49,12 @@ class Wrapper(SupportsDeepcopyAndPickle, CallbackMixin, Generic[SymType]):
             return True
         return self.agent.is_wrapped(wrapper_type)
 
-    def hook_callback(
+    def _hook_callback(
         self, attachername: str, callbackname: str, func: Callable[..., None]
     ) -> None:
-        """See `LearningAgent.hook_callback`."""
         # store the callback id for later removal via `detach_wrapper(s)`
         self._hooked_callbacks.setdefault(callbackname, []).append(attachername)
-        self.unwrapped.hook_callback(attachername, callbackname, func)
+        self.unwrapped._hook_callback(attachername, callbackname, func)
 
     def detach_wrapper(
         self, recursive: bool = False
