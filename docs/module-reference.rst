@@ -6,6 +6,16 @@ This section contains detailed information about the modules and classes in **mp
 First, we introduce the main components of the package, which are likely to be the  ones
 most users will employe. Then, the rest of the package is presented in details.
 
+---------------
+Core components
+---------------
+
+Before jumping into the details of the agents and their Reinforcement Learning
+algorithms, we present here the core elements that are used during training and
+evaluation, but are not the agents themselves.
+
+.. automodule:: mpcrl.core
+
 Learnable parameters
 --------------------
 
@@ -63,6 +73,22 @@ these exceptions or warnings.
 Agents
 ------
 
+Agents are the main and, arguably, the most important components of the package. They
+deploy the control policies to control the given environments, and, if they are
+learning-based, also implement the underlying learning algorithm to tune the parameters
+of the control policies.
+
+.. currentmodule:: mpcrl
+
+.. inheritance-diagram::
+   Agent
+   LearningAgent
+   GlobOptLearningAgent
+   RlLearningAgent
+   LstdDpgAgent
+   LstdQLearningAgent
+   :parts: 1
+
 Base agents
 ===========
 
@@ -112,14 +138,6 @@ techniques. See also class:`optim.GradientFreeOptimizer`.
 
    GlobOptLearningAgent
 
----------------
-Core components
----------------
-
-Here we list core elements that are used during training and evaluation of agents, but
-are not the agents themselves. These can be employed by users to customize the
-hyperparameters of the training process, or to modify the behaviour of the agents.
-
 ----------
 Optimizers
 ----------
@@ -156,6 +174,12 @@ via global optimization strategies such as Bayesian Optimization.
 
 Gradient-based optimizers
 =========================
+
+Here instead are reported the concrete implementations of the gradient-based optimizers
+that can be used to update the parameters of the MPC controller. They include both
+first-order and second-order methods, whether they require and make use of gradient and
+curvature information (i.e., Jacobian and Hessian of some quantity w.r.t. to the
+parameters).
 
 .. autosummary::
    :toctree: generated
