@@ -94,17 +94,6 @@ class LearningAgent(
         """Gets the parameters of the MPC that can be learnt by the agent."""
         return self._learnable_pars
 
-    @property
-    def is_training(self) -> bool:
-        """Gets whether the agent is training or not.
-
-        Returns
-        -------
-        bool
-            ``True`` if the agent is training; ``False`` otherwise.
-        """
-        return self._is_training
-
     def reset(self, seed: RngType = None) -> None:
         """Resets agent's internal variables, exploration and experience's RNG"""
         super().reset(seed)
