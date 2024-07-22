@@ -13,39 +13,44 @@ ActType = TypeVar("ActType")
 class MonitorEpisodes(
     Wrapper[ObsType, ActType, ObsType, ActType], utils.RecordConstructorArgs
 ):
-    """This wrapper keeps track of
-        - observations (``observations``)
-        - actions (``actions``)
-        - costs/rewards (``rewards``)
-        - episode length (``episode_lengths``)
-        - episode execution time (``exec_times``)
+    """This wrapper keeps track of observations, actions, rewards, episode lengths, and
+    execution times of each episode.
+
+    These are saved in the following fields:
+     - observations (:attr:`observations`)
+     - actions (:attr:`actions`)
+     - costs/rewards (:attr:`rewards`)
+     - episode length (:attr:`MonitorEpisodes.episode_lengths`)
+     - episode execution time (:attr:`exec_times`)
+
     that the environment is subject to during the learning process. Note that these are
-    effectly saved in each corresponding field only when the episode is done (terminated
-    or truncated).
+    effectively saved in each corresponding field only when the episode is done
+    (terminated or truncated). This means that if an episode, e.g., the last one, has
+    not been terminated or truncated, these fields will not have recorded its data
+    (which can be found in the internal attributes).
 
-    After the completion of an episode, these fields will look like this::
+    Parameters
+    ----------
+    env : Env[ObsType, ActType]
+        The environment to apply the wrapper to.
+    deque_size : int, optional
+        The maximum number of episodes to hold as historical data in the internal
+        deques. By default, `None`, i.e., unlimited.
 
-        >>> env.observations = <deque of each episode's observations>
-        ... env.actions = <deque of each episode's actions>
-        ... env.rewards = <deque of each episode's rewards>
-        ... env.episode_lengths = <deque of each episode's episode length>
-        ... env.exec_times = <deque of each episode's execution time>
+    Examples
+    --------
+    After the completion of an episode, these fields will look like this:
+
+    >>> env.observations = <deque of each episode's observations>
+    ... env.actions = <deque of each episode's actions>
+    ... env.rewards = <deque of each episode's rewards>
+    ... env.episode_lengths = <deque of each episode's episode length>
+    ... env.exec_times = <deque of each episode's execution time>
     """
 
     def __init__(
         self, env: Env[ObsType, ActType], deque_size: Optional[int] = None
     ) -> None:
-        """This wrapper will keep track of observations, actions and rewards as well as
-        episode length and execution time.
-
-        Parameters
-        ----------
-        env : Env[ObsType, ActType]
-            The environment to apply the wrapper to.
-        deque_size : int, optional
-            The maximum number of episodes to hold as historical data in the internal
-            deques. By default, `None`, i.e., unlimited.
-        """
         utils.RecordConstructorArgs.__init__(self, deque_size=deque_size)
         Wrapper.__init__(self, env)
         # long-term storages
@@ -68,7 +73,6 @@ class MonitorEpisodes(
     def reset(
         self, *, seed: Optional[int] = None, options: Optional[dict[str, Any]] = None
     ) -> tuple[ObsType, dict[str, Any]]:
-        """Resets the environment and resets the current data accumulators."""
         observation, info = super().reset(seed=seed, options=options)
         self._clear_ep_data()
         self.ep_observations.append(observation)
@@ -78,7 +82,6 @@ class MonitorEpisodes(
         self, action: ActType
     ) -> tuple[ObsType, SupportsFloat, bool, bool, dict[str, Any]]:
         # sourcery skip: extract-method
-        """Steps through the environment, accumulating the episode data."""
         obs, reward, terminated, truncated, info = super().step(action)
 
         # accumulate data
