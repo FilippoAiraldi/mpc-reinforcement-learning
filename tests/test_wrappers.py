@@ -356,6 +356,24 @@ class TestRecordUpdates(unittest.TestCase):
 
 
 class TestEvaluate(unittest.TestCase):
+    @parameterized.expand([(False,), (True,)])
+    def test_evaluate__does_not_evaluate_if_not_training(self, is_training):
+        frequency = 10
+        repeats = 2
+        agent = mk_agent()
+        agent._is_training = is_training
+        agent.evaluate = Mock()
+        env = SimpleEnv()
+        _ = wrappers_agents.Evaluate(agent, env, "on_episode_end", frequency=frequency)
+
+        n_calls = frequency * repeats
+        _ = [agent.on_episode_end(env, i, random()) for i in range(n_calls)]
+
+        if is_training:
+            self.assertGreater(agent.evaluate.call_count, 0)
+        else:
+            self.assertEqual(agent.evaluate.call_count, 0)
+
     @parameterized.expand(product((False, True), (False, True)))
     def test_evaluate__evaluates_with_correct_frequency(
         self, eval_immediately: bool, fix_seed: bool
@@ -365,6 +383,7 @@ class TestEvaluate(unittest.TestCase):
         returns = [object() for _ in range(repeats + eval_immediately)]
         returns_iter = iter(returns)
         agent = mk_agent()
+        agent._is_training = True  # otherwise, Evaluate will not be invoked
         agent.evaluate = Mock(side_effect=lambda *_, **__: next(returns_iter))
         env = SimpleEnv()
         wrapped = wrappers_agents.Evaluate(
@@ -378,7 +397,7 @@ class TestEvaluate(unittest.TestCase):
 
         n_calls = frequency * repeats
         n_calls += int(frequency / 2)  # adds some spurious calls
-        [agent.on_episode_end(env, i, random()) for i in range(n_calls)]
+        _ = [agent.on_episode_end(env, i, random()) for i in range(n_calls)]
 
         self.assertEqual(agent.evaluate.call_count, repeats + eval_immediately)
         self.assertListEqual(wrapped.eval_returns, returns)

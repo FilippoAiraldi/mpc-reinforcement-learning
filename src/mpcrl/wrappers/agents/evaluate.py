@@ -78,19 +78,17 @@ class Evaluate(LearningWrapper[SymType, ExpType]):
         if eval_immediately:
             self._evaluate(force=True)
 
-    def _evaluate(self, *_: Any, **__: Any) -> None:
-        """Internal utility to perform the evaluation.
-
-        Note: we do not check if the agent is training or evaluating, so the wrapper's
-        evaluation round can be initiated in both cases, the second making less sense.
-        """
-        if self._is_eval_in_progress or (
-            not __.get("force", False) and not next(self._eval_cycle)
+    def _evaluate(self, *_: Any, **kwargs: Any) -> None:
+        unwrapped_agent = self.agent.unwrapped
+        is_training = unwrapped_agent._is_training
+        if (
+            not is_training
+            or self._is_eval_in_progress
+            or (not kwargs.get("force", False) and not next(self._eval_cycle))
         ):
             return
+
         self._is_eval_in_progress = True
-        unwrapped_agent = self.agent.unwrapped
-        updates_flag = unwrapped_agent._updates_enabled
         try:
             self.eval_returns.append(
                 self.agent.evaluate(
@@ -104,7 +102,7 @@ class Evaluate(LearningWrapper[SymType, ExpType]):
             )
         finally:
             self._is_eval_in_progress = False
-            unwrapped_agent._updates_enabled = updates_flag
+            unwrapped_agent._is_training = is_training
 
     def _establish_callback_hooks(self) -> None:
         super()._establish_callback_hooks()

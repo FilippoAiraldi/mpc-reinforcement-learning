@@ -120,17 +120,6 @@ class LearningAgent(
         """
         return self._learnable_pars
 
-    @property
-    def is_training(self) -> bool:
-        """Gets whether the agent is training or not.
-
-        Returns
-        -------
-        bool
-            ``True`` if the agent is training; ``False`` otherwise.
-        """
-        return self._is_training
-
     def reset(self, seed: RngType = None) -> None:
         super().reset(seed)
         self.experience.reset(seed)
