@@ -30,7 +30,7 @@ class Adam(GradientBasedOptimizer[SymType, LrType]):
 
     Parameters
     ----------
-    learning_rate : float or array or :class:`mpcrl.schedulers.Scheduler`
+    learning_rate : float or array or :class:`mpcrl.core.schedulers.Scheduler`
         The learning rate of the optimizer. It can be:
 
         - a float, in case the learning rate must stay constant and is the same for all
@@ -40,7 +40,7 @@ class Adam(GradientBasedOptimizer[SymType, LrType]):
           each parameter (should have the same size as the number of learnable
           parameters)
 
-        - a :class:`mpcrl.schedulers.Scheduler`, in case the learning rate can vary
+        - a :class:`mpcrl.core.schedulers.Scheduler`, in case the learning rate can vary
           during the learning process (usually, it is set to decay). See the ``hook``
           argument for more details on when this scheduler is stepped.
     betas : tuple of 2 floats, optional

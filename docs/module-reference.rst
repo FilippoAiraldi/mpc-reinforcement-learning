@@ -6,7 +6,22 @@ This section contains detailed information about the modules and classes in **mp
 First, we introduce the main components of the package, which are likely to be the  ones
 most users will employe. Then, the rest of the package is presented in details.
 
-.. currentmodule:: mpcrl
+Scheduling quantities
+---------------------
+
+What if you need to decay or increase your learning rate over time during training?
+The following submodule provides a set of schedulers that can be used to update or decay
+different quantities, such as learning rates or exploration probability, over time. Most
+of the agents will then accept a scheduler as an argument, which will be updated
+according to the user-specified way.
+
+.. autosummary::
+   :toctree: generated
+   :template: module.rst
+   :caption: Scheduling quantities
+
+   schedulers
+
 
 ------
 Agents
