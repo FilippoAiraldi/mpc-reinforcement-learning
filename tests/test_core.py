@@ -156,7 +156,6 @@ class TestSchedulers(unittest.TestCase):
         do_test_str_and_repr(self, scheduler)
 
     def test_linear_scheduler__step__updates_value_correctly(self):
-        # sourcery skip: class-extract-method
         K = 20
         x0 = np.random.rand() * 10
         xf = np.random.rand() * 10
@@ -173,13 +172,11 @@ class TestSchedulers(unittest.TestCase):
         do_test_str_and_repr(self, scheduler)
 
     def test_loglinear_scheduler__step__updates_value_correctly(self):
-        # sourcery skip: class-extract-method
         K = 20
-        base = np.random.rand() + 1 * 10
-        x0 = np.random.randn() + 3
-        xf = np.random.randn()
-        x_expected = np.logspace(x0, xf, K + 1, base=base)
-        scheduler = S.LogLinearScheduler(base**x0, base**xf, K)
+        x0 = np.abs(2 * np.random.randn())
+        xf = np.abs(2 * np.random.randn())
+        x_expected = np.geomspace(x0, xf, K + 1)
+        scheduler = S.LogLinearScheduler(x0, xf, K)
         x_actual = []
         for _ in range(K):
             x_actual.append(scheduler.value)

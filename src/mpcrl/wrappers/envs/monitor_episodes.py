@@ -54,12 +54,8 @@ class MonitorEpisodes(
         utils.RecordConstructorArgs.__init__(self, deque_size=deque_size)
         Wrapper.__init__(self, env)
         # long-term storages
-        self.observations: Deque[npt.NDArray[ObsType]] = deque(  # type: ignore
-            maxlen=deque_size
-        )
-        self.actions: Deque[npt.NDArray[ActType]] = deque(  # type: ignore
-            maxlen=deque_size
-        )
+        self.observations: Deque[npt.NDArray[ObsType]] = deque(maxlen=deque_size)
+        self.actions: Deque[npt.NDArray[ActType]] = deque(maxlen=deque_size)
         self.rewards: Deque[npt.NDArray[np.floating]] = deque(maxlen=deque_size)
         self.episode_lengths: Deque[int] = deque(maxlen=deque_size)
         self.exec_times: Deque[float] = deque(maxlen=deque_size)
@@ -81,7 +77,6 @@ class MonitorEpisodes(
     def step(
         self, action: ActType
     ) -> tuple[ObsType, SupportsFloat, bool, bool, dict[str, Any]]:
-        # sourcery skip: extract-method
         obs, reward, terminated, truncated, info = super().step(action)
 
         # accumulate data

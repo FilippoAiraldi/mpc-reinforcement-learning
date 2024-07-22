@@ -168,7 +168,7 @@ if __name__ == "__main__":
     )
 
     env = MonitorEpisodes(TimeLimit(LtiSystem(), max_episode_steps=int(5e3)))
-    agent = Log(  # type: ignore[var-annotated]
+    agent = Log(
         RecordUpdates(
             LstdQLearningAgent(
                 mpc=mpc,
