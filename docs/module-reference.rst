@@ -8,19 +8,12 @@ most users will employe. Then, the rest of the package is presented in details.
 
 .. currentmodule:: mpcrl
 
----------------
-Core components
----------------
+------
+Agents
+------
 
-Here we list the core elements that are used to train and evaluate agents, but are not
-the agents themselves, which are presented in the next section. These core components
-are paramount in laying the foundation for the agents to be built upon.
-
-# TODO: core and optim here
-
------------
 Base agents
------------
+===========
 
 What follows are the base classes for the agents in the package. These are either
 nonlearning agents (i.e., :class:`Agent`) or abstract learning agents that provide the
@@ -30,14 +23,15 @@ layout for inheriting classes.
    :toctree: generated
    :template: class.rst
    :caption: Base agents
+   :nosignatures:
 
    Agent
    LearningAgent
    RlLearningAgent
 
------------------------------
+
 Reinforcement Learning agents
------------------------------
+=============================
 
 These are the learning agents that leverage a reinforcement learning algorithm to tune
 the parametrization of the MPC controller. Two very common algorithms are here
@@ -47,13 +41,13 @@ implemented: Q-learning and Deterministic Policy Gradient (DPG).
    :toctree: generated
    :template: class.rst
    :caption: Reinforcement Learning agents
+   :nosignatures:
 
    LstdDpgAgent
    LstdQLearningAgent
 
----------------------
 Other learning agents
----------------------
+=====================
 
 We also provide other learning agents that do not use gradient-based approaches to
 update their parameters, but rather rely on other global gradient-free optimization
@@ -63,6 +57,7 @@ techniques. See also class:`optim.GradientFreeOptimizer`.
    :toctree: generated
    :template: class.rst
    :caption: Other learning agents
+   :nosignatures:
 
    GlobOptLearningAgent
 
@@ -70,11 +65,18 @@ techniques. See also class:`optim.GradientFreeOptimizer`.
 Other submodules
 ----------------
 
+.. currentmodule:: mpcrl
+
+:mod:`mpcrl` offers a few other components that are not explicitly needed by the agents
+and their core functionalities, but can be useful to enhance the base behaviour of
+agents via wrappers, or to provide additional methods for, e.g., designing LQR
+controllers. To this end, we provide a few utility wrapper classes and utility methods
+in the following submodules.
+
 .. autosummary::
    :toctree: generated
    :template: module.rst
    :caption: Other components
 
+   wrappers
    util
-
-# TODO: wrappers here

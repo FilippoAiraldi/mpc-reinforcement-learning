@@ -14,7 +14,42 @@ ActType = TypeVar("ActType")
 
 
 class Evaluate(LearningWrapper[SymType, ExpType]):
-    """Wrapper for evaluating an agent during learning."""
+    """Wrapper for evaluating an agent during training.
+
+    On the given hook and with the given frequency, this wrapper automatically evaluates
+    the agent on the specified environment by calling the agent's method
+    :meth:`mpcrl.Agent.evaluate`. The resulting evaluation returns are stored in the
+    attribute :attr:`eval_returns`.
+
+    Parameters
+    ----------
+    agent : LearningAgent
+        The learning agent to be evaluated by the wrapper.
+    eval_env : gymnasium.Env
+        A gym environment to evaluate the agent in.
+    hook : {"on_episode_end", "on_timestep_end", "on_update"}
+        Hook to trigger the evaluation. The evaluation will be triggered every
+        ``frequency`` invokations of the specified hook.
+    frequency : int
+        Frequency of the evaluation.
+    n_eval_episodes : int, optional
+        How many episodes to evaluate the agent for, by default ``1``.
+    eval_immediately : bool, optional
+        Whether to evaluate the agent immediately after the wrapper is created, by
+        default ``False``.
+    deterministic : bool, optional
+        Whether the agent should act deterministically; by default, ``True``.
+    seed : None, int, array_like of ints, SeedSequence, BitGenerator, Generator
+        Agent's and each env's random seeds for the evaluation.
+    raises : bool, optional
+        If ``True``, when any of the MPC solver runs fails, or when an update fails, the
+        corresponding error is raised; otherwise, only a warning is raised.
+    env_reset_options : dict, optional
+        Additional information to specify how the environment is reset at each evalution
+        episode (optional, depending on the specific environment).
+    fix_seed : bool, optional
+        If ``True``, the seed is fixed and the same seed is used for all evaluations.
+    """
 
     def __init__(
         self,
@@ -31,37 +66,6 @@ class Evaluate(LearningWrapper[SymType, ExpType]):
         env_reset_options: Optional[dict[str, Any]] = None,
         fix_seed: bool = False,
     ) -> None:
-        """Creates an instance of the evaluation wrapper around the agent.
-
-        Parameters
-        ----------
-        agent : LearningAgent
-            The learning agent to be evaluated by the wrapper.
-        eval_env : gymnasium.Env
-            A gym environment to evaluate the agent in.
-        hook : {'on_episode_end', 'on_timestep_end', 'on_update'}
-            Hook to trigger the evaluation. The evaluation will be triggered every
-            `frequency` invokations of the specified hook.
-        frequency : int
-            Frequency of the evaluation.
-        n_eval_episodes : int, optional
-            How many episodes to evaluate the agent for, by default `1`.
-        eval_immediately : bool, optional
-            Whether to evaluate the agent immediately after the wrapper is created, by
-            default `False`.
-        deterministic : bool, optional
-            Whether the agent should act deterministically; by default, `True`.
-        seed : None, int, array_like[ints], SeedSequence, BitGenerator, Generator
-            Agent's and each env's RNG seed for the evaluation.
-        raises : bool, optional
-            If `True`, when any of the MPC solver runs fails, or when an update fails,
-            the corresponding error is raised; otherwise, only a warning is raised.
-        env_reset_options : dict, optional
-            Additional information to specify how the environment is reset at each
-            evalution episode (optional, depending on the specific environment).
-        fix_seed : bool, optional
-            If `True`, the seed is fixed and the same seed is used for all evaluations.
-        """
         self.eval_env = eval_env
         self._hook = hook
         self._n_eval_episodes = n_eval_episodes
