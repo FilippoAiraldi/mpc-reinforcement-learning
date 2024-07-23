@@ -2,9 +2,14 @@
 Module reference
 ================
 
-This section contains detailed information about the modules and classes in **mpcrl**.
-First, we introduce the main components of the package, which are likely to be the  ones
-most users will employe. Then, the rest of the package is presented in details.
+This page contains all the detailed information about the modules and classes in
+:mod:`mpcrl`. First, we will indulge in presenting the core components of the library
+that allow us to easily implement Reinforcement Learning algorithms. Then, we will move
+to the agents themselves, which contain these algorithms and deploy them to control the
+given environments (and possibly learn from interacting with it). Finally, the different
+optimization strategies that can be used to update the parameters of the MPC controller
+are reported, and the utility functions and wrappers that can be used to enhance the
+behaviour of the agents are also presented.
 
 ---------------
 Core components
@@ -15,6 +20,10 @@ algorithms, we present here the core elements that are used during training and
 evaluation, but are not the agents themselves.
 
 .. automodule:: mpcrl.core
+
+We'll start first with the latter, i.e., the building blocks of the library, and only
+then move to the other former, i.e., the other core elements that allow to specify
+the hyperparameters for our agents.
 
 Building blocks
 ===============
