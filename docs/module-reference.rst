@@ -16,6 +16,29 @@ evaluation, but are not the agents themselves.
 
 .. automodule:: mpcrl.core
 
+Building blocks
+===============
+
+In this section, we present the building blocks of the package, which are at the core
+of the internal workings of the agents and their learning algorithms. These include the
+callback mechanisms, the learnable parameters, the scheduling quantities, and our
+custom exceptions and warnings.
+
+Callbacks
+---------
+
+.. automodule:: mpcrl.core.callbacks
+
+.. autosummary::
+   :toctree: generated
+   :template: class.rst
+   :caption: Callbacks
+   :nosignatures:
+
+   CallbackMixin
+   AgentCallbackMixin
+   LearningAgentCallbackMixin
+
 Learnable parameters
 --------------------
 
@@ -68,6 +91,8 @@ these exceptions or warnings.
    :caption: Exceptions
 
    errors
+
+.. _module_reference_agents:
 
 ------
 Agents
