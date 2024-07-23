@@ -55,6 +55,7 @@ intersphinx_mapping = {
     "joblib": ("https://joblib.readthedocs.io/en/stable/", None),
     "gymnasium": ("https://gymnasium.farama.org/", None),
     "torch": ("https://pytorch.org/docs/stable/", None),
+    "stable-baselines3": ("https://stable-baselines3.readthedocs.io/en/master/", None),
     "typing_extensions": ("https://typing-extensions.readthedocs.io/en/stable/", None),
 }
 

@@ -1,3 +1,10 @@
+"""The update strategy is likely to be one of the most important aspects that a designer
+has to consider when training a Reinforcement Learning agent. When instantiating an
+agent, via :class:`UpdateStrategy`, the user can specify when and with which frequency
+to update the agent's MPC parametrization (e.g., at the end of every training episode,
+or every ``N`` time steps), as well as the number of updates to skip at the beginning
+(in case we need to wait for experience buffers to properly fill first)."""
+
 from collections.abc import Iterator
 from itertools import chain, repeat
 from typing import Literal
@@ -6,7 +13,27 @@ from ..util.iters import bool_cycle
 
 
 class UpdateStrategy:
-    """A class for the update strategy."""
+    """A class holding information on the update strategy to be used by the learning
+    algorithm.
+
+    Parameters
+    ----------
+    frequency : int
+        Frequency at which, each time the hook is called, an update should be
+        carried out.
+    skip_first : int, optional
+        Skips the first ``skip_first`` updates. By default ``0``, so no update is
+        skipped. This is useful when, e.g., the agent has to wait for the experience
+        buffer to be filled before starting to update.
+    hook : {"on_episode_end", "on_timestep_end"}, optional
+        Specifies to which callback to hook, i.e., when to check if an update is due
+        according to the given frequency. The options are:
+
+        - ``"on_episode_end"`` checks if an update is due  after each episode ends
+        - ``"on_timestep_end"`` checks for an update after each simulation's time step.
+
+        By default, ``"on_timestep_end"`` is selected.
+    """
 
     def __init__(
         self,
@@ -14,25 +41,6 @@ class UpdateStrategy:
         hook: Literal["on_episode_end", "on_timestep_end"] = "on_timestep_end",
         skip_first: int = 0,
     ) -> None:
-        """Initializes the update strategy.
-
-        Parameters
-        ----------
-        frequency : int
-            Frequency at which, each time the hook is called, an update should be
-            carried out.
-        skip_first : int, optional
-            Skips the first `skip_first` updates. By default 0, so no update is skipped.
-            This is useful when, e.g., the agent has to wait for the experience buffer
-            to be filled before starting to update.
-        hook : {'on_episode_end', 'on_timestep_end'}, optional
-            Specifies to which callback to hook, i.e., when to check if an update is due
-            according to the given frequency. The options are:
-             - `on_episode_end` checks for an update after each episode's end
-             - `on_timestep_end` checks for an update after each env's timestep.
-
-            By default, 'on_timestep_end' is selected.
-        """
         self.frequency = frequency
         self.hook = hook
         self._update_cycle = chain(
@@ -40,28 +48,28 @@ class UpdateStrategy:
         )
 
     def can_update(self) -> bool:
-        """Returns whether an update must be carried out at the current instant
-        according to the strategy.
+        """Returns whether an update must be carried out now, at the current instant,
+        according to the specified strategy.
 
         Notes
         -----
-        This methods steps internal iterators to check whether an update is due, so
-        calling this method again will return a different value.
+        This methods steps the internal iterators to check whether an update is due with
+        :func:`next`. This means that calling this method has a side effect on the state
+        of these iterators, and calling immediately again can result in a different
+        outcome.
 
         Returns
         -------
         bool
-            `True` if the agent should update according to this strategy; otherwise,
-            `False`.
+            ``True`` if the agent should update according to this strategy; otherwise,
+            ``False``.
         """
         return next(self._update_cycle)
 
     def __iter__(self) -> Iterator[bool]:
-        """With `__next__`, makes this class act like an iterator."""
         return self._update_cycle
 
     def __next__(self) -> bool:
-        """With `__iter__`, makes this class act like an iterator."""
         return next(self._update_cycle)
 
     def __repr__(self) -> str:

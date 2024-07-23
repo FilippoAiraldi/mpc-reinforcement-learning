@@ -101,6 +101,72 @@ these exceptions or warnings.
 
    errors
 
+Hyperparameters
+===============
+
+Update strategy
+---------------
+
+.. automodule:: mpcrl.core.update
+
+.. currentmodule:: mpcrl
+
+.. autosummary::
+   :toctree: generated
+   :template: class.rst
+   :caption: Update strategy
+   :nosignatures:
+
+   UpdateStrategy
+
+Experience replay
+-----------------
+
+.. automodule:: mpcrl.core.experience
+
+.. currentmodule:: mpcrl
+
+.. autosummary::
+   :toctree: generated
+   :template: class.rst
+   :caption: Experience replay
+   :nosignatures:
+
+   ExperienceReplay
+
+Exploring
+---------
+
+.. automodule:: mpcrl.core.exploration
+
+.. autosummary::
+   :toctree: generated
+   :template: class.rst
+   :caption: Exploring
+   :nosignatures:
+
+   ExplorationStrategy
+   NoExploration
+   GreedyExploration
+   EpsilonGreedyExploration
+   OrnsteinUhlenbeckExploration
+   StepWiseExploration
+
+Warmstarting the MPC solvers
+----------------------------
+
+.. automodule:: mpcrl.core.warmstart
+
+.. currentmodule:: mpcrl
+
+.. autosummary::
+   :toctree: generated
+   :template: class.rst
+   :caption: Warmstarting the MPC solvers
+   :nosignatures:
+
+   WarmStartStrategy
+
 .. _module_reference_agents:
 
 ------
