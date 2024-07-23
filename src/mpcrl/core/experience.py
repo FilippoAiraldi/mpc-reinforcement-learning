@@ -1,6 +1,7 @@
+from collections import deque
 from collections.abc import Iterable, Iterator
 from itertools import chain
-from typing import Deque, Optional, TypeVar, Union
+from typing import Optional, TypeVar, Union
 
 import numpy as np
 
@@ -9,11 +10,7 @@ from ..util.seeding import RngType
 ExpType = TypeVar("ExpType")
 
 
-class ExperienceReplay(Deque[ExpType]):
-    """Deque-based class for RL traning to save and sample experience transitions. The
-    class inherits from `collections.deque`, adding a couple of simple functionalities
-    to it for sampling transitions at random from past observed data."""
-
+class ExperienceReplay(deque[ExpType]):
     def __init__(
         self,
         iterable: Iterable[ExpType] = (),
