@@ -250,7 +250,7 @@ class LstdQLearningAgent(
 
         # compute first order sensitivity
         snlp = NlpSensitivity(nlp, theta)
-        gradient = snlp.jacobians["L-p"]  # exact gradient, i.e., dQ/dtheta
+        gradient = snlp.jacobian("L-p")  # exact gradient, i.e., dQ/dtheta
 
         if hessian_type == "none":
             assert order == 1, "Expected 1st-order optimizer with `hessian_type=none`."
@@ -268,10 +268,10 @@ class LstdQLearningAgent(
             ), "Expected 2nd-order optimizer with `hessian_type=approx` or `full`."
 
             # compute second order sensitivity
-            hessian = snlp.hessians["L-pp"]  # approximate hessian
+            hessian = snlp.hessian("L-pp")  # approximate hessian
             if hessian_type == "full":
-                Kp = snlp.jacobians["K-p"]
-                Ky = snlp.jacobians["K-y"]
+                Kp = snlp.jacobian("K-p")
+                Ky = snlp.jacobian("K-y")
                 dydtheta = -cs.solve(Ky, Kp)
                 Lpy = cs.jacobian(gradient, nlp.primal_dual)
                 hessian += Lpy @ dydtheta  # not sure if Lpy or Kp.T

@@ -314,9 +314,9 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         x_lam_p = cs.vertcat(nlp.primal_dual, nlp.p)
 
         # compute first bunch of derivatives
-        nlp_ = NlpSensitivity(nlp, theta)
-        Kt = nlp_.jacobians["K-p"]
-        Ky = nlp_.jacobians["K-y"]
+        snlp = NlpSensitivity(nlp, theta)
+        Kt = snlp.jacobian("K-p")
+        Ky = snlp.jacobian("K-y")
         dydu0 = cs.jacobian_sparsity(u0, y).T
 
         # instantiate linear solver (must be MX, so SX has to be converted)
