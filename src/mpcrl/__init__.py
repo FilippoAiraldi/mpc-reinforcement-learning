@@ -4,7 +4,7 @@ r"""**M**\odel **P**\redictive **C**\ontrol-based **R**\einforcement **L**\earni
 approximation :cite:`rawlings_model_2017`.
 
 ==================== =======================================================================
-**Documentation**        https://mpc-reinforcement-learning.readthedocs.io/en/latest/
+**Documentation**        https://mpc-reinforcement-learning.readthedocs.io/en/stable/
 
 **Download**             https://pypi.python.org/pypi/mpcrl/
 
