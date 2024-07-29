@@ -71,10 +71,8 @@ the Author(s). Prof. Dr. Ir. Fred van Keulen, Dean of ME.
 .. toctree::
    :hidden:
 
-   User guide <user-guide/index>
    Module reference <module-reference>
    Changelog <https://github.com/FilippoAiraldi/mpc-reinforcement-learning/releases>
-..  TODO  Examples <auto_examples/index>
 
 ------------------
 Indices and tables
