@@ -243,51 +243,116 @@ class LstdQLearningAgent(
     ]:
         """Internal utility to compute the derivative of ``Q(s,a)`` w.r.t. the learnable
         parameters, a.k.a., ``theta``."""
-        order = self.optimizer._order
+        ord = self.optimizer._order
         theta = cs.vvcat(self._learnable_pars.sym.values())
         nlp = self._Q.nlp
-        x_lam_p = cs.vertcat(nlp.primal_dual, nlp.p)
+        x = nlp._x
+        p = nlp._p
+        lam_g_and_h = cs.vertcat(nlp._lam_g, nlp._lam_h)
 
-        # compute first order sensitivity
+        # compute first order sensitivity - necessary whatever the hessian type is
         snlp = NlpSensitivity(nlp, theta)
         gradient = snlp.jacobian("L-p")  # exact gradient, i.e., dQ/dtheta
 
         if hessian_type == "none":
-            assert order == 1, "Expected 1st-order optimizer with `hessian_type=none`."
+            assert ord == 1, "Expected 1st-order optimizer with `hessian_type=none`."
 
             sensitivity = cs.Function(
-                "S", (x_lam_p,), (gradient,), ("x_lam_p",), ("dQ",), {"cse": True}
-            )
-
-            def func(sol_values: cs.DM) -> np.ndarray:
-                return np.asarray(sensitivity(sol_values).elements())
-
-        else:
-            assert (
-                order == 2
-            ), "Expected 2nd-order optimizer with `hessian_type=approx` or `full`."
-
-            # compute second order sensitivity
-            hessian = snlp.hessian("L-pp")  # approximate hessian
-            if hessian_type == "full":
-                Kp = snlp.jacobian("K-p")
-                Ky = snlp.jacobian("K-y")
-                dydtheta = -cs.solve(Ky, Kp)
-                Lpy = cs.jacobian(gradient, nlp.primal_dual)
-                hessian += Lpy @ dydtheta  # not sure if Lpy or Kp.T
-
-            sensitivity = cs.Function(
-                "S",
-                (x_lam_p,),
-                (gradient, hessian),
-                ("x_lam_p",),
-                ("dQ", "ddQ"),
+                "lag_sens",
+                [x, p, lam_g_and_h],
+                [gradient],
+                ["x", "p", "lam_g"],
+                ["dQ"],
                 {"cse": True},
             )
 
-            def func(sol_values: cs.DM) -> tuple[np.ndarray, np.ndarray]:
-                dQ, ddQ = sensitivity(sol_values)
-                return np.asarray(dQ.elements()), ddQ.toarray()
+            def func(sol: Solution) -> np.ndarray:
+                return np.asarray(sensitivity(sol.x, sol.p, sol.lam_g_and_h).elements())
+
+        elif hessian_type == "approx":
+            assert ord == 2, "Expected 2nd-order optimizer with `hessian_type=approx`."
+
+            hessian = snlp.hessian("L-pp")  # approximate hessian
+
+            # check if the hessian is not all zeros. If that's the case, we fall back to
+            # computing just the gradient
+            if hessian.nnz() > 0:
+                sensitivity = cs.Function(
+                    "lag_sens",
+                    [x, p, lam_g_and_h],
+                    [gradient, hessian],
+                    ["x", "p", "lam_g"],
+                    ["dQ", "ddQ"],
+                    {"cse": True},
+                )
+                shape = sensitivity.size_out("ddQ")
+
+                def func(sol: Solution) -> tuple[np.ndarray, np.ndarray]:
+                    J, H = sensitivity(sol.x, sol.p, sol.lam_g_and_h)
+                    return (
+                        np.asarray(J.elements()),
+                        np.reshape(H.elements(), shape, "F"),
+                    )
+
+            else:
+                sensitivity = cs.Function(
+                    "lag_sens",
+                    [x, p, lam_g_and_h],
+                    [gradient],
+                    ["x", "p", "lam_g"],
+                    ["dQ"],
+                    {"cse": True},
+                )
+
+                def func(sol: Solution) -> tuple[np.ndarray, np.ndarray]:
+                    J = sensitivity(sol.x, sol.p, sol.lam_g_and_h)
+                    return np.asarray(J.elements()), 0.0
+
+        else:
+            assert ord == 2, "Expected 2nd-order optimizer with `hessian_type=full`."
+
+            lam_lbx_and_ubx = cs.vertcat(nlp._lam_lbx, nlp._lam_ubx)
+            Kp = snlp.jacobian("K-p")
+            Ky = snlp.jacobian("K-y")
+            dydtheta = -cs.solve(Ky, Kp)
+            Lpy = cs.jacobian(gradient, nlp.primal_dual)
+            hessian = snlp.hessian("L-pp") + Lpy @ dydtheta  # not sure if Lpy or Kp.T
+
+            # check if the hessian is not all zeros. If that's the case, we fall back to
+            # computing just the gradient
+            if hessian.nnz() > 0:
+                sensitivity = cs.Function(
+                    "lag_sens",
+                    [x, p, lam_g_and_h, lam_lbx_and_ubx],
+                    [gradient, hessian],
+                    ["x", "p", "lam_g", "lam_x"],
+                    ["dQ", "ddQ"],
+                    {"cse": True},
+                )
+                shape = sensitivity.size_out("ddQ")
+
+                def func(sol: Solution) -> tuple[np.ndarray, np.ndarray]:
+                    J, H = sensitivity(
+                        sol.x, sol.p, sol.lam_g_and_h, sol.lam_lbx_and_ubx
+                    )
+                    return (
+                        np.asarray(J.elements()),
+                        np.reshape(H.elements(), shape, "F"),
+                    )
+
+            else:
+                sensitivity = cs.Function(
+                    "lag_sens",
+                    [x, p, lam_g_and_h],  # should lam_lbx_and_ubx be included?
+                    [gradient],
+                    ["x", "p", "lam_g"],
+                    ["dQ"],
+                    {"cse": True},
+                )
+
+                def func(sol: Solution) -> tuple[np.ndarray, np.ndarray]:
+                    J = sensitivity(sol.x, sol.p, sol.lam_g_and_h)
+                    return np.asarray(J.elements()), 0.0
 
         return func
 
@@ -299,14 +364,13 @@ class LstdQLearningAgent(
         not store it. Returns whether it was successful or not."""
         success = solQ.success and solV.success
         if success:
-            sol_values = solQ.all_vals
             td_error = cost + self.discount_factor * solV.f - solQ.f
             if self.hessian_type == "none":
-                dQ = self._sensitivity(sol_values)
+                dQ = self._sensitivity(solQ)
                 gradient = -td_error * dQ
                 self.store_experience(gradient)
             else:
-                dQ, ddQ = self._sensitivity(sol_values)
+                dQ, ddQ = self._sensitivity(solQ)
                 gradient = -td_error * dQ
                 hessian = np.multiply.outer(dQ, dQ) - td_error * ddQ
                 self.store_experience((gradient, hessian))

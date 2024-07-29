@@ -7,7 +7,8 @@ from warnings import catch_warnings
 
 import casadi as cs
 import numpy as np
-from csnlp import Nlp, Solution, scaling
+from csnlp import Nlp, scaling
+from csnlp.core.solutions import EagerSolution
 from csnlp.multistart import StackedMultistartNlp
 from csnlp.wrappers import Mpc, NlpScaling
 from parameterized import parameterized, parameterized_class
@@ -185,8 +186,7 @@ class TestAgent(unittest.TestCase):
     ):
         starts = 3
         horizon = 3
-        if not self.multistart_nlp:
-            multiple_pars = False
+        multiple_pars &= self.multistart_nlp
         fixed_pars = {
             Agent.cost_perturbation_parameter: [42, 69],
             "d": cs.DM([5, 6, 7]),
@@ -202,29 +202,36 @@ class TestAgent(unittest.TestCase):
         mpc: Mpc[cs.SX] = getattr(agent, mpctype)
 
         s = {"y": 0, "v": 10, "m": 5e5}
-        a = {"u1": 1, "u2": 2}
         if vector:
             s = cs.DM(s.values())
-            a = cs.DM(a.values())
         if mpctype == "V":
             a = None
+        else:
+            a = {"u1": 1, "u2": 2}
+            if vector:
+                a = cs.DM(a.values())
 
         pert = cs.DM([65, 79])
         vals0 = object()
-        sol = Solution(
-            f=5,
+        sol = EagerSolution(
+            f=None,
+            p_sym=None,
+            p=None,
+            x_sym=None,
+            x=None,
+            lam_g_and_h_sym=None,
+            lam_g_and_h=None,
+            lam_lbx_and_ubx_sym=None,
+            lam_lbx_and_ubx=None,
             vars=None,
             vals=vals0,
             dual_vars=None,
             dual_vals=None,
             stats={"success": True},
-            _get_value=None,
         )
         agent._last_solution = sol
-        if self.multistart_nlp:
-            mpc.nlp.solve_multi = MagicMock(return_value=sol)
-        else:
-            mpc.nlp.solve = MagicMock(return_value=sol)
+        method = "solve_multi" if self.multistart_nlp else "solve"
+        setattr(mpc.nlp, method, MagicMock(return_value=sol))
 
         agent._solve_mpc(mpc, state=s, action=a, perturbation=pert)
 
@@ -238,12 +245,10 @@ class TestAgent(unittest.TestCase):
             call_pars[Agent.cost_perturbation_parameter] = pert
         else:
             call_pars[Agent.init_action_parameter] = a if vector else cs.DM(a.values())
-        if self.multistart_nlp:
-            mpc.nlp.solve_multi.assert_called_once()
-            call_args = mpc.nlp.solve_multi.call_args.args
-        else:
-            mpc.nlp.solve.assert_called_once()
-            call_args = mpc.nlp.solve.call_args.args
+
+        overwritten_method = getattr(mpc.nlp, method)
+        overwritten_method.assert_called_once()
+        call_args = overwritten_method.call_args.args
         actual_call_pars, actual_call_vals0 = call_args
         if multiple_pars:
             for pars_i in actual_call_pars:
@@ -272,14 +277,21 @@ class TestAgent(unittest.TestCase):
 
         state = {"y": 0, "v": 0, "m": 5e5}
         vals0 = {"y": 0, "v": 0, "m": 5e5, "u1": 1e8, "u2": 0}
-        agent._last_solution = Solution(
-            f=0,
-            vars=0,
+        agent._last_solution = EagerSolution(
+            f=0.0,
+            p_sym=None,
+            p=None,
+            x_sym=None,
+            x=None,
+            lam_g_and_h_sym=None,
+            lam_g_and_h=None,
+            lam_lbx_and_ubx_sym=None,
+            lam_lbx_and_ubx=None,
+            vars=None,
             vals=vals0,
             dual_vars=None,
             dual_vals=None,
-            stats=0,
-            _get_value=0,
+            stats=None,
         )
         if vector:
             state = cs.DM(state.values())
@@ -314,8 +326,21 @@ class TestAgent(unittest.TestCase):
         state = {"y": 0, "v": 0, "m": 5e5}
         action = {"u1": a_opt if a_optimal else a_subopt, "u2": 0}
         vals0 = {**state, **action}
-        agent._last_solution = Solution(
-            f=0, vars=0, vals=vals0, dual_vars=0, dual_vals=0, stats=0, _get_value=0
+        agent._last_solution = EagerSolution(
+            f=None,
+            p_sym=None,
+            p=None,
+            x_sym=None,
+            x=None,
+            lam_g_and_h_sym=None,
+            lam_g_and_h=None,
+            lam_lbx_and_ubx_sym=None,
+            lam_lbx_and_ubx=None,
+            vars=None,
+            vals=vals0,
+            dual_vars=None,
+            dual_vals=None,
+            stats=None,
         )
         if vector:
             state = cs.DM(state.values())
@@ -359,14 +384,21 @@ class TestAgent(unittest.TestCase):
         actions = [cs.vertcat(u1, u2) for u1, u2 in zip(actions1, actions2)]
         successes = [True] * (Ttot - 1) + [False]
         sols = map(
-            lambda u1, u2, success: Solution(
-                0,
-                {},
-                {"u1": u1, "u2": u2},
-                {},
-                {},
-                {"success": success, "return_status": "bad"},
-                None,
+            lambda u1, u2, success: EagerSolution(
+                f=None,
+                p_sym=None,
+                p=None,
+                x_sym=None,
+                x=None,
+                lam_g_and_h_sym=None,
+                lam_g_and_h=None,
+                lam_lbx_and_ubx_sym=None,
+                lam_lbx_and_ubx=None,
+                vars=None,
+                vals={"u1": u1, "u2": u2},
+                dual_vars=None,
+                dual_vals=None,
+                stats={"success": success, "return_status": "bad"},
             ),
             actions1,
             actions2,

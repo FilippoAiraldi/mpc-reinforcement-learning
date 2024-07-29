@@ -279,7 +279,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
                 # According to Gros and Zanon [2], it is hinted that the perturbed
                 # solution should be used instead (sol).
                 exploration = np.asarray((action - action_opt).elements())
-                sol_vals = np.asarray(sol_opt.all_vals.elements())
+                sol_vals = np.asarray(sol_opt.x_and_lam_and_p.elements())
                 self._rollout.append((state, exploration, cost, state_new, sol_vals))
             else:
                 status = f"{sol.status}/{sol_opt.status}"
