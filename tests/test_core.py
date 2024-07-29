@@ -618,20 +618,24 @@ class TestWarmStartStrategy(unittest.TestCase):
         self.assertIsInstance(random_points.np_random, np.random.Generator)
 
     def test_generate(self):
+        struct_point = {"a": object(), "b": object()}
+        rand_point = {"a": object(), "b": object()}
         struct_points = Mock()
         rand_points = Mock()
-        struct_points.__iter__ = lambda self: iter((self,))
-        rand_points.__iter__ = lambda self: iter((self,))
+        struct_points.__iter__ = lambda _: iter([struct_point])
+        rand_points.__iter__ = lambda _: iter([rand_point])
+        prev_sol = {"a": object(), "b": object(), "c": object()}
         wss = WarmStartStrategy(
             structured_points=struct_points,
             random_points=rand_points,
             update_biases_for_random_points=True,
         )
-        biases = object()
-        out = list(wss.generate(biases=biases))
-        self.assertIs(out[0], struct_points)
-        self.assertIs(out[1], rand_points)
-        rand_points.biases.update.assert_called_once_with(biases)
+
+        out = list(wss.generate(previous_sol=prev_sol))
+
+        rand_points.biases.update.assert_called_once_with(prev_sol)
+        self.assertDictEqual(out[0], {**struct_point, "c": prev_sol["c"]})
+        self.assertDictEqual(out[1], {**rand_point, "c": prev_sol["c"]})
 
 
 if __name__ == "__main__":

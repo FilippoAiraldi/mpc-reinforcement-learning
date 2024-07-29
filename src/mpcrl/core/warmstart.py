@@ -24,6 +24,17 @@ from numpy import typing as npt
 from ..util.seeding import RngType
 
 
+def _merge_init_conditions_dicts(
+    init_cond: dict[str, npt.ArrayLike],
+    prev_sol: dict[str, npt.ArrayLike],
+) -> dict[str, npt.ArrayLike]:
+    """Internal utility to merge two dictionaries of initial conditions, where the
+    former comes from multistarting, and the latter from the previous solution."""
+    out = prev_sol.copy()
+    out.update(init_cond)
+    return out
+
+
 class WarmStartStrategy:
     """Class containing all the information to guide the warmstart strategy for the
     MPC's NLP in order to speed up computations (by selecting appropriate initial
@@ -81,18 +92,23 @@ class WarmStartStrategy:
             self.random_points.np_random = np.random.default_rng(seed)
 
     def generate(
-        self, biases: Optional[dict[str, npt.ArrayLike]] = None
+        self, previous_sol: Optional[dict[str, npt.ArrayLike]] = None
     ) -> Generator[dict[str, npt.ArrayLike], None, None]:
         """Generates some initial conditions/guesses for the primal optimization
         variables of the MPC's NLP problem.
 
         Parameters
         ----------
-        biases : dict of (str, array_like), optional
-            Optional biases that can be used to update the random points' original
-            biases. If ``None`` or ``update_biases_for_random_points=False``, the
-            original biases are kept constant. These do not affect the generation of
-            structure points in any way.
+        previous_sol : dict of (str, array_like), optional
+            Optional dict that contains the previous solution's values, if available. If
+            passed, it is used
+
+            - to update the random points' original, unless
+              ``update_biases_for_random_points=False``, at which point the original
+              biases are kept constant (this does not affect the generation of structure
+              points in any way)
+            - to fill in the rest of the initial conditions that are not included in the
+              multistart strategy (neither structured nor random).
 
         Yields
         ------
@@ -100,16 +116,22 @@ class WarmStartStrategy:
             Yields the initial conditions for the MPC's NLP.
         """
         to_be_chained = []
+        given_prev_sol = previous_sol is not None
 
         if self.structured_points is not None:
             to_be_chained.append(self.structured_points)
 
         if self.random_points is not None:
-            if self.update_biases_for_random_points and biases is not None:
-                self.random_points.biases.update(biases)
+            if self.update_biases_for_random_points and given_prev_sol:
+                self.random_points.biases.update(previous_sol)
             to_be_chained.append(self.random_points)
 
-        return chain.from_iterable(to_be_chained)
+        generator = chain.from_iterable(to_be_chained)
+        if given_prev_sol:
+            generator = map(
+                lambda ic: _merge_init_conditions_dicts(ic, previous_sol), generator
+            )
+        return generator
 
     def __repr__(self) -> str:
         nr = 0 if self.random_points is None else self.random_points.multistarts

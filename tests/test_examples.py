@@ -188,7 +188,8 @@ class TestExamples(unittest.TestCase):
         env = MonitorEpisodes(TimeLimit(CstrEnv(4e3), max_episode_steps=10))
         env = TransformReward(env, neg)
         env = NoisyFilterObservation(env, [1, 2])
-        mpc = get_cstr_mpc(env, horizon=7, multistarts=4, n_jobs=4)
+        multistarts = 4
+        mpc = get_cstr_mpc(env, horizon=7, multistarts=multistarts, n_jobs=multistarts)
         pars = mpc.parameters
         Y = mpc.variables["y"].shape
         U = mpc.variables["u"].shape
@@ -208,7 +209,7 @@ class TestExamples(unittest.TestCase):
                     "y": CstrEnv.x0[[1, 2]].reshape(-1, 1),
                     "u": sum(CstrEnv.inflow_bound) / 2,
                 },
-                multistarts=4,
+                multistarts=multistarts,
             ),
         )
         agent = GlobOptLearningAgent(
@@ -234,7 +235,7 @@ class TestExamples(unittest.TestCase):
         # savemat(f"tests/data_test_examples_{platform}.mat", DATA)
 
         np.testing.assert_allclose(J, DATA["bo_J"], rtol=1e-2, atol=1e-2)
-        np.testing.assert_allclose(X, DATA["bo_X"], rtol=1e-1, atol=1e-1)
+        np.testing.assert_allclose(X, DATA["bo_X"], rtol=1e-2, atol=1e-2)
         np.testing.assert_allclose(U, DATA["bo_U"], rtol=1e-2, atol=1e-2)
         np.testing.assert_allclose(R, DATA["bo_R"], rtol=1e-2, atol=1e-2)
 
