@@ -280,7 +280,7 @@ def get_cstr_mpc(
         y_next = y_next_scaled * (ub[:ny] - lb[:ny]) + lb[:ny]
         return cs.cse(cs.simplify(y_next))
 
-    mpc.set_dynamics(narx_dynamics, n_in=2, n_out=1)
+    mpc.set_dynamics(narx_dynamics)
 
     # add constraints on the reactor temperature (soft and with backoff)
     b = mpc.parameter("backoff")
