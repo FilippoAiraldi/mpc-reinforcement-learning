@@ -106,6 +106,39 @@ class TestMath(unittest.TestCase):
 
 
 class TestControl(unittest.TestCase):
+    def test_lqr__returns_correctly(self):
+        K_exp = np.array([[0.307774887341029, 0.441249017604930]])
+        P_exp = np.array(
+            [
+                [0.531874210236110, 0.035928068775907],
+                [0.035928068775907, 0.422885782452801],
+            ]
+        )
+        A = np.array([[-0.9, 0.25], [0, -1.1]])
+        B = np.array([[0.23], [0.45]])
+        Q = np.eye(2)
+        R = np.atleast_2d(0.45)
+        K, P = control.lqr(A, B, Q, R)
+        np.testing.assert_allclose(K, K_exp)
+        np.testing.assert_allclose(P, P_exp)
+
+    def test_lqr__with_M__returns_correctly(self):
+        K_exp = np.array([[0.462006509187942, 0.766379710152564]])
+        P_exp = np.array(
+            [
+                [0.502193051922548, -0.016892161794694],
+                [-0.016892161794694, 0.330569037292075],
+            ]
+        )
+        A = np.array([[-0.9, 0.25], [0, -1.1]])
+        B = np.array([[0.23], [0.45]])
+        Q = np.eye(2)
+        R = np.atleast_2d(0.45)
+        M = np.array([[0.1], [0.2]])
+        K, P = control.lqr(A, B, Q, R, M)
+        np.testing.assert_allclose(K, K_exp)
+        np.testing.assert_allclose(P, P_exp)
+
     def test_dlqr__returns_correctly(self):
         K_exp = np.array([[1.075936290787970, 1.824593914133278]])
         P_exp = np.array(
