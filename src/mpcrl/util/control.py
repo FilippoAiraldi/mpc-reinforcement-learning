@@ -10,9 +10,64 @@ from typing import TypeVar as _Typevar
 
 import numpy as np
 import numpy.typing as npt
+from scipy.linalg import solve_continuous_are as _solve_continuous_are
 from scipy.linalg import solve_discrete_are as _solve_discrete_are
 
 T = _Typevar("T")
+
+
+def lqr(
+    A: npt.NDArray[np.floating],
+    B: npt.NDArray[np.floating],
+    Q: npt.NDArray[np.floating],
+    R: npt.NDArray[np.floating],
+    M: Optional[npt.NDArray[np.floating]] = None,
+) -> tuple[npt.NDArray[np.floating], npt.NDArray[np.floating]]:
+    r"""Computes the solution to the continuous-time LQR problem.
+
+    The LQR problem is to solve the following optimization problem
+
+    .. math::
+        \min_{u} \int_{0}^{\infty} x^\top Q x + u^\top R u + 2 x^\top M u
+
+    for the linear time-invariant continuous-time system
+
+    .. math:: \dot{x} = A x + B u.
+
+    The (famous) solution takes the form of a state feedback law
+
+    .. math:: u = -K x
+
+    with a quadratic cost-to-go function
+
+    .. math:: V(x) = x^\top P x.
+
+    The function returns the optimal state feedback matrix :math:`K` and the quadratic
+    terminal cost-to-go matrix :math:`P`. If not provided, ``M`` is assumed to be zero.
+
+    Parameters
+    ----------
+    A : array
+        State matrix.
+    B : array
+        Control input matrix.
+    Q : array
+        State weighting matrix.
+    R : array
+        Control input weighting matrix.
+    M : array, optional
+        Mixed state-input weighting matrix, by default ``None``.
+
+    Returns
+    -------
+    tuple of two arrays
+        Returns the optimal state feedback matrix :math:`K` and the quadratic terminal
+        cost-to-go matrix :math:`P`.
+    """
+    P = _solve_continuous_are(A, B, Q, R, s=M)
+    rhs = B.T.dot(P) if M is None else B.T.dot(P) + M.T
+    K = np.linalg.solve(R, rhs)
+    return K, P
 
 
 def dlqr(
@@ -55,7 +110,7 @@ def dlqr(
     R : array
         Control input weighting matrix.
     M : array, optional
-        Mixed state-input weighting matrix, by default None.
+        Mixed state-input weighting matrix, by default ``None``.
 
     Returns
     -------
@@ -63,16 +118,9 @@ def dlqr(
         Returns the optimal state feedback matrix :math:`K` and the quadratic terminal
         cost-to-go matrix :math:`P`.
     """
-    if M is not None:
-        RinvMT = np.linalg.solve(R, M.T)
-        Atilde = A - B.dot(RinvMT)
-        Qtilde = Q - M.dot(RinvMT)
-    else:
-        Atilde = A
-        Qtilde = Q
-        M = np.zeros(B.shape)
-    P = _solve_discrete_are(Atilde, B, Qtilde, R)
-    K = np.linalg.solve(B.T.dot(P).dot(B) + R, B.T.dot(P).dot(A) + M.T)
+    P = _solve_discrete_are(A, B, Q, R, s=M)
+    rhs = B.T.dot(P).dot(A) if M is None else B.T.dot(P).dot(A) + M.T
+    K = np.linalg.solve(B.T.dot(P).dot(B) + R, rhs)
     return K, P
 
 
