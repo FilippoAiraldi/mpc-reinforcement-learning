@@ -187,6 +187,153 @@ class TestControl(unittest.TestCase):
         Y_exact = np.exp(-3 * (np.arange(Y.size) * dt))
         np.testing.assert_allclose(Y, Y_exact)
 
+    def test_cbf_degree_1(self):
+        M = cs.SX.sym("M")
+        v0 = cs.SX.sym("v0")
+
+        p = cs.SX.sym("p")
+        v = cs.SX.sym("v")
+        z = cs.SX.sym("z")
+        x = cs.vertcat(p, v, z)
+        u = cs.SX.sym("u")
+        friction_coeffs = cs.SX.sym("friction_coeffs", 3, 1)
+        friction = cs.dot(friction_coeffs, cs.vertcat(1, v, v**2))
+        x_dot = cs.vertcat(v, (u - friction) / M, v0 - v)
+        dynamics = cs.Function("dynamics", [x, u], [x_dot], {"allow_free": True})
+
+        Th = cs.SX.sym("Th")
+        h = lambda x_: x_[2] - Th * x_[1]  # >= 0
+
+        gamma = cs.SX.sym("gamma")
+        alphas = [lambda w: gamma * w]
+        cbf, _ = control.cbf(h, x, u, dynamics, alphas)
+
+        actual_cbf = cbf(x, u)
+        expected_cbf = Th / M * (friction - u) + (v0 - v) + gamma * (z - Th * v)
+        self.assertTrue(all(cbf.shape == (1, 1) for cbf in [actual_cbf, expected_cbf]))
+
+        variables = cs.symvar(actual_cbf)
+        shapes = [v.shape for v in variables]
+        diff = cs.Function("d", variables, (actual_cbf, expected_cbf))
+        for _ in range(20):
+            values = [np.random.randn(*shape) for shape in shapes]
+            np.testing.assert_allclose(*diff(*values), atol=1e-12, rtol=1e-12)
+
+    def test_cbf_degree_2(self):
+        v = cs.SX.sym("v")
+        z = cs.SX.sym("z")
+        u = cs.SX.sym("u")
+        v0 = cs.SX.sym("v0")
+        x = cs.vertcat(v, z)
+        f = cs.vertcat(0, v0 - v)
+        g = cs.vertcat(1, 0)
+        x_dot = f + g * u
+        dynamics = cs.Function("dynamics", [x, u], [x_dot], {"allow_free": True})
+        delta = cs.SX.sym("delta")
+        h = lambda x_: x_[1] - delta  # >= 0
+
+        # degree 1
+        alphas = [lambda y: y]
+        cbf1, _ = control.cbf(h, x, u, dynamics, alphas)
+        actual_cbf1 = cbf1(x, u)
+        expected_cbf1 = v0 - v + cs.SX.zeros(1, 1) * u + z - delta
+
+        # degree 2
+        alphas = [lambda y: y**2] * 2
+        cbf2, _ = control.cbf(h, x, u, dynamics, alphas)
+        actual_cbf2 = cbf2(x, u)
+        h_ = h(x)
+        Lfh_ = control.lie_derivative(h_, x, f)  # v0 - v
+        Lf2h_ = control.lie_derivative(h_, x, f, 2)  # 0
+        LgLfh_ = control.lie_derivative(Lfh_, x, g)  # -1
+        expected_cbf2 = Lf2h_ + LgLfh_ * u + 2 * h_ * Lfh_ + (Lfh_ + h_**2) ** 2
+        self.assertTrue(
+            all(
+                cbf.shape == (1, 1)
+                for cbf in [actual_cbf1, expected_cbf1, actual_cbf2, expected_cbf2]
+            )
+        )
+
+        variables = cs.symvar(actual_cbf2)
+        shapes = [v.shape for v in variables]
+        diff = cs.Function(
+            "d", variables, (actual_cbf1, expected_cbf1, actual_cbf2, expected_cbf2)
+        )
+        for _ in range(200):
+            values = [np.random.randn(*shape) for shape in shapes]
+            out1, out2, out3, out4 = diff(*values)
+            np.testing.assert_allclose(out1, out2, atol=1e-12, rtol=1e-12)
+            np.testing.assert_allclose(out3, out4, atol=1e-12, rtol=1e-12)
+
+    def test_dcbf_degree_1(self):
+        A = cs.SX.sym("A", 2, 2)
+        B = cs.SX.sym("B", 2, 1)
+        x = cs.SX.sym("x", A.shape[0], 1)
+        u = cs.SX.sym("u", B.shape[1], 1)
+        dynamics = lambda x, u: A @ x + B @ u
+        M = cs.SX.sym("M")
+        c = cs.SX.sym("c")
+        gamma = cs.SX.sym("gamma")
+        alphas = [lambda z: gamma * z]
+        h = lambda x: M - c * x[0]  # >= 0
+        cbf, _ = control.dcbf(h, x, u, dynamics, alphas)
+
+        actual_cbf = cbf(x, u)
+        expected_cbf = -c * (A[0, :] @ x + B[0] * u - x[0]) + gamma * (M - c * x[0])
+        self.assertTrue(all(cbf.shape == (1, 1) for cbf in [actual_cbf, expected_cbf]))
+
+        variables = cs.symvar(actual_cbf)
+        shapes = [v.shape for v in variables]
+        diff = cs.Function("d", variables, (actual_cbf, expected_cbf))
+        for _ in range(20):
+            values = [np.random.randn(*shape) for shape in shapes]
+            np.testing.assert_allclose(*diff(*values), atol=1e-12, rtol=1e-12)
+
+    def test_dcbf_degree_2(self):
+        A = cs.SX.sym("A", 2, 2)
+        B = cs.SX.zeros(2, 1)
+        B[1] = cs.SX.sym("b")
+        x = cs.SX.sym("x", A.shape[0], 1)
+        u = cs.SX.sym("u", B.shape[1], 1)
+        dynamics = lambda x, u: A @ x + B @ u
+        M = cs.SX.sym("M")
+        h = lambda x: M - x[0]  # >= 0
+        gamma = cs.SX.sym("gamma", 2, 1)
+
+        # degree 1
+        alphas = [lambda z: gamma[0] * z]
+        cbf1, _ = control.dcbf(h, x, u, dynamics, alphas)
+        actual_cbf1 = cbf1(x, u)
+        expected_cbf1 = -A[0, :] @ x + x[0] + gamma[0] * (M - x[0])
+
+        # degree 2
+        alphas = [lambda z: gamma[0] * z, lambda z: gamma[1] * z]
+        cbf2, _ = control.dcbf(h, x, u, dynamics, alphas)
+        actual_cbf2 = cbf2(x, u)
+        expected_cbf2 = (
+            (A[0, :] @ x - x[0]) * (1 - A[0, 0] - cs.sum1(gamma))
+            + (M - x[0]) * gamma[0] * gamma[1]
+            - A[0, 1] * (A[1, :] @ x - x[1])
+            - B[1] * A[0, 1] * u
+        )
+        self.assertTrue(
+            all(
+                cbf.shape == (1, 1)
+                for cbf in [actual_cbf1, expected_cbf1, actual_cbf2, expected_cbf2]
+            )
+        )
+
+        variables = cs.symvar(actual_cbf2)
+        shapes = [v.shape for v in variables]
+        diff = cs.Function(
+            "d", variables, (actual_cbf1, expected_cbf1, actual_cbf2, expected_cbf2)
+        )
+        for _ in range(200):
+            values = [np.random.randn(*shape) for shape in shapes]
+            out1, out2, out3, out4 = diff(*values)
+            np.testing.assert_allclose(out1, out2, atol=1e-12, rtol=1e-12)
+            np.testing.assert_allclose(out3, out4, atol=1e-12, rtol=1e-12)
+
 
 @parameterized_class("starts_with", [(False,), (True,)])
 class TestIters(unittest.TestCase):
