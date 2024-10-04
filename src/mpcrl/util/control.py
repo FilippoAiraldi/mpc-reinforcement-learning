@@ -1,19 +1,23 @@
 """A collection of basic utility functions for control applications. In particular, it
-contains a function for solving the discrete-time LQR problem and a function for
-integrating a continuous-time dynamics using the Runge-Kutta 4 method.
+contains functions for solving the LQR problems in continuous- and discrete-time,
+discretization methods such as Runge-Kutta 4, and functions to build Control Barrier
+Functions.
 
-Heavy inspiration was drawn from `MPCtools <https://bitbucket.org/rawlings-group/mpc-tools-casadi/src/master/mpctools/util.py>`_.
+Some inspiration was drawn from `MPCtools <https://bitbucket.org/rawlings-group/mpc-tools-casadi/src/master/mpctools/util.py>`_.
 """
 
+from collections.abc import Iterable as _Iterable
 from typing import Callable, Optional
-from typing import TypeVar as _Typevar
+from typing import TypeVar as _TypeVar
 
+import casadi as cs
 import numpy as np
 import numpy.typing as npt
 from scipy.linalg import solve_continuous_are as _solve_continuous_are
 from scipy.linalg import solve_discrete_are as _solve_discrete_are
 
-T = _Typevar("T")
+T = _TypeVar("T")
+SymType = _TypeVar("SymType", cs.SX, cs.MX)
 
 
 def lqr(
@@ -158,3 +162,187 @@ def rk4(f: Callable[[T], T], x0: T, dt: float = 1, M: int = 1) -> T:
         k4 = f(x + k3 * dt)
         x = x + (k1 + 2 * k2 + 2 * k3 + k4) * dt / 6
     return x
+
+
+def lie_derivative(
+    ex: SymType, arg: SymType, field: SymType, order: int = 1
+) -> SymType:
+    """Computes the Lie derivative of the expression ``ex`` with respect to the argument
+    ``arg`` along the field ``field``.
+
+    Parameters
+    ----------
+    ex : casadi SX or MX
+        Expression to compute the Lie derivative of.
+    arg : casadi SX or MX
+        Argument with respect to which to compute the Lie derivative.
+    field : casadi SX or MX
+        Field along which to compute the Lie derivative.
+    order : int, optional
+        Order (>= 1) of the Lie derivative, by default ``1``.
+
+    Returns
+    -------
+    casadi SX or MX
+        The Lie derivative of the expression ``ex`` with respect to the argument ``arg``
+        along the field ``field``.
+    """
+    deriv = cs.dot(cs.gradient(ex, arg), field)
+    if order <= 1:
+        return deriv
+    return lie_derivative(deriv, arg, field, order - 1)
+
+
+def cbf(
+    h: Callable[[SymType], SymType],
+    x: SymType,
+    u: SymType,
+    dynamics: Callable[[SymType, SymType], SymType],
+    alphas: _Iterable[Callable[[SymType], SymType]],
+) -> cs.Function:
+    r"""Continuous-time Control Barrier Function (CBF) for the given constraint ``h``
+    and system with dynamics ``dynamics``. This method constructs a CBF for the
+    constraint :math:`h(x) \geq 0` using the given system's dynamics
+    :math:`\dot{x} = f(x, u)`. Here, :math:`\dot{x}` is the time derivative of the state
+    after applying control input :math:`u`, and :math:`f` is the dynamics function
+    ``dynamics``.
+
+    The method can also compute a High-Order (HO) CBF by passing more than one class
+    :math:`\mathcal{K}` functions ``alphas``.
+
+    As per [1]_, the HO-CBF :math:`\phi_m` of degree :math:`m` is recursively found as
+
+    .. math::
+        \phi_m(x) = \dot{\phi}_{m-1}(x) + \alpha_m(\phi_{m-1}(x))
+
+    and should be imposed as the constraint :math:`\phi_m(x) \geq 0`.
+
+    Parameters
+    ----------
+    h : callable
+        The constraint function for which to build the CBF. It must be of the signature
+        :math:`x \rightarrow h(x)`.
+    x : casadi SX or MX
+        The state variable :math:`x`.
+    u : casadi SX or MX
+        The control input variable :math:`u`.
+    dynamics : callable
+        The dynamics function :math:`f` with signature :math:`x,u \rightarrow f(x, u)`.
+    alphas : iterable of callables
+        An iterable of class :math:`\mathcal{K}` functions :math:`\alpha_m` for
+        the HO-CBF. The length of the iterable determines the degree of the HO-CBF.
+
+    Returns
+    -------
+    casadi Function
+        Returns the HO-CBF function :math:`\phi_m` as a function with signature
+        :math:`x,u \rightarrow \phi_m(x, u)`.
+
+    References
+    ----------
+    .. [1] Xiao, W. and Belta, C., 2021. High-order control barrier functions. IEEE
+       Transactions on Automatic Control, 67(7), pp. 3655-3662.
+
+    Examples
+    --------
+    >>> import casadi as cs
+    >>> A = cs.SX.sym("A", 2, 2)
+    >>> B = cs.SX.sym("B", 2, 1)
+    >>> x = cs.SX.sym("x", A.shape[0], 1)
+    >>> u = cs.SX.sym("u", B.shape[1], 1)
+    >>> dynamics = lambda x, u: A @ x + B @ u
+    >>> M = cs.SX.sym("M")
+    >>> c = cs.SX.sym("c")
+    >>> gamma = cs.SX.sym("gamma")
+    >>> alphas = [lambda z: gamma * z]
+    >>> h = lambda x: M - c * x[0]  # >= 0
+    >>> cbf = cbf(h, x, u, dynamics, alphas)
+    >>> print(cbf(x, u))
+    """
+    x_dot = dynamics(x, u)
+    phi = h(x)
+    for degree, alpha in enumerate(alphas, start=1):
+        phi = lie_derivative(phi, x, x_dot) + alpha(phi)
+    name = f"phi_{degree}"
+    # cs.depends_on(phi, u)
+    # phi.which_depends("u", [name], 2, True)[0]
+    return cs.Function(
+        name, (x, u), (phi,), ("x", "u"), (name,), {"cse": True, "allow_free": True}
+    )
+
+
+def dcbf(
+    h: Callable[[SymType], SymType],
+    x: SymType,
+    u: SymType,
+    dynamics: Callable[[SymType, SymType], SymType],
+    alphas: _Iterable[Callable[[SymType], SymType]],
+) -> cs.Function:
+    r"""Discrete-time Control Barrier Function (DCBF) for the given constraint ``h`` and
+    system with dynamics ``dynamics``. This method constructs a DCBF for the constraint
+    :math:`h(x) \geq 0` using the given system's dynamics :math:`x_{+} = f(x, u)`. Here,
+    :math:`x_{+}` is the next state after applying control input :math:`u`, and
+    :math:`f` is the dynamics function ``dynamics``.
+
+    The method can also compute a High-Order (HO) DCBF by passing more than one class
+    :math:`\mathcal{K}` functions ``alphas``.
+
+    As per [1]_, the HO-DCBF :math:`\phi_m` of degree :math:`m` is recursively found as
+
+    .. math::
+        \phi_m(x_k) = \phi_{m-1}(x_{k+1}) - \phi_{m-1}(x_k) + \alpha_m(\phi_{m-1}(x_k))
+
+    and should be imposed as the constraint :math:`\phi_m(x_k) \geq 0`.
+
+    Parameters
+    ----------
+    h : callable
+        The constraint function for which to build the DCBF. It must be of the signature
+        :math:`x \rightarrow h(x)`.
+    x : casadi SX or MX
+        The state variable :math:`x`.
+    u : casadi SX or MX
+        The control input variable :math:`u`.
+    dynamics : callable
+        The dynamics function :math:`f` with signature :math:`x,u \rightarrow f(x, u)`.
+    alphas : iterable of callables
+        An iterable of class :math:`\mathcal{K}` functions :math:`\alpha_m` for
+        the HO-DCBF. The length of the iterable determines the degree of the HO-DCBF.
+
+    Returns
+    -------
+    casadi Function
+        Returns the HO-DCBF function :math:`\phi_m` as a function with signature
+        :math:`x,u \rightarrow \phi_m(x, u)`.
+
+    References
+    ----------
+    .. [1] Xiong, Y. and Zhai, D.H. and Tavakoli, M. and Xia, Y., 2022. Discrete-time
+       control barrier function: High-order case and adaptive case. IEEE Transactions on
+       Cybernetics, 53(5), pp. 3231-3239.
+
+    Examples
+    --------
+    >>> import casadi as cs
+    >>> A = cs.SX.sym("A", 2, 2)
+    >>> B = cs.SX.sym("B", 2, 1)
+    >>> x = cs.SX.sym("x", A.shape[0], 1)
+    >>> u = cs.SX.sym("u", B.shape[1], 1)
+    >>> dynamics = lambda x, u: A @ x + B @ u
+    >>> M = cs.SX.sym("M")
+    >>> c = cs.SX.sym("c")
+    >>> gamma = cs.SX.sym("gamma")
+    >>> alphas = [lambda z: gamma * z]
+    >>> h = lambda x: M - c * x[0]  # >= 0
+    >>> cbf = dcbf(h, x, u, dynamics, alphas)
+    >>> print(cbf(x, u))
+    """
+    x_next = dynamics(x, u)
+    phi = h(x)
+    for degree, alpha in enumerate(alphas, start=1):
+        phi_next = cs.substitute(phi, x, x_next)
+        phi = phi_next - phi + alpha(phi)
+    name = f"phi_{degree}"
+    return cs.Function(
+        name, (x, u), (phi,), ("x", "u"), (name,), {"cse": True, "allow_free": True}
+    )
