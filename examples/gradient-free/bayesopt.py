@@ -1,11 +1,41 @@
-"""This example shows how to use BoTorch (a Bayesian Optimization library) to optimize
-the parameters of a parametric MPC policy. The numerical example is inspired by [1].
+r"""
+.. _examples_bayesopt:
+
+Bayesian Optimization for MPC Data-driven Tuning
+================================================
+
+In this example, instead of using RL to tune the parametrization :math:`\theta` of an
+MPC controller, we will use Bayesian optimization (BO). The task can be summarized as
+
+.. math:: \min_{\theta} J(\pi_\theta).
+
+In other words, the BO algorithm must find the parametrization :math:`\theta^\star` that
+minimizes the operational cost of a given MPC policy :math:`\pi_\theta`, averaged over
+all possible initial states.
+
+BO is a sequential decision making strategy that leverages the information from the
+previous evaluations of the cost function to decide where to evaluate the next candidate
+parametrization. The algorithm fits a probabilistic surrogate model to the data, which
+is used to predict the cost function at unexplored points, with Gaussian Processes (GPs)
+being the most common stochastic models used. Then, it proposes a candidate point for
+the next evaluation by maximizing an acquisition function, which balances exploration
+and exploitation. The candidate point is evaluated (i.e., a simulation is run with the
+MPC with the candidate parametrization), and the data is updated. This process is
+iterated until a stopping criterion is met.
+
+In this example, we use `BoTorch <https://botorch.org/>`_ to handle the BO part. We show
+how to interface :mod:`botorch` with :mod:`mpcrl` via
+:class:`mpcrl.GlobOptLearningAgent` and :class:`mpcrl.optim.GradientFreeOptimizer`. The
+example is taken from [1]_, where a nonlinear continuously stirred tank reactor (CSTR)
+is controlled via an MPC scheme. The MPC prediction model is based on a NARX model,
+which is tuned using BO. Additionally, the constraint back-off parameter is also tuned
+by BO.
 
 References
 ----------
-[1] Sorourifar, F., Makrygirgos, G., Mesbah, A. and Paulson, J.A., 2021. A data-driven
-    automatic tuning method for MPC under uncertainty using constrained Bayesian
-    optimization. IFAC-PapersOnLine, 54(3), pp.243-250.
+.. [1] Farshud Sorourifar, Georgios Makrygirgos, Ali Mesbah, Joel A. Paulson. A
+       data-driven automatic tuning method for MPC under uncertainty using constrained
+       Bayesian Optimization. In *IFAC-PapersOnLine*, 54(3), 243-250, 2021.
 """
 
 from collections.abc import Iterable
@@ -48,6 +78,13 @@ from mpcrl.optim import GradientFreeOptimizer
 from mpcrl.wrappers.agents import Log, RecordUpdates
 from mpcrl.wrappers.envs import MonitorEpisodes
 
+# %%
+# Defining the environment
+# ------------------------
+# As in the other examples, we first define the environment as a :class:`gymnasium.Env`.
+# Since the real system is continuous-time, we use a CasADi integrator to compute the
+# evolution of the dynamics.
+
 
 class CstrEnv(gym.Env[npt.NDArray[np.floating], float]):
     """
@@ -58,20 +95,20 @@ class CstrEnv(gym.Env[npt.NDArray[np.floating], float]):
 
     ## Action Space
 
-    The action is an array of shape `(1,)`, where the action is the normalized inflow
-    rate of the tank. It is bounded in the range `[5, 35]`.
+    The action is an array of shape ``(1,)``, where the action is the normalized inflow
+    rate of the tank. It is bounded in the range ``[5, 35]``.
 
     ## Observation Space
 
-    The state space is an array of shape `(4,)`, containing the concentrations of
+    The state space is an array of shape ``(4,)``, containing the concentrations of
     reagents A and B (mol/L), and the temperatures of the reactor and the coolant (°C).
     The first two states must be positive, while the latter two (the temperatures)
     should be bounded (but not forced) below `100` and `150`, respectively.
 
-    The observation (a.k.a., measurable states) space is an array of shape `(2,)`,
+    The observation (a.k.a., measurable states) space is an array of shape ``(2,)``,
     containing the concentration of reagent B and the temperature of the reactor. The
     former is unconstrained, while the latter should be bounded (but not forced) in the
-    range `[100, 150]` (See Rewards section).
+    range ``[100, 150]`` (See Rewards section).
 
     The internal, non-observable states are the concentrations of reagent A and B, and
     the temperatures of the reactor and the coolant, for a total of 4 states.
@@ -84,18 +121,12 @@ class CstrEnv(gym.Env[npt.NDArray[np.floating], float]):
 
     ## Starting State
 
-    The initial state is set to `[1, 1, 100, 100]`
+    The initial state is set to ``[1, 1, 100, 100]``.
 
     ## Episode End
 
-    The episode does not have an end, so wrapping it in, e.g., `TimeLimit`, is strongly
-    suggested.
-
-    References
-    ----------
-    [1] Sorourifar, F., Makrygirgos, G., Mesbah, A. and Paulson, J.A., 2021. A
-        data-driven automatic tuning method for MPC under uncertainty using constrained
-        Bayesian optimization. IFAC-PapersOnLine, 54(3), pp.243-250.
+    The episode does not have an end, so wrapping it in, e.g.,
+    :class:`gymnasium.wrappers.TimeLimit`, is strongly suggested.
     """
 
     ns = 4  # number of states
@@ -109,7 +140,7 @@ class CstrEnv(gym.Env[npt.NDArray[np.floating], float]):
 
         Parameters
         ----------
-        constraint_violation_penalty : float, optional
+        constraint_violation_penalty : float
             Reward penalty for violating soft constraints on the reactor temperature.
         """
         super().__init__()
@@ -119,7 +150,7 @@ class CstrEnv(gym.Env[npt.NDArray[np.floating], float]):
         )
         self.action_space = Box(*self.inflow_bound, (self.na,), np.float64)
 
-        # set the nonlinear dynamics parameters (see [1, Table 1] for these values)
+        # set the nonlinear dynamics parameters
         k01 = k02 = (1.287, 12)
         k03 = (9.043, 9)
         EA1R = EA2R = 9758.3
@@ -197,6 +228,13 @@ class CstrEnv(gym.Env[npt.NDArray[np.floating], float]):
         return self._state.copy(), float(integration["qf"]), False, False, {}
 
 
+# %%
+# To make the environment more challenging, we assume that the state of the CSTR system
+# cannot be observed, but we only have access to some noisy measurements of a subset of
+# the states. To achieve this, we can implement a wrapper that transforms the
+# observations. This is done by inheriting from :class:`gymnasium.ObservationWrapper`.
+
+
 class NoisyFilterObservation(ObservationWrapper):
     """Wrapper for filtering the env's (internal) states to the subset of measurable
     ones. Moreover, it can corrupt the measurements with additive zero-mean gaussian
@@ -219,7 +257,7 @@ class NoisyFilterObservation(ObservationWrapper):
         measurement_noise_std : array-like, optional
             The standard deviation of the measurement noise to be applied to the
             measurements. If specified, must have the same length as the indices. If
-            `None`, no noise is applied.
+            ``None``, no noise is applied.
         """
         assert isinstance(env.observation_space, Box), "only Box spaces are supported."
         super().__init__(env)
@@ -239,6 +277,17 @@ class NoisyFilterObservation(ObservationWrapper):
             measurable = np.clip(measurable + noise, obs_space.low, obs_space.high)
         assert self.observation_space.contains(measurable), "Invalid measurable state."
         return measurable
+
+
+# %%
+# Defining the MPC controller
+# ---------------------------
+# As usual, after the environment/system, the MPC controller is defined. This time
+# however, since the NARX-based prediction model is highly nonlinear, we will use a
+# :class:`csnlp.multistart.ParallelMultistartNlp` instance to solve the optimization
+# that will allow us to perform multi-starting, i.e., solving the optimization problem
+# with different initial guesses. This is particularly useful to combat convergence to
+# local minima.
 
 
 def get_cstr_mpc(
@@ -309,10 +358,21 @@ def get_cstr_mpc(
     return mpc
 
 
+# %%
+# Defining the optimizer
+# ----------------------
+# Contrarily to other examples, where we have leveraged algorithms that are implemented
+# within :mod:`mpcrl`, this time we need to create a custom optimizer that interfaces
+# with :mod:`botorch`. This is done by inheriting from
+# :class:`mpcrl.optim.GradientFreeOptimizer`, which uses a ask-and-tell interface to
+# seamlessly communicate between the :class:`mpcrl.GlobOptLearningAgent` and the
+# :mod:`botorch` framework.
+
+
 class BoTorchOptimizer(GradientFreeOptimizer):
     """Implements a Bayesian Optimization optimizer based on BoTorch."""
 
-    prefers_dict = False  # ask and tell methods deal with arrays, not dicts
+    prefers_dict = False  # ask-and-tell methods should receive arrays, not dicts
 
     def __init__(
         self, initial_random: int = 5, seed: Optional[int] = None, **kwargs: Any
@@ -322,9 +382,9 @@ class BoTorchOptimizer(GradientFreeOptimizer):
         Parameters
         ----------
         initial_random : int, optional
-            Number of initial random guesses, by default 5. Must be positive.
+            Number of initial random guesses, by default ``5``. Must be positive.
         seed : int, optional
-            Seed for the random number generator, by default `None`.
+            Seed for the random number generator, by default ``None``.
         """
         if initial_random <= 0:
             raise ValueError("`initial_random` must be positive.")
@@ -351,7 +411,7 @@ class BoTorchOptimizer(GradientFreeOptimizer):
         if self._n_ask < self._initial_random:
             return self._train_inputs[self._n_ask], None
 
-        # otherwise, use GP-BO to find the next guess
+        # otherwise, use BO to find the next guess
         # prepare data for fitting GP
         train_inputs = torch.from_numpy(self._train_inputs)
         train_targets = standardize(torch.from_numpy(self._train_targets).unsqueeze(-1))
@@ -390,6 +450,27 @@ class BoTorchOptimizer(GradientFreeOptimizer):
             )
         self._train_targets = np.append(self._train_targets, objective)
 
+
+# %%
+# Simulation
+# ----------
+# Finally, we can put everything together and run the simulation.
+#
+# 1. We instantiate the environment. Note how it is wrapped in multiple wrappers to
+#    filter the observations, change the reward to a cost (by negating it), and to
+#    monitoring data for later plotting.
+# 2. We instantiate the MPC controller and define its learnable parameters. Moreover,
+#    since it is highly nonlinear, we set up a warmstart strategy to automatically try
+#    different initial conditions for the solver. The strategy will be passed to the
+#    agent in the next step.
+# 3. We instantiate the Global Optimization agent with the custom optimizer and
+#    multistart strategy.
+# 4. We run the simulation. Under the hood, the agent will interact with the
+#    environment, collect data, and update the parameters via :mod:`botorch`.
+# 5. Finally, we plot the results. The figure contains three subplots: the first two
+#    report the evolution of the reactor temperature and the inflow rate during the
+#    learning episodes, while the third one shows the cumulative reward over the
+#    episodes.
 
 if __name__ == "__main__":
     torch.set_default_device("cpu")
@@ -511,6 +592,4 @@ if __name__ == "__main__":
     axs[1].set_ylabel(r"F ($h^{-1}$)")
     axs[2].set_xlabel(r"Learning iteration")
     axs[2].set_ylabel(r"$n_B$ (mol)")
-
-    # fig.savefig("examples/bayesopt.pdf")
     plt.show()

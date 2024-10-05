@@ -240,8 +240,8 @@ def cbf(
 
     References
     ----------
-    .. [1] Xiao, W. and Belta, C., 2021. High-order control barrier functions. IEEE
-       Transactions on Automatic Control, 67(7), pp. 3655-3662.
+    .. [1] Wei Xiao and Calin Belta. High-order control barrier functions. *IEEE
+           Transactions on Automatic Control*, 67(7), 3655-3662, 2021.
 
     Examples
     --------
@@ -317,9 +317,9 @@ def dcbf(
 
     References
     ----------
-    .. [1] Xiong, Y. and Zhai, D.H. and Tavakoli, M. and Xia, Y., 2022. Discrete-time
-       control barrier function: High-order case and adaptive case. IEEE Transactions on
-       Cybernetics, 53(5), pp. 3231-3239.
+    .. [1] Yuhang Xiong, Di-Hua Zhai, Mahdi Tavakoli, Yuanqing Xia. Discrete-time
+       control barrier function: High-order case and adaptive case. *IEEE Transactions
+       on Cybernetics*, 53(5), 3231-3239, 2022.
 
     Examples
     --------

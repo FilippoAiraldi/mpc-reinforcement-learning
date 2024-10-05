@@ -94,7 +94,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         Furthermore, an instance of :class:`core.warmstart.WarmStartStrategy` can
         be passed to specify a strategy for generating multiple warmstart points for the
         MPC's NLP instance. This is useful to generate multiple initial conditions for
-        highly non-convex, nonlinear problems. This feature Can only be used with an
+        highly non-convex, nonlinear problems. This feature can only be used with an
         MPC that has an underlying multistart NLP problem (see :mod:`csnlp.multistart`).
     hessian_type : {"none", "natural"}, optional
         The type of hessian to use in this (potentially) second-order algorithm.
