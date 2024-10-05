@@ -38,7 +38,7 @@ extensions = [
     "sphinx.ext.viewcode",
     "numpydoc",
     "sphinx_autodoc_typehints",
-    # "sphinx_gallery.gen_gallery",
+    "sphinx_gallery.gen_gallery",
     "sphinxcontrib.bibtex",
 ]
 templates_path = ["_templates"]
@@ -72,6 +72,7 @@ sphinx_gallery_conf = {
     "reference_url": {project: None},
     "filename_pattern": "",
     "default_thumb_file": f"_static/{project}.logo.examples.png",
+    "show_memory": True,
 }
 
 # for references

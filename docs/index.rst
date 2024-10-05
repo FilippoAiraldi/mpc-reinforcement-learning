@@ -72,6 +72,7 @@ the Author(s). Prof. Dr. Ir. Fred van Keulen, Dean of ME.
    :hidden:
 
    User guide <user-guide/index>
+   Examples <auto_examples/index>
    Module reference <module-reference>
    Changelog <https://github.com/FilippoAiraldi/mpc-reinforcement-learning/releases>
 

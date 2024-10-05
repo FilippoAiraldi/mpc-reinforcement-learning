@@ -1,9 +1,62 @@
-"""Reproduces the first numerical example in [1]
+r"""
+On-policy Q-learning
+====================
 
-References
-----------
-[1] Gros, S. and Zanon, M., 2019. Data-driven economic NMPC using reinforcement
-    learning. IEEE Transactions on Automatic Control, 65(2), pp. 636-648.
+This example tries to reproduce the results from the linear MPC numerical experiment in
+:cite:`gros_datadriven_2020`. We are given an RL environment whose cost function is
+
+.. math::
+    L(s,a) = \frac{1}{2} \left(
+        s^\top s + \frac{1}{2} a^2 + w^\top \max\{0, \underline{s} - s\}
+        + w^\top \max\{0, s - \overline{s}\}
+    \right)
+
+where :math:`s` is the state, :math:`a` is the action, :math:`w` is a weight vector, and
+:math:`\underline{s}` and :math:`\overline{s}` are the lower and upper bounds of the
+state, respectively. The dynamics of the real environment are
+
+.. math::
+    s_+ = \begin{bmatrix} 0.9 & 0.35 \\ 0 & 1.1 \end{bmatrix} s
+        + \begin{bmatrix} 0.0813 \\ 0.2 \end{bmatrix} a
+        + \begin{bmatrix} e \\ 0 \end{bmatrix}
+
+where :math:`e \sim \mathcal{U}(-0.1, 0)`. Given the state :math:`s_k`, the following
+MPC scheme is used to control the system
+
+.. math::
+   \begin{aligned}
+      \min_{x_{0:N}, u_{0:N-1}, \sigma_{1:N}} \quad &
+        V_0 + x_N^\top S x_N + \sum_{i=1}^{N}{ w^\top \sigma_i } \\
+        & + \sum_{i=0}^{N-1}{ \gamma^i
+            \left(
+                x_i^\top x_i + 0.5 u_i^2 +
+                f^\top \begin{bmatrix} x_i \\ u_i \end{bmatrix}
+            \right)
+        } \\
+      \textrm{s.t.} \quad & x_0 = s_k \\
+                          & x_{i+1} = A x_i + B u_i + b & i=0,\dots,N-1 \\
+                          & \underline{s} + \underline{x} - \sigma_i \leq x_i
+                            \leq \overline{s} + \overline{x} + \sigma_i
+                            \quad & i=1,\dots,N
+   \end{aligned}
+
+with :math:`\gamma = 0.9`, and the learnable parameters are
+
+.. math:: \theta = \left(
+        V_0, \underline{x}, \overline{x}, b, f, A, B
+    \right)
+
+The parameters are initialized differently, and in particular, the prediction model of
+the MPC is initialized wrongly as
+
+.. math::
+    A = \begin{bmatrix} 1 & 0.25 \\ 0 & 1 \end{bmatrix}, \quad
+    B = \begin{bmatrix} 0.0312 \\ 0.25 \end{bmatrix},
+
+and :math:`S` is the solution to the corresponding discrete-time algebraic Riccati
+equation, i.e., computed with the wrong dynamics matrices. The task is simple: find a
+parametrization :math:`\theta` such that the cost function is minimized.  To solve it,
+we will employ a second-order LSTD Q-learning algorithm.
 """
 
 import logging
@@ -24,11 +77,18 @@ from mpcrl.util.control import dlqr
 from mpcrl.wrappers.agents import Log, RecordUpdates
 from mpcrl.wrappers.envs import MonitorEpisodes
 
-# first, create classes for environment and mpc controller
+# %%
+# Defining the environment
+# ------------------------
+# First things first, we need to build the environment. We will use the :mod:`gymnasium`
+# library to do so. The most important methods are :func:`gymnasium.Env.reset` and
+# :func:`gymnasium.Env.step`, which will be called to reset the environment to its
+# initial state and to step the dynamics and receive a realization of the reward signal,
+# respectively. The environment is defined as a the following class.
 
 
 class LtiSystem(gym.Env[npt.NDArray[np.floating], float]):
-    """A simple discrete-time LTI system affected by noise."""
+    """A simple discrete-time LTI system affected by uniform noise."""
 
     nx = 2  # number of states
     nu = 1  # number of inputs
@@ -52,7 +112,7 @@ class LtiSystem(gym.Env[npt.NDArray[np.floating], float]):
         return self.x, {}
 
     def get_stage_cost(self, state: npt.NDArray[np.floating], action: float) -> float:
-        """Computes the stage cost `L(s,a)`."""
+        """Computes the stage cost :math:`L(s,a)`."""
         lb, ub = self.x_bnd
         return (
             0.5
@@ -74,6 +134,14 @@ class LtiSystem(gym.Env[npt.NDArray[np.floating], float]):
         r = self.get_stage_cost(self.x, action)
         self.x = x_new
         return x_new, r, False, False, {}
+
+
+# %%
+# Defining the MPC controller
+# ---------------------------
+# The second component is the MPC controller. We'll create a custom that, of course,
+# inherits from :class:`csnlp.wrappers.Mpc`. The implementation is as follows, and it is
+# in line with the theory presented above.
 
 
 class LinearMpc(Mpc[cs.SX]):
@@ -143,22 +211,40 @@ class LinearMpc(Mpc[cs.SX]):
             "bound_consistency": True,
             "calc_lam_x": True,
             "calc_lam_p": False,
-            # "jit": True,
-            # "jit_cleanup": True,
-            "ipopt": {
-                # "linear_solver": "ma97",
-                # "linear_system_scaling": "mc19",
-                # "nlp_scaling_method": "equilibration-based",
-                "max_iter": 500,
-                "sb": "yes",
-                "print_level": 0,
-            },
+            "fatrop": {"max_iter": 500, "print_level": 0},
         }
-        self.init_solver(opts, solver="ipopt")
+        self.init_solver(opts, solver="fatrop", type="nlp")
 
+
+# %%
+# Simulation
+# ----------
+# So far, we have only defined the classes for the environment and the MPC controller.
+# Now, it is time to instantiate these and run the simulation. This is comprised of
+# multiple steps, which are detailed below.
+#
+# 1. We instantiate the environment. Note how it is wrapped in two different wrappers:
+#    :class:`gymnasium.wrappers.TimeLimit` is used to impose a maximum amount of steps
+#    to be simulated, whereas :class:`mpcrl.wrappers.envs.MonitorEpisodes` is used to
+#    record the state, action and reward signals at each time step for plotting
+#    purposes.
+# 2. We instantiate the MPC controller and define its learnable parameters.
+# 3. We instantiate the Q-learning agent. We pass different options to it, such as
+#    the update strategy, the optimizer, the Hessian type, etc. For plotting purposes,
+#    it is also wrapped such that the updated parameters are recorded. And we also log
+#    the progress of the simulation.
+# 4. We run the simulation. Under the hood, the agent will interact with the
+#    environment, collect data, and update the parameters of the MPC controller.
+# 5. Finally, we plot the results. The first plot shows the evolution of the states and
+#    the control action, and the corresponding bounds. The second plot shows the
+#    TD error and the time-wise stage cost realizations. The last plot shows how each
+#    learnable parameter evolves over time.
 
 if __name__ == "__main__":
-    # now, let's create the instances of such classes and start the training
+    # instantiate the env and wrap it
+    env = MonitorEpisodes(TimeLimit(LtiSystem(), max_episode_steps=5_000))
+
+    # now build the MPC and the dict of learnable parameters
     mpc = LinearMpc()
     learnable_pars = LearnableParametersDict[cs.SX](
         (
@@ -167,7 +253,7 @@ if __name__ == "__main__":
         )
     )
 
-    env = MonitorEpisodes(TimeLimit(LtiSystem(), max_episode_steps=int(5e3)))
+    # build and wrap appropriately the agent
     agent = Log(
         RecordUpdates(
             LstdQLearningAgent(
@@ -184,6 +270,8 @@ if __name__ == "__main__":
         level=logging.DEBUG,
         log_frequencies={"on_timestep_end": 1000},
     )
+
+    # launch the training simulation
     agent.train(env=env, episodes=1, seed=69)
 
     # plot the results
@@ -227,5 +315,4 @@ if __name__ == "__main__":
     axs[1, 1].set_ylabel("$V_0$")
     axs[2, 0].set_ylabel("$A$")
     axs[2, 1].set_ylabel("$B$")
-
     plt.show()

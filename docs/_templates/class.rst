@@ -30,3 +30,6 @@
    {%- endfor %}
    {% endif %}
    {% endblock %}
+
+.. minigallery:: {{ fullname }}
+    :add-heading:
