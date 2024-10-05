@@ -124,7 +124,7 @@ through the usual steps in setting up and solving such a task.
 The first ingredient to implement is the LTI system in the form of a `gymnasium.Env`
 class. Fill free to fill in the missing parts based on your needs. The
 `gymnasium.Env.reset` method should initialize the state of the system, while the
-`gymnasium.Env.steo` method should update the state of the system based on the action
+`gymnasium.Env.step` method should update the state of the system based on the action
 provided and mainly return the new state and the cost.
 
 ```python
