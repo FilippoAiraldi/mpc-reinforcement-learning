@@ -1,4 +1,6 @@
 r"""
+.. _examples_qlearning_offpolicy:
+
 Off-policy Q-learning
 =====================
 

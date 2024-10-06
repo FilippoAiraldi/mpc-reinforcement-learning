@@ -1,4 +1,6 @@
 r"""
+.. _examples_dpg:
+
 On-policy Deterministic Policy Gradient
 =======================================
 

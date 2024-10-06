@@ -22,4 +22,5 @@ is often efficient and requires a relatively small number of evaluations of the 
 function (usually done via simulation, once a candidate set of parameters is provided by
 the algorithm).
 
-TODO: add reference to each example from the theory
+The example :ref:`examples_bayesopt` gives a concrete demonstration of how to use BO to
+tune the parameters of an MPC controller for a nonlinear task.

@@ -93,6 +93,10 @@ complex, and according to :cite:`buskens_sensitivity_2001` we have that
 where :math:`\mathcal{L}_\theta` is the Lagrangian of the MPC optimization problem
 evaluated at the optimal primal-dual solution :math:`y^\star` of the NLP problem.
 
+Examples :ref:`examples_qlearning` and :ref:`examples_qlearning_offpolicy` show how
+Q-learning can be used to tune the parameters of an MPC controller for a linear task
+both in a on-policy and off-policy fashion.
+
 
 Deterministic Policy Gradient with MPC
 ======================================
@@ -137,3 +141,6 @@ feature vector. Hence, we get that
 
 The unknown parameters :math:`\omega` and :math:`\nu` can be computed in a batch way via
 a least-squares regression problem.
+
+As for Q-learning, example :ref:`examples_dpg` deploys DPG for a linear task in a
+on-policy fashion.
