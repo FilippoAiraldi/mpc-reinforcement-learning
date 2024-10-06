@@ -5,7 +5,7 @@ Bayesian Optimization for MPC Data-driven Tuning
 In this example, instead of using RL to tune the parametrization :math:`\theta` of an
 MPC controller, we will use Bayesian optimization (BO). The task can be summarized as
 
-.. math:: \min_{\theta} \mathbb{E}_{s_0} \left[ J(\pi_\theta) \right].
+.. math:: \min_{\theta} \left[ J(\pi_\theta) \right].
 
 In other words, the BO algorithm must find the parametrization :math:`\theta^\star` that
 minimizes the operational cost of a given MPC policy :math:`\pi_\theta`, averaged over

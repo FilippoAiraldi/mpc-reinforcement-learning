@@ -10,8 +10,8 @@ agents.
 .. toctree::
    :caption: Gettting started
 
-   installation
-   simple-task
+   getting-started/installation
+   getting-started/simple-task
 
 .. toctree::
    :caption: Theory
