@@ -2,7 +2,7 @@
 agent's MPC scheme. These are mainly gradient-based, i.e., they exploit Jacobian (and
 possibly Hessian) information to update the parameters. However, as we will see below,
 the submodule also allows for gradient-free optimization techniques (to be combined with
-:class:`mpcrl.GlobOptLearningAgent`)."""
+:class:`mpcrl.GlobOptLearningAgent`). See also :ref:`user_guide_optim`."""
 
 __all__ = [
     "Adam",

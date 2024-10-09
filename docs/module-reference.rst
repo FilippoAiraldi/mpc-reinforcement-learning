@@ -1,3 +1,5 @@
+.. _module_reference:
+
 ================
 Module reference
 ================
@@ -32,6 +34,8 @@ In this section, we present the building blocks of the package, which are at the
 of the internal workings of the agents and their learning algorithms. These include the
 callback mechanisms, the learnable parameters, the scheduling quantities, and our
 custom exceptions and warnings.
+
+.. _module_reference_callbacks:
 
 Callbacks
 ---------
@@ -193,7 +197,7 @@ Base agents
 ===========
 
 What follows are the base classes for the agents in the package. These are either
-nonlearning agents (i.e., :class:`Agent`) or abstract learning agents that provide the
+non-learning agents (i.e., :class:`Agent`) or abstract learning agents that provide the
 layout for inheriting classes.
 
 .. autosummary::

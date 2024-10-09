@@ -6,7 +6,9 @@ submodule.
 Namely, :class:`LearnableParameter` allows to embed a single parameter and its
 information, while :class:`LearnableParametersDict` is a dictionary-like class that
 contains several of these :class:`LearnableParameter` instances, and offers different
-properties and methods to manage them in bulk."""
+properties and methods to manage them in bulk.
+
+See also :ref:`user_guide_learnable_parameters`."""
 
 from collections.abc import Iterable
 from functools import cached_property

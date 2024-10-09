@@ -11,7 +11,8 @@ to a better solution. Moreover, the user can choose how this strategy should kee
 with new solutions.
 
 This class makes heavy use of :mod:`csnlp.multistart`, so be sure to check the
-documentation of that module for more basic information."""
+documentation of that module for more basic information. See also
+:ref:`user_guide_warmstarting`."""
 
 from collections.abc import Generator
 from itertools import chain

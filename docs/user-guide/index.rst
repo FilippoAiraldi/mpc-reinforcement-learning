@@ -1,3 +1,5 @@
+.. _user_guide:
+
 ==========
 User guide
 ==========
@@ -20,3 +22,87 @@ agents.
    theory/mpc
    theory/mpcrl
    theory/globopt
+
+.. toctree::
+   :caption: Agents
+
+   agents/hierarchy.rst
+   agents/agent.rst
+   agents/learning-agents.rst
+   agents/grad-based-rl-agents.rst
+   agents/grad-free-agents.rst
+
+
+
+
+.. _user_guide_callbacks:
+
+---------
+Callbacks
+---------
+
+TODO
+
+
+
+.. _user_guide_learnable_parameters:
+
+--------------------
+Learnable parameters
+--------------------
+
+TODO
+
+
+
+.. _user_guide_optim:
+
+----------
+Optimizers
+----------
+
+TODO
+
+
+
+
+.. _user_guide_exploration:
+
+-----------
+Exploration
+-----------
+
+TODO
+
+
+
+
+.. _user_guide_updating:
+
+--------
+Updating
+--------
+
+TODO
+
+
+
+
+.. _user_guide_experience:
+
+----------
+Experience
+----------
+
+TODO
+
+
+
+
+.. _user_guide_warmstarting:
+
+------------
+Warmstarting
+------------
+
+TODO

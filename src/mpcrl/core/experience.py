@@ -3,7 +3,8 @@ parametrization at every time step, by leveraging only the current information. 
 as in Deep RL, it makes sense to enable the agent to store past experiences and
 re-use them, or at least use them in a batched fashion, to improve the stability and
 convergence learning process. :class:`ExperienceReplay` allows a learning agent to store
-and sample, when performing an update, past experiences."""
+and sample, when performing an update, past experiences. See
+:ref:`user_guide_experience` for a more detailed explanation."""
 
 from collections import deque
 from collections.abc import Iterable, Iterator

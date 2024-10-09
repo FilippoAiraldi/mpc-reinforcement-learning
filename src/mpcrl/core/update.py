@@ -3,7 +3,8 @@ has to consider when training a Reinforcement Learning agent. When instantiating
 agent, via :class:`UpdateStrategy`, the user can specify when and with which frequency
 to update the agent's MPC parametrization (e.g., at the end of every training episode,
 or every ``N`` time steps), as well as the number of updates to skip at the beginning
-(in case we need to wait for experience buffers to properly fill first)."""
+(in case we need to wait for experience buffers to properly fill first). See
+:ref:`user_guide_updating` for a more thorough explanation."""
 
 from collections.abc import Iterator
 from itertools import chain, repeat
