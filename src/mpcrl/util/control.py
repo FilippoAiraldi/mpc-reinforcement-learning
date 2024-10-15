@@ -1,8 +1,9 @@
 """A collection of basic utility functions for control applications. In particular, it
-contains a function for solving the discrete-time LQR problem and a function for
-integrating a continuous-time dynamics using the Runge-Kutta 4 method.
+contains functions for solving the LQR problems in continuous- and discrete-time,
+discretization methods such as Runge-Kutta 4, and functions to build Control Barrier
+Functions.
 
-Heavy inspiration was drawn from `MPCtools <https://bitbucket.org/rawlings-group/mpc-tools-casadi/src/master/mpctools/util.py>`_.
+Some inspiration was drawn from `MPCtools <https://bitbucket.org/rawlings-group/mpc-tools-casadi/src/master/mpctools/util.py>`_.
 """
 
 from collections.abc import Iterable as _Iterable
@@ -198,7 +199,7 @@ def cbf(
     u: SymType,
     dynamics: Callable[[SymType, SymType], SymType],
     alphas: _Iterable[Callable[[SymType], SymType]],
-) -> tuple[cs.Function, int]:
+) -> cs.Function:
     r"""Continuous-time Control Barrier Function (CBF) for the given constraint ``h``
     and system with dynamics ``dynamics``. This method constructs a CBF for the
     constraint :math:`h(x) \geq 0` using the given system's dynamics
@@ -214,7 +215,7 @@ def cbf(
     .. math::
         \phi_m(x) = \dot{\phi}_{m-1}(x) + \alpha_m(\phi_{m-1}(x))
 
-    and should be imposed as the constraint :math:`\phi_m(x, t) \geq 0`.
+    and should be imposed as the constraint :math:`\phi_m(x) \geq 0`.
 
     Parameters
     ----------
@@ -229,15 +230,13 @@ def cbf(
         The dynamics function :math:`f` with signature :math:`x,u \rightarrow f(x, u)`.
     alphas : iterable of callables
         An iterable of class :math:`\mathcal{K}` functions :math:`\alpha_m` for
-        the HO-DCBF. The length of the iterable determines the degree of the HO-CBF is
-        computed.
+        the HO-CBF. The length of the iterable determines the degree of the HO-CBF.
 
     Returns
     -------
-    casadi Function and int
+    casadi Function
         Returns the HO-CBF function :math:`\phi_m` as a function with signature
-        :math:`x,u \rightarrow \phi_m(x, u)`, as well as the degree ``m`` of the
-        HO-CBF.
+        :math:`x,u \rightarrow \phi_m(x, u)`.
 
     References
     ----------
@@ -257,27 +256,19 @@ def cbf(
     >>> gamma = cs.SX.sym("gamma")
     >>> alphas = [lambda z: gamma * z]
     >>> h = lambda x: M - c * x[0]  # >= 0
-    >>> cbf, _ = cbf(h, x, u, dynamics, alphas)
+    >>> cbf = cbf(h, x, u, dynamics, alphas)
     >>> print(cbf(x, u))
     """
-    opts = {"cse": True, "allow_free": True}
     x_dot = dynamics(x, u)
-    h_eval = phi_eval = h(x)
-    phi = cs.Function("phi_0", (x, u), (h_eval,), ("x", "u"), ("phi_0",), opts)
+    phi = h(x)
     for degree, alpha in enumerate(alphas, start=1):
-        name = f"phi_{degree}"
-        phi = cs.Function(
-            name,
-            (x, u),
-            (lie_derivative(phi_eval, x, x_dot) + alpha(phi_eval),),
-            ("x", "u"),
-            (name,),
-            opts,
-        )
-        phi_eval = phi(x, u)
-        # cs.depends_on(phi_eval, u)
-        # phi.which_depends("u", [name], 2, True)[0]
-    return phi, degree
+        phi = lie_derivative(phi, x, x_dot) + alpha(phi)
+    name = f"phi_{degree}"
+    # cs.depends_on(phi, u)
+    # phi.which_depends("u", [name], 2, True)[0]
+    return cs.Function(
+        name, (x, u), (phi,), ("x", "u"), (name,), {"cse": True, "allow_free": True}
+    )
 
 
 def dcbf(
@@ -286,7 +277,7 @@ def dcbf(
     u: SymType,
     dynamics: Callable[[SymType, SymType], SymType],
     alphas: _Iterable[Callable[[SymType], SymType]],
-) -> tuple[cs.Function, int]:
+) -> cs.Function:
     r"""Discrete-time Control Barrier Function (DCBF) for the given constraint ``h`` and
     system with dynamics ``dynamics``. This method constructs a DCBF for the constraint
     :math:`h(x) \geq 0` using the given system's dynamics :math:`x_{+} = f(x, u)`. Here,
@@ -316,15 +307,13 @@ def dcbf(
         The dynamics function :math:`f` with signature :math:`x,u \rightarrow f(x, u)`.
     alphas : iterable of callables
         An iterable of class :math:`\mathcal{K}` functions :math:`\alpha_m` for
-        the HO-DCBF. The length of the iterable determines the degree of the HO-DCBF is
-        computed.
+        the HO-DCBF. The length of the iterable determines the degree of the HO-DCBF.
 
     Returns
     -------
-    casadi Function and int
+    casadi Function
         Returns the HO-DCBF function :math:`\phi_m` as a function with signature
-        :math:`x,u \rightarrow \phi_m(x, u)`, as well as the degree ``m`` of the
-        HO-DCBF.
+        :math:`x,u \rightarrow \phi_m(x, u)`.
 
     References
     ----------
@@ -345,24 +334,15 @@ def dcbf(
     >>> gamma = cs.SX.sym("gamma")
     >>> alphas = [lambda z: gamma * z]
     >>> h = lambda x: M - c * x[0]  # >= 0
-    >>> cbf, _ = dcbf(h, x, u, dynamics, alphas)
+    >>> cbf = dcbf(h, x, u, dynamics, alphas)
     >>> print(cbf(x, u))
     """
-    opts = {"cse": True, "allow_free": True}
     x_next = dynamics(x, u)
-    h_eval = phi_eval = h(x)
-    phi = cs.Function("phi_0", (x, u), (h_eval,), ("x", "u"), ("phi_0",), opts)
+    phi = h(x)
     for degree, alpha in enumerate(alphas, start=1):
-        name = f"phi_{degree}"
-        phi = cs.Function(
-            name,
-            (x, u),
-            (phi(x_next, u) - phi_eval + alpha(phi_eval),),
-            ("x", "u"),
-            (name,),
-            opts,
-        )
-        phi_eval = phi(x, u)
-        # cs.depends_on(phi_eval, u)
-        # phi.which_depends("u", [name], 2, True)[0]
-    return phi, degree
+        phi_next = cs.substitute(phi, x, x_next)
+        phi = phi_next - phi + alpha(phi)
+    name = f"phi_{degree}"
+    return cs.Function(
+        name, (x, u), (phi,), ("x", "u"), (name,), {"cse": True, "allow_free": True}
+    )

@@ -206,7 +206,7 @@ class TestControl(unittest.TestCase):
 
         gamma = cs.SX.sym("gamma")
         alphas = [lambda w: gamma * w]
-        cbf, _ = control.cbf(h, x, u, dynamics, alphas)
+        cbf = control.cbf(h, x, u, dynamics, alphas)
 
         actual_cbf = cbf(x, u)
         expected_cbf = Th / M * (friction - u) + (v0 - v) + gamma * (z - Th * v)
@@ -234,13 +234,13 @@ class TestControl(unittest.TestCase):
 
         # degree 1
         alphas = [lambda y: y]
-        cbf1, _ = control.cbf(h, x, u, dynamics, alphas)
+        cbf1 = control.cbf(h, x, u, dynamics, alphas)
         actual_cbf1 = cbf1(x, u)
         expected_cbf1 = v0 - v + cs.SX.zeros(1, 1) * u + z - delta
 
         # degree 2
         alphas = [lambda y: y**2] * 2
-        cbf2, _ = control.cbf(h, x, u, dynamics, alphas)
+        cbf2 = control.cbf(h, x, u, dynamics, alphas)
         actual_cbf2 = cbf2(x, u)
         h_ = h(x)
         Lfh_ = control.lie_derivative(h_, x, f)  # v0 - v
@@ -276,7 +276,7 @@ class TestControl(unittest.TestCase):
         gamma = cs.SX.sym("gamma")
         alphas = [lambda z: gamma * z]
         h = lambda x: M - c * x[0]  # >= 0
-        cbf, _ = control.dcbf(h, x, u, dynamics, alphas)
+        cbf = control.dcbf(h, x, u, dynamics, alphas)
 
         actual_cbf = cbf(x, u)
         expected_cbf = -c * (A[0, :] @ x + B[0] * u - x[0]) + gamma * (M - c * x[0])
@@ -302,13 +302,13 @@ class TestControl(unittest.TestCase):
 
         # degree 1
         alphas = [lambda z: gamma[0] * z]
-        cbf1, _ = control.dcbf(h, x, u, dynamics, alphas)
+        cbf1 = control.dcbf(h, x, u, dynamics, alphas)
         actual_cbf1 = cbf1(x, u)
         expected_cbf1 = -A[0, :] @ x + x[0] + gamma[0] * (M - x[0])
 
         # degree 2
         alphas = [lambda z: gamma[0] * z, lambda z: gamma[1] * z]
-        cbf2, _ = control.dcbf(h, x, u, dynamics, alphas)
+        cbf2 = control.dcbf(h, x, u, dynamics, alphas)
         actual_cbf2 = cbf2(x, u)
         expected_cbf2 = (
             (A[0, :] @ x - x[0]) * (1 - A[0, 0] - cs.sum1(gamma))
