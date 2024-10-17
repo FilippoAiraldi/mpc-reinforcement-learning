@@ -9,11 +9,23 @@ from warnings import filterwarnings
 
 from csnlp.multistart import RandomStartPoint, RandomStartPoints
 
-sys.path.append(os.path.join(os.getcwd(), "examples"))
+for folder in (
+    "gradient-based-offpolicy",
+    "gradient-based-onpolicy",
+    "gradient-free",
+    "others",
+):
+    sys.path.append(os.path.join(os.getcwd(), f"examples/{folder}"))
 
 import casadi as cs
 import numpy as np
 import torch
+from acc_with_iccbf import (
+    AccEnv,
+    create_clf_cbf_qp,
+    create_iccbf_qp,
+    simulate_controller,
+)
 from bayesopt import BoTorchOptimizer, CstrEnv, NoisyFilterObservation, get_cstr_mpc
 from dpg import LinearMpc as DpgLinearMpc
 from dpg import LtiSystem as DpgLtiSystem
@@ -298,6 +310,20 @@ class TestExamples(unittest.TestCase):
         np.testing.assert_allclose(J, DATA["ql_offpol_J"], rtol=1e0, atol=1e0)
         np.testing.assert_allclose(TD, DATA["ql_offpol_TD"], rtol=1e1, atol=1e1)
         np.testing.assert_allclose(PARS, DATA["ql_offpol_pars"], rtol=1e0, atol=1e0)
+
+    def test_iccbf(self):
+        Tfin = 10
+        timesteps = 200
+        env = AccEnv(Tfin / timesteps)
+        clf_cbf_qp_ctrl = create_clf_cbf_qp(env)
+        S1, A1 = simulate_controller(env, clf_cbf_qp_ctrl, timesteps)
+        iccbf_qp_ctrl = create_iccbf_qp(env)
+        S2, A2 = simulate_controller(env, iccbf_qp_ctrl, timesteps)
+
+        X = np.hstack([S1, S2]).T
+        U = np.vstack([A1, A2])
+        np.testing.assert_allclose(X, DATA["iccbf_X"])
+        np.testing.assert_allclose(U, DATA["iccbf_U"])
 
 
 if __name__ == "__main__":

@@ -8,7 +8,6 @@ Some inspiration was drawn from `MPCtools <https://bitbucket.org/rawlings-group/
 
 from collections.abc import Iterable as _Iterable
 from typing import Callable, Optional
-from typing import TypeVar as _TypeVar
 
 import casadi as cs
 import numpy as np
@@ -16,8 +15,7 @@ import numpy.typing as npt
 from scipy.linalg import solve_continuous_are as _solve_continuous_are
 from scipy.linalg import solve_discrete_are as _solve_discrete_are
 
-T = _TypeVar("T")
-SymType = _TypeVar("SymType", cs.SX, cs.MX)
+from .math import SymOrNumType, SymType, dual_norm, lie_derivative
 
 
 def lqr(
@@ -128,7 +126,12 @@ def dlqr(
     return K, P
 
 
-def rk4(f: Callable[[T], T], x0: T, dt: float = 1, M: int = 1) -> T:
+def rk4(
+    f: Callable[[SymOrNumType], SymOrNumType],
+    x0: SymOrNumType,
+    dt: float = 1,
+    M: int = 1,
+) -> SymOrNumType:
     r"""Computes the Runge-Kutta 4 integration of the given function ``f`` with initial
     state ``x0``.
 
@@ -164,35 +167,6 @@ def rk4(f: Callable[[T], T], x0: T, dt: float = 1, M: int = 1) -> T:
     return x
 
 
-def lie_derivative(
-    ex: SymType, arg: SymType, field: SymType, order: int = 1
-) -> SymType:
-    """Computes the Lie derivative of the expression ``ex`` with respect to the argument
-    ``arg`` along the field ``field``.
-
-    Parameters
-    ----------
-    ex : casadi SX or MX
-        Expression to compute the Lie derivative of.
-    arg : casadi SX or MX
-        Argument with respect to which to compute the Lie derivative.
-    field : casadi SX or MX
-        Field along which to compute the Lie derivative.
-    order : int, optional
-        Order (>= 1) of the Lie derivative, by default ``1``.
-
-    Returns
-    -------
-    casadi SX or MX
-        The Lie derivative of the expression ``ex`` with respect to the argument ``arg``
-        along the field ``field``.
-    """
-    deriv = cs.dot(cs.gradient(ex, arg), field)
-    if order <= 1:
-        return deriv
-    return lie_derivative(deriv, arg, field, order - 1)
-
-
 def cbf(
     h: Callable[[SymType], SymType],
     x: SymType,
@@ -223,9 +197,9 @@ def cbf(
         The constraint function for which to build the CBF. It must be of the signature
         :math:`x \rightarrow h(x)`.
     x : casadi SX or MX
-        The state variable :math:`x`.
+        The state vector variable :math:`x`.
     u : casadi SX or MX
-        The control input variable :math:`u`.
+        The control input vector variable :math:`u`.
     dynamics : callable
         The dynamics function :math:`f` with signature :math:`x,u \rightarrow f(x, u)`.
     alphas : iterable of callables
@@ -300,9 +274,9 @@ def dcbf(
         The constraint function for which to build the DCBF. It must be of the signature
         :math:`x \rightarrow h(x)`.
     x : casadi SX or MX
-        The state variable :math:`x`.
+        The state vector variable :math:`x`.
     u : casadi SX or MX
-        The control input variable :math:`u`.
+        The control input vector variable :math:`u`.
     dynamics : callable
         The dynamics function :math:`f` with signature :math:`x,u \rightarrow f(x, u)`.
     alphas : iterable of callables
@@ -343,6 +317,107 @@ def dcbf(
         phi_next = cs.substitute(phi, x, x_next)
         phi = phi_next - phi + alpha(phi)
     name = f"phi_{degree}"
+    return cs.Function(
+        name, (x, u), (phi,), ("x", "u"), (name,), {"cse": True, "allow_free": True}
+    )
+
+
+def iccbf(
+    h: Callable[[SymType], SymType],
+    x: SymType,
+    u: SymType,
+    dynamics_f_and_g: Callable[[SymType], tuple[SymType, SymType]],
+    alphas: _Iterable[Callable[[SymType], SymType]],
+    norm: float,
+    bound: float = 1.0,
+) -> cs.Function:
+    r"""Continuous-time Input Constrained Control Barrier Function (ICCBF) for the given
+    constraint ``h`` and system with dynamics ``dynamics_f_and_g`` subject to
+    norm-bounded control action. This method constructs an ICCBF for the constraint
+    :math:`h(x) \geq 0` using the given system's control-affine dynamics
+    :math:`\dot{x} = f(x) + g(x) u`. Here, :math:`\dot{x}` is the time derivative of the
+    state after applying control input :math:`u`, and :math:`f` and :math:`g` are
+    returned by the dynamics function ``dynamics_f_and_g``. The ICCBF takes into account
+    the norm-bounded control input :math:`|| u ||_p \leq b`., where the norm power
+    :math:`p` and bound :math:`b` are specified as ``norm`` and ``bound``.
+
+    The method can also compute a High-Order (HO) ICCBF by passing more than one class
+    :math:`\mathcal{K}` functions ``alphas``.
+
+    As per [1]_, the HO-ICCBF :math:`\phi_m` of degree :math:`m` is recursively found as
+
+    .. math::
+        \phi_m(x) = L_f \phi_{m-1}(x)
+                    + \inf_{u \in \mathcal{U}} \left\{ L_g \phi_{m-1}(x) u \right\}
+                    + \alpha_m(\phi_{m-1}(x))
+
+    and should be imposed as the constraint :math:`\phi_m(x) \geq 0`.
+
+    Parameters
+    ----------
+    h : callable
+        The constraint function for which to build the ICCBF. It must be of the
+        signature :math:`x \rightarrow h(x)`.
+    x : casadi SX or MX
+        The state vector variable :math:`x`.
+    u : casadi SX or MX
+        The control input vector variable :math:`u`.
+    dynamics_f_and_g : callable
+        A callable computing, for the given state, the dynamics components :math:`f(x)`
+        and :math:`g(x)`, i.e., the signature is :math:`x \rightarrow f(x), g(x)`.
+    alphas : iterable of callables
+        An iterable of class :math:`\mathcal{K}` functions :math:`\alpha_m` for
+        the HO-ICCBF. The length of the iterable determines the degree of the HO-ICCBF.
+    norm : float
+        The norm power :math:`p` for the control input norm constraint
+        :math:`||u||_p \le b`, with :math:`1 \le p \le \infty`.
+    bound : float, optional
+        The bound :math:`b` for the control input norm constraint :math:`||u||_p \le b`,
+        by default ``1.0``. Must be larger than zero.
+
+    Returns
+    -------
+    casadi Function
+        Returns the HO-ICCBF function :math:`\phi_m` as a function with signature
+        :math:`x,u \rightarrow \phi_m(x, u)`.
+
+    References
+    ----------
+    .. [1] Devansh R. Agrawal and Dimitra Panagou. Safe control synthesis via input
+           constrained control barrier functions. In *60th IEEE Conference on Decision
+           and Control (CDC)*, 6113-6118, 2021.
+
+    Examples
+    --------
+    >>> import casadi as cs
+    >>> A = cs.SX.sym("A", 2, 2)
+    >>> B = cs.SX.sym("B", 2, 1)
+    >>> x = cs.SX.sym("x", A.shape[0], 1)
+    >>> u = cs.SX.sym("u", B.shape[1], 1)
+    >>> dynamics_f_and_g = lambda x: (A @ x, B)
+    >>> M = cs.SX.sym("M")
+    >>> c = cs.SX.sym("c")
+    >>> gamma = cs.SX.sym("gamma")
+    >>> alphas = [lambda z: gamma * z]
+    >>> h = lambda x: M - c * x[0]  # >= 0
+    >>> cbf = iccbf(h, x, u, dynamics_f_and_g, alphas, norm=2, bound=0.5)
+    >>> print(cbf(x, u))
+    """
+    # find the dual norm of the given norm
+    y = cs.SX.sym("y", u.shape[0], 1)
+    dual_norm_func = cs.Function("dual_norm", (y,), (dual_norm(y, norm),))
+
+    # continue from here as usual
+    f, g = dynamics_f_and_g(x)
+    phi = h(x)
+    for degree, alpha in enumerate(alphas, start=1):
+        Lf_phi = lie_derivative(phi, x, f)
+        Lg_phi = lie_derivative(phi, x, g)
+        Lg_phi_u_sup = bound * dual_norm_func(Lg_phi)
+        alpha_phi = alpha(phi)
+        phi = Lf_phi - Lg_phi_u_sup + alpha_phi
+    name = f"phi_{degree}"
+    phi = Lf_phi + Lg_phi * u + alpha_phi  # skip infimum in last iteration
     return cs.Function(
         name, (x, u), (phi,), ("x", "u"), (name,), {"cse": True, "allow_free": True}
     )

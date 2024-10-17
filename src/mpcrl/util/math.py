@@ -3,13 +3,18 @@ these functions support the creation of monomial basis functions for approximati
 value function, and the modifications of Hessian matrices to positive-definite ones."""
 
 from itertools import combinations as _combinations
-from typing import Optional, Union
+from typing import Optional
+from typing import TypeVar as _TypeVar
+from typing import Union
 
 import casadi as cs
 import numpy as np
 import numpy.typing as npt
 from csnlp.util.math import prod as _prod
 from scipy.special import comb as _comb
+
+SymType = _TypeVar("SymType", cs.SX, cs.MX)
+SymOrNumType = _TypeVar("SymOrNumType", cs.SX, cs.MX, cs.DM, np.ndarray)
 
 
 def summarize_array(
@@ -215,3 +220,86 @@ def monomials_basis_function(n: int, mindegree: int, maxdegree: int) -> cs.Funct
         )
     )
     return cs.Function("Phi", (s,), (y,), ("s",), ("Phi(s)",), {"cse": True})
+
+
+def clip(x: SymOrNumType, lower: SymOrNumType, upper: SymOrNumType) -> SymOrNumType:
+    """Clips variable ``x`` to the range defined by ``lower`` and ``upper``.
+
+    Parameters
+    ----------
+    x : casadi SX or MX or array-like
+        The variable to clip.
+    lower : casadi SX or MX or array-like
+        The lower bound of the clipping.
+    upper : casadi SX or MX or array-like
+        The upper bound of the clipping.
+
+    Returns
+    -------
+    casadi SX or MX or array-like
+        The clipped variable.
+    """
+    return cs.fmax(lower, cs.fmin(upper, x))
+
+
+def lie_derivative(
+    ex: SymType, arg: SymType, field: SymType, order: int = 1
+) -> SymType:
+    """Computes the Lie derivative of the expression ``ex`` with respect to the argument
+    ``arg`` along the field ``field``.
+
+    Parameters
+    ----------
+    ex : casadi SX or MX
+        Expression to compute the Lie derivative of.
+    arg : casadi SX or MX
+        Argument with respect to which to compute the Lie derivative.
+    field : casadi SX or MX
+        Field along which to compute the Lie derivative.
+    order : int, optional
+        Order (>= 1) of the Lie derivative, by default ``1``.
+
+    Returns
+    -------
+    casadi SX or MX
+        The Lie derivative of the expression ``ex`` with respect to the argument ``arg``
+        along the field ``field``.
+    """
+    deriv = cs.mtimes(cs.jacobian(ex, arg), field)
+    if order <= 1:
+        return deriv
+    return lie_derivative(deriv, arg, field, order - 1)
+
+
+def dual_norm(x: SymOrNumType, ord: float) -> SymOrNumType:
+    r"""Computes the dual norm of a given vector ``x`` with respect to the given order
+    ``ord``. The dual norm of :math:`x` is defined as
+
+    .. math:: || x ||_q = \sup_{|| y ||_p \leq 1} y^\top x,
+
+    where :math:`p` is specified by ``ord`` and :math:`q` is its conjugate power, i.e.,
+    :math:`1/p + 1/q = 1`.
+
+    Parameters
+    ----------
+    x : casadi SX, MX, DM, or array-like
+        The input scalar or vector. If a scalar, the absolute value is returned.
+    ord : float
+        The order of the norm. Must be larger than or equal to 1.
+
+    Returns
+    -------
+    casadi SX, MX, or DM
+        The dual norm of the input vector. Depending on the input type, the output is
+        either symbolic or numeric.
+    """
+    if getattr(x, "shape", ()) in ((), (1,), (1, 1)):
+        return cs.fabs(x)
+    if ord == 1:
+        return cs.norm_inf(x)
+    if ord == 2:
+        return cs.norm_2(x)
+    if np.isposinf(ord).item():
+        return cs.norm_1(x)
+    dual_norm = ord / (ord - 1)
+    return cs.power(cs.sum1(cs.power(cs.fabs(x), dual_norm)), 1 / dual_norm)
