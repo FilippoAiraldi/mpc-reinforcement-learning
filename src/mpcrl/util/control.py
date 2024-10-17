@@ -8,7 +8,6 @@ Some inspiration was drawn from `MPCtools <https://bitbucket.org/rawlings-group/
 
 from collections.abc import Iterable as _Iterable
 from typing import Callable, Optional
-from typing import TypeVar as _TypeVar
 
 import casadi as cs
 import numpy as np
@@ -16,8 +15,7 @@ import numpy.typing as npt
 from scipy.linalg import solve_continuous_are as _solve_continuous_are
 from scipy.linalg import solve_discrete_are as _solve_discrete_are
 
-T = _TypeVar("T")
-SymType = _TypeVar("SymType", cs.SX, cs.MX)
+from .math import SymOrNumType, SymType, lie_derivative
 
 
 def lqr(
@@ -128,7 +126,12 @@ def dlqr(
     return K, P
 
 
-def rk4(f: Callable[[T], T], x0: T, dt: float = 1, M: int = 1) -> T:
+def rk4(
+    f: Callable[[SymOrNumType], SymOrNumType],
+    x0: SymOrNumType,
+    dt: float = 1,
+    M: int = 1,
+) -> SymOrNumType:
     r"""Computes the Runge-Kutta 4 integration of the given function ``f`` with initial
     state ``x0``.
 
@@ -164,35 +167,6 @@ def rk4(f: Callable[[T], T], x0: T, dt: float = 1, M: int = 1) -> T:
     return x
 
 
-def lie_derivative(
-    ex: SymType, arg: SymType, field: SymType, order: int = 1
-) -> SymType:
-    """Computes the Lie derivative of the expression ``ex`` with respect to the argument
-    ``arg`` along the field ``field``.
-
-    Parameters
-    ----------
-    ex : casadi SX or MX
-        Expression to compute the Lie derivative of.
-    arg : casadi SX or MX
-        Argument with respect to which to compute the Lie derivative.
-    field : casadi SX or MX
-        Field along which to compute the Lie derivative.
-    order : int, optional
-        Order (>= 1) of the Lie derivative, by default ``1``.
-
-    Returns
-    -------
-    casadi SX or MX
-        The Lie derivative of the expression ``ex`` with respect to the argument ``arg``
-        along the field ``field``.
-    """
-    deriv = cs.dot(cs.gradient(ex, arg), field)
-    if order <= 1:
-        return deriv
-    return lie_derivative(deriv, arg, field, order - 1)
-
-
 def cbf(
     h: Callable[[SymType], SymType],
     x: SymType,
@@ -223,9 +197,9 @@ def cbf(
         The constraint function for which to build the CBF. It must be of the signature
         :math:`x \rightarrow h(x)`.
     x : casadi SX or MX
-        The state variable :math:`x`.
+        The state vector variable :math:`x`.
     u : casadi SX or MX
-        The control input variable :math:`u`.
+        The control input vector variable :math:`u`.
     dynamics : callable
         The dynamics function :math:`f` with signature :math:`x,u \rightarrow f(x, u)`.
     alphas : iterable of callables
@@ -300,9 +274,9 @@ def dcbf(
         The constraint function for which to build the DCBF. It must be of the signature
         :math:`x \rightarrow h(x)`.
     x : casadi SX or MX
-        The state variable :math:`x`.
+        The state vector variable :math:`x`.
     u : casadi SX or MX
-        The control input variable :math:`u`.
+        The control input vector variable :math:`u`.
     dynamics : callable
         The dynamics function :math:`f` with signature :math:`x,u \rightarrow f(x, u)`.
     alphas : iterable of callables

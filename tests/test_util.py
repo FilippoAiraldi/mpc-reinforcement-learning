@@ -1,4 +1,5 @@
 import unittest
+from itertools import product
 
 import casadi as cs
 import numpy as np
@@ -103,6 +104,32 @@ class TestMath(unittest.TestCase):
             comb(deg + n - 1, n - 1, exact=True) for deg in range(mindeg, maxdeg + 1)
         )
         self.assertEqual(expected_out, Phi.size1_out(0))
+
+    @parameterized.expand(
+        product(
+            [(), (1,), (1, 1), (10,), (10, 1)],
+            [1, 2, np.inf, *(np.random.rand(3) * 10)],
+        )
+    )
+    def test_dual_norm(self, shape, ord):
+        x = np.random.randn(*shape)
+        y_actual = float(math.dual_norm(x, ord))
+        x = np.reshape(x, -1)
+        if ord == 1:
+            y_expected = np.linalg.norm(x, ord=np.inf)
+        elif np.isposinf(ord).item():
+            y_expected = np.linalg.norm(x, ord=1)
+        else:
+            dual_norm = ord / (ord - 1)
+            y_expected = np.linalg.norm(x, dual_norm)
+        self.assertAlmostEqual(y_actual, y_expected, msg=f"error: {shape}, {ord}")
+
+    def test_clip(self):
+        x, lb = np.random.randn(2, 10)
+        ub = lb + np.abs(np.random.randn(10))
+        x_actual = math.clip(x, lb, ub).toarray().flatten()
+        x_expected = np.clip(x, lb, ub)
+        np.testing.assert_allclose(x_actual, x_expected)
 
 
 class TestControl(unittest.TestCase):
