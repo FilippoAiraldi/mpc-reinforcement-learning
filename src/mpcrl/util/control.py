@@ -338,7 +338,7 @@ def iccbf(
     :math:`\dot{x} = f(x) + g(x) u`. Here, :math:`\dot{x}` is the time derivative of the
     state after applying control input :math:`u`, and :math:`f` and :math:`g` are
     returned by the dynamics function ``dynamics_f_and_g``. The ICCBF takes into account
-    the norm-bounded control input :math:`|| u ||_p \leq b`., where the norm power
+    the norm-bounded control input :math:`|| u ||_p \leq b`, where the norm power
     :math:`p` and bound :math:`b` are specified as ``norm`` and ``bound``.
 
     The method can also compute a High-Order (HO) ICCBF by passing more than one class
