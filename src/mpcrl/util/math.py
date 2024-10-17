@@ -117,7 +117,7 @@ def nchoosek(n: Union[int, npt.ArrayLike], k: int) -> Union[int, np.ndarray]:
     return (
         _comb(n, k, exact=True)
         if isinstance(n, int)
-        else np.row_stack(list(_combinations(np.asarray(n).reshape(-1), k)))
+        else np.vstack(list(_combinations(np.asarray(n).reshape(-1), k)))
     )
 
 
@@ -159,7 +159,7 @@ def monomial_powers(n: int, k: int) -> npt.NDArray[np.int_]:
     dividers = np.column_stack(
         (
             np.zeros((m, 1), int),
-            np.row_stack(nchoosek(np.arange(1, k + n), n - 1)),
+            np.vstack(nchoosek(np.arange(1, k + n), n - 1)),
             np.full((m, 1), k + n, int),
         )
     )
