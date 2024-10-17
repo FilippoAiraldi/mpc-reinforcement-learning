@@ -48,7 +48,6 @@ from typing import Any, Callable, Optional
 
 import casadi as cs
 import gymnasium as gym
-import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
 from gymnasium.spaces import Box
@@ -261,6 +260,8 @@ if __name__ == "__main__":
     S2, A2 = simulate_controller(env, iccbf_qp_ctrl, timesteps)
 
     # plot the results
+    import matplotlib.pyplot as plt
+
     fig, axs = plt.subplots(1, 3, constrained_layout=True, sharex=True)
 
     T = np.arange(timesteps + 1) * env.dt
