@@ -4,6 +4,7 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
 import os
+import re
 
 import mpcrl
 
@@ -70,7 +71,7 @@ sphinx_gallery_conf = {
     "doc_module": project,
     "backreferences_dir": os.path.join("generated/generated"),
     "reference_url": {project: None},
-    "filename_pattern": "",
+    "filename_pattern": re.escape(os.sep) + r"(?!.*bayesopt)[\w_]+\.py$",
     "default_thumb_file": f"_static/{project}.logo.examples.png",
     "show_memory": True,
 }
