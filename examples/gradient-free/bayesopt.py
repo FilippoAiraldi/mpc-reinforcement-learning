@@ -490,7 +490,7 @@ if __name__ == "__main__":
                     max_episode_steps=max_episode_steps,
                 )
             ),
-            f=neg,
+            neg,
         ),
         measurable_states=measurable_states,
         measurement_noise_std=measurement_noise_std,
