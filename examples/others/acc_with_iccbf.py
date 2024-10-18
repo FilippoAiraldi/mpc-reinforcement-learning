@@ -33,8 +33,8 @@ that does not consider input constraints, and the  ICCBF-QP that does.
 References
 ----------
 .. [1] Agrawal, D.R. and Panagou, D., 2021, December. Safe control synthesis via Input
-       Constrained Control Barrier Functions. In 2021 60th IEEE Conference on Decision and
-       Control (CDC) (pp. 6113-6118). IEEE.
+       Constrained Control Barrier Functions. In 2021 60th IEEE Conference on Decision
+       and Control (CDC) (pp. 6113-6118). IEEE.
 """
 
 import sys
