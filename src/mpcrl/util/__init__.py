@@ -10,12 +10,13 @@ Submodules
    :caption: Submodules
 
    control
+   geometry
    iters
    math
    named
    seeding
 """
 
-__all__ = ["control", "iters", "math", "named", "seeding"]
+__all__ = ["control", "geometry", "iters", "math", "named", "seeding"]
 
-from . import control, iters, math, named, seeding
+from . import control, geometry, iters, math, named, seeding
