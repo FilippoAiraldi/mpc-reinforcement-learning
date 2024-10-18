@@ -201,7 +201,7 @@ x, _ = mpc.state("x", nx)
 u, _ = mpc.action("u", nu, lb=-1.0, ub=1.0)
 
 # set the dynamics
-mpc.set_dynamics(lambda x, u: Atilde @ x + Btilde @ u, n_in=2, n_out=1)
+mpc.set_dynamics(lambda x, u: Atilde @ x + Btilde @ u)
 
 # set the objective
 mpc.minimize(

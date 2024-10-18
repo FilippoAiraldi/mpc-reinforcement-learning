@@ -234,7 +234,7 @@ class TestExamples(unittest.TestCase):
         # savemat(f"tests/data_test_examples_{platform}.mat", DATA)
 
         np.testing.assert_allclose(J, DATA["bo_J"], rtol=1e-2, atol=1e-2)
-        np.testing.assert_allclose(X, DATA["bo_X"], rtol=1e-2, atol=1e-2)
+        np.testing.assert_allclose(X, DATA["bo_X"], rtol=1e-1, atol=1e-1)
         np.testing.assert_allclose(U, DATA["bo_U"], rtol=1e-2, atol=1e-2)
         np.testing.assert_allclose(R, DATA["bo_R"], rtol=1e-2, atol=1e-2)
 

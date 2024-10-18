@@ -279,7 +279,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
                 # According to Gros and Zanon [2], it is hinted that the perturbed
                 # solution should be used instead (sol).
                 exploration = np.asarray((action - action_opt).elements())
-                sol_vals = np.asarray(sol_opt.all_vals.elements())
+                sol_vals = np.asarray(sol_opt.x_and_lam_and_p.elements())
                 self._rollout.append((state, exploration, cost, state_new, sol_vals))
             else:
                 status = f"{sol.status}/{sol_opt.status}"
@@ -314,9 +314,9 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         x_lam_p = cs.vertcat(nlp.primal_dual, nlp.p)
 
         # compute first bunch of derivatives
-        nlp_ = NlpSensitivity(nlp, theta)
-        Kt = nlp_.jacobians["K-p"]
-        Ky = nlp_.jacobians["K-y"]
+        snlp = NlpSensitivity(nlp, theta)
+        Kt = snlp.jacobian("K-p")
+        Ky = snlp.jacobian("K-y")
         dydu0 = cs.jacobian_sparsity(u0, y).T
 
         # instantiate linear solver (must be MX, so SX has to be converted)
