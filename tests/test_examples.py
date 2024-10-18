@@ -49,6 +49,7 @@ from mpcrl import (
 )
 from mpcrl import exploration as E
 from mpcrl.optim import GradientDescent, NetwonMethod
+from mpcrl.util.geometry import ConvexPolytopeUniformSampler
 from mpcrl.wrappers.agents import Evaluate, Log, RecordUpdates
 from mpcrl.wrappers.envs import MonitorEpisodes
 
@@ -324,6 +325,27 @@ class TestExamples(unittest.TestCase):
         U = np.vstack([A1, A2])
         np.testing.assert_allclose(X, DATA["iccbf_X"])
         np.testing.assert_allclose(U, DATA["iccbf_U"])
+
+    @parameterized.expand([(False,), (True,)])
+    def test_polytope_sampling(self, incrm: bool):
+        np_random = np.random.default_rng(69)
+        ndim = 3
+        nvertices = 10
+        VERTICES = np_random.normal(size=(nvertices, ndim))
+
+        n_samples = (10, 10)
+        if incrm:
+            m = nvertices // 2
+            sampler = ConvexPolytopeUniformSampler(VERTICES[:m], incremental=True)
+            for i in range(m, nvertices):
+                sampler.add_points(VERTICES[i, None])
+            sampler.close()
+        else:
+            sampler = ConvexPolytopeUniformSampler(VERTICES, incremental=False)
+        sampler.reset(np_random)
+        samples = sampler.sample(n_samples)
+
+        np.testing.assert_allclose(samples, DATA[f"polytope_samples_{int(incrm)}"])
 
 
 if __name__ == "__main__":
