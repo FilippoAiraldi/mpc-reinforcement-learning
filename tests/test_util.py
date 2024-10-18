@@ -233,9 +233,7 @@ class TestControl(unittest.TestCase):
 
         gamma = cs.SX.sym("gamma")
         alphas = [lambda w: gamma * w]
-        cbf = control.cbf(h, x, u, dynamics, alphas)
-
-        actual_cbf = cbf(x, u)
+        actual_cbf = control.cbf(h, x, u, dynamics, alphas)
         expected_cbf = Th / M * (friction - u) + (v0 - v) + gamma * (z - Th * v)
         self.assertTrue(all(cbf.shape == (1, 1) for cbf in [actual_cbf, expected_cbf]))
 
@@ -261,14 +259,12 @@ class TestControl(unittest.TestCase):
 
         # degree 1
         alphas = [lambda y: y]
-        cbf1 = control.cbf(h, x, u, dynamics, alphas)
-        actual_cbf1 = cbf1(x, u)
+        actual_cbf1 = control.cbf(h, x, u, dynamics, alphas)
         expected_cbf1 = v0 - v + cs.SX.zeros(1, 1) * u + z - delta
 
         # degree 2
         alphas = [lambda y: y**2] * 2
-        cbf2 = control.cbf(h, x, u, dynamics, alphas)
-        actual_cbf2 = cbf2(x, u)
+        actual_cbf2 = control.cbf(h, x, u, dynamics, alphas)
         h_ = h(x)
         Lfh_ = control.lie_derivative(h_, x, f)  # v0 - v
         Lf2h_ = control.lie_derivative(h_, x, f, 2)  # 0
@@ -303,9 +299,8 @@ class TestControl(unittest.TestCase):
         gamma = cs.SX.sym("gamma")
         alphas = [lambda z: gamma * z]
         h = lambda x: M - c * x[0]  # >= 0
-        cbf = control.dcbf(h, x, u, dynamics, alphas)
 
-        actual_cbf = cbf(x, u)
+        actual_cbf = control.dcbf(h, x, u, dynamics, alphas)
         expected_cbf = -c * (A[0, :] @ x + B[0] * u - x[0]) + gamma * (M - c * x[0])
         self.assertTrue(all(cbf.shape == (1, 1) for cbf in [actual_cbf, expected_cbf]))
 
@@ -329,14 +324,12 @@ class TestControl(unittest.TestCase):
 
         # degree 1
         alphas = [lambda z: gamma[0] * z]
-        cbf1 = control.dcbf(h, x, u, dynamics, alphas)
-        actual_cbf1 = cbf1(x, u)
+        actual_cbf1 = control.dcbf(h, x, u, dynamics, alphas)
         expected_cbf1 = -A[0, :] @ x + x[0] + gamma[0] * (M - x[0])
 
         # degree 2
         alphas = [lambda z: gamma[0] * z, lambda z: gamma[1] * z]
-        cbf2 = control.dcbf(h, x, u, dynamics, alphas)
-        actual_cbf2 = cbf2(x, u)
+        actual_cbf2 = control.dcbf(h, x, u, dynamics, alphas)
         expected_cbf2 = (
             (A[0, :] @ x - x[0]) * (1 - A[0, 0] - cs.sum1(gamma))
             + (M - x[0]) * gamma[0] * gamma[1]
