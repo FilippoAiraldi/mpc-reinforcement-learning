@@ -105,15 +105,15 @@ class ConvexPolytopeUniformSampler:
             self._triangulation.close()
 
     def sample_from_interior(
-        self, size: Union[int, tuple[int, ...]]
+        self, size: Union[int, tuple[int, ...]] = ()
     ) -> npt.NDArray[np.floating]:
         """Sample uniformly from the interior of the polytope defined by the given
         vertices.
 
         Parameters
         ----------
-        size : int or tuple of ints
-            The size of the sample array to draw.
+        size : int or tuple of ints, optional
+            The size of the sample array to draw. By default, one sample is drawn.
 
         Returns
         -------
@@ -135,15 +135,15 @@ class ConvexPolytopeUniformSampler:
         return np.matmul(weights[..., None, :], selected_simplices).squeeze(-2)
 
     def sample_from_surface(
-        self, size: Union[int, tuple[int, ...]]
+        self, size: Union[int, tuple[int, ...]] = ()
     ) -> npt.NDArray[np.floating]:
         """Sample uniformly from the surface of the polytope defined by the given
         vertices.
 
         Parameters
         ----------
-        size : int or tuple of ints
-            The size of the sample array to draw.
+        size : int or tuple of ints, optional
+            The size of the sample array to draw. By default, one sample is drawn.
 
         Returns
         -------
