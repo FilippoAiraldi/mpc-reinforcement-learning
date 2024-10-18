@@ -329,11 +329,11 @@ class TestExamples(unittest.TestCase):
     @parameterized.expand([(False,), (True,)])
     def test_polytope_sampling(self, incrm: bool):
         np_random = np.random.default_rng(69)
-        ndim = 3
-        nvertices = 10
+        ndim = np_random.integers(2, 7)
+        nvertices = np_random.integers(10, 15)
         VERTICES = np_random.normal(size=(nvertices, ndim))
 
-        n_samples = (10, 10)
+        n_samples = tuple(np_random.integers(2, 10, size=2))
         if incrm:
             m = nvertices // 2
             sampler = ConvexPolytopeUniformSampler(VERTICES[:m], incremental=True)
@@ -342,9 +342,10 @@ class TestExamples(unittest.TestCase):
             sampler.close()
         else:
             sampler = ConvexPolytopeUniformSampler(VERTICES, incremental=False)
-        sampler.reset(np_random)
-        samples = sampler.sample(n_samples)
-
+        sampler.seed(np_random)
+        int_samples = sampler.sample_from_interior(n_samples)
+        surf_samples = sampler.sample_from_surface(n_samples)
+        samples = np.asarray((int_samples, surf_samples))
         np.testing.assert_allclose(samples, DATA[f"polytope_samples_{int(incrm)}"])
 
 
