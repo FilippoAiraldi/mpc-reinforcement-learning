@@ -182,7 +182,7 @@ def create_clf_cbf_qp(env: AccEnv) -> Callable[[ObsType], ActType]:
         "x": cs.vertcat(u, delta),
         "p": x,
         "f": 0.5 * cs.sumsqr(u) + 0.1 * delta,
-        "g": cs.vertcat(clf_cnstr, -cbf_cnstr(x, u)),
+        "g": cs.vertcat(clf_cnstr, -cbf_cnstr),
     }
     lbx = np.append(np.full(env.na, -np.inf), 0)
     ubx = np.full(env.na + 1, np.inf)
@@ -214,7 +214,7 @@ def create_iccbf_qp(env: AccEnv) -> cs.Function:
         env.h, x, u, env.dynamics_components, alphas, norm=1, bound=env.umax
     )
 
-    qp = {"x": u, "p": x, "f": 0.5 * cs.sumsqr(u - u_des), "g": iccbf_cnstr(x, u)}
+    qp = {"x": u, "p": x, "f": 0.5 * cs.sumsqr(u - u_des), "g": iccbf_cnstr}
     solver = cs.qpsol("solver_iccbf_qp", SOLVER, qp, OPTS)
     res = solver(p=x, lbx=env.action_space.low, ubx=env.action_space.high, lbg=0)
     u_iccbf_qp = res["x"]

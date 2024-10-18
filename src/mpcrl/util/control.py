@@ -173,7 +173,7 @@ def cbf(
     u: SymType,
     dynamics: Callable[[SymType, SymType], SymType],
     alphas: _Iterable[Callable[[SymType], SymType]],
-) -> cs.Function:
+) -> SymType:
     r"""Continuous-time Control Barrier Function (CBF) for the given constraint ``h``
     and system with dynamics ``dynamics``. This method constructs a CBF for the
     constraint :math:`h(x) \geq 0` using the given system's dynamics
@@ -208,9 +208,9 @@ def cbf(
 
     Returns
     -------
-    casadi Function
-        Returns the HO-CBF function :math:`\phi_m` as a function with signature
-        :math:`x,u \rightarrow \phi_m(x, u)`.
+    casadi SX or MX
+        Returns the HO-CBF function :math:`\phi_m` as a symbolic variable that is
+        function of the provided ``x`` and ``u``.
 
     References
     ----------
@@ -231,18 +231,15 @@ def cbf(
     >>> alphas = [lambda z: gamma * z]
     >>> h = lambda x: M - c * x[0]  # >= 0
     >>> cbf = cbf(h, x, u, dynamics, alphas)
-    >>> print(cbf(x, u))
+    >>> print(cbf)
     """
     x_dot = dynamics(x, u)
     phi = h(x)
-    for degree, alpha in enumerate(alphas, start=1):
+    for alpha in alphas:
         phi = lie_derivative(phi, x, x_dot) + alpha(phi)
-    name = f"phi_{degree}"
     # cs.depends_on(phi, u)
     # phi.which_depends("u", [name], 2, True)[0]
-    return cs.Function(
-        name, (x, u), (phi,), ("x", "u"), (name,), {"cse": True, "allow_free": True}
-    )
+    return phi
 
 
 def dcbf(
@@ -285,9 +282,9 @@ def dcbf(
 
     Returns
     -------
-    casadi Function
-        Returns the HO-DCBF function :math:`\phi_m` as a function with signature
-        :math:`x,u \rightarrow \phi_m(x, u)`.
+    casadi SX or MX
+        Returns the HO-DCBF function :math:`\phi_m` as a symbolic variable that is
+        function of the provided ``x`` and ``u``.
 
     References
     ----------
@@ -309,17 +306,14 @@ def dcbf(
     >>> alphas = [lambda z: gamma * z]
     >>> h = lambda x: M - c * x[0]  # >= 0
     >>> cbf = dcbf(h, x, u, dynamics, alphas)
-    >>> print(cbf(x, u))
+    >>> print(cbf)
     """
     x_next = dynamics(x, u)
     phi = h(x)
-    for degree, alpha in enumerate(alphas, start=1):
+    for alpha in alphas:
         phi_next = cs.substitute(phi, x, x_next)
         phi = phi_next - phi + alpha(phi)
-    name = f"phi_{degree}"
-    return cs.Function(
-        name, (x, u), (phi,), ("x", "u"), (name,), {"cse": True, "allow_free": True}
-    )
+    return phi
 
 
 def iccbf(
@@ -377,9 +371,9 @@ def iccbf(
 
     Returns
     -------
-    casadi Function
-        Returns the HO-ICCBF function :math:`\phi_m` as a function with signature
-        :math:`x,u \rightarrow \phi_m(x, u)`.
+    casadi SX or MX
+        Returns the HO-ICCBF function :math:`\phi_m` as a symbolic variable that is
+        function of the provided ``x`` and ``u``.
 
     References
     ----------
@@ -401,7 +395,7 @@ def iccbf(
     >>> alphas = [lambda z: gamma * z]
     >>> h = lambda x: M - c * x[0]  # >= 0
     >>> cbf = iccbf(h, x, u, dynamics_f_and_g, alphas, norm=2, bound=0.5)
-    >>> print(cbf(x, u))
+    >>> print(cbf)
     """
     # find the dual norm of the given norm
     y = cs.SX.sym("y", u.shape[0], 1)
@@ -410,14 +404,10 @@ def iccbf(
     # continue from here as usual
     f, g = dynamics_f_and_g(x)
     phi = h(x)
-    for degree, alpha in enumerate(alphas, start=1):
+    for alpha in alphas:
         Lf_phi = lie_derivative(phi, x, f)
         Lg_phi = lie_derivative(phi, x, g)
         Lg_phi_u_sup = bound * dual_norm_func(Lg_phi)
         alpha_phi = alpha(phi)
         phi = Lf_phi - Lg_phi_u_sup + alpha_phi
-    name = f"phi_{degree}"
-    phi = Lf_phi + Lg_phi * u + alpha_phi  # skip infimum in last iteration
-    return cs.Function(
-        name, (x, u), (phi,), ("x", "u"), (name,), {"cse": True, "allow_free": True}
-    )
+    return Lf_phi + Lg_phi * u + alpha_phi  # skip infimum in last iteration
