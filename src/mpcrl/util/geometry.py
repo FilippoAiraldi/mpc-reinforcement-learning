@@ -4,7 +4,8 @@ from typing import Optional, Union
 
 import numpy as np
 import numpy.typing as npt
-from scipy.spatial import ConvexHull, Delaunay
+from scipy.spatial import ConvexHull as _ConvexHull
+from scipy.spatial import Delaunay as _Delaunay
 
 from .seeding import RngType
 
@@ -51,10 +52,10 @@ class ConvexPolytopeUniformSampler:
         self._tri_enabled = not disable_triangulation
         self._qhull_enabled = not disable_convex_hull
         if self._qhull_enabled:
-            self._qhull = ConvexHull(vertices, incremental=incremental)
+            self._qhull = _ConvexHull(vertices, incremental=incremental)
             self._compute_facet_areas_ratios()
         if self._tri_enabled:
-            self._triangulation = Delaunay(vertices, incremental=incremental)
+            self._triangulation = _Delaunay(vertices, incremental=incremental)
             self._compute_simplex_volumes_ratios()
 
     def seed(self, seed: RngType = None) -> npt.NDArray[np.floating]:
