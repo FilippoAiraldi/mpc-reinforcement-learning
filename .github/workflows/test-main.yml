@@ -41,7 +41,7 @@ jobs:
           NUMBA_DISABLE_JIT: ${{ matrix.DISABLE_JIT }}
 
       - name: Coverage with Code Climate
-        uses: paambaati/codeclimate-action@v6.0.0
+        uses: paambaati/codeclimate-action@v9
         env:
           CC_TEST_REPORTER_ID: ${{ secrets.CODECLIMATE_REPORTER_ID }}
         with:
