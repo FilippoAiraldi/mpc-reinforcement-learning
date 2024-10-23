@@ -67,7 +67,7 @@ def get_mpc(horizon: int, multistart: bool):
     mpc.action("u1", lb=0, ub=5e7)
     u2, _ = mpc.action("u2", lb=0, ub=5e7)
     mpc.disturbance("d", 3)
-    mpc.set_dynamics(get_dynamics(g, alpha, dt))
+    mpc.set_nonlinear_dynamics(get_dynamics(g, alpha, dt))
     mpc.constraint("yT", y[-1], "==", yT)
     mpc.minimize(m[0] - m[-1] + cs.sum2(u2))
     mpc.init_solver()

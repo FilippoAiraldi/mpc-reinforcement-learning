@@ -411,3 +411,108 @@ def iccbf(
         alpha_phi = alpha(phi)
         phi = Lf_phi - Lg_phi_u_sup + alpha_phi
     return Lf_phi + Lg_phi * u + alpha_phi  # skip infimum in last iteration
+
+
+def diccbf(
+    h: Callable[[SymType], SymType],
+    x: SymType,
+    u: SymType,
+    dynamics: Callable[[SymType, SymType], SymType],
+    alphas: _Iterable[Callable[[SymType], SymType]],
+    lbu: npt.ArrayLike = -np.inf,
+    ubu: npt.ArrayLike = np.inf,
+    g: Optional[SymType] = None,
+    solver: str = "ipopt",
+    solver_opts: Optional[dict] = None,
+) -> cs.Function:
+    r"""Discrete-time Input Constrained Control Barrier Function (DICCBF) for the given
+    constraint ``h`` and system with dynamics ``dynamics`` subject to norm-bounded
+    control action. This method constructs anDICCBF for the constraint
+    :math:`h(x) \geq 0` using the given system's dynamics :math:`x_{+} = f(x, u)`. Here,
+    :math:`x_{+}` is the next state after applying control input :math:`u`, and
+    :math:`f` is the dynamics function ``dynamics``. The DICCBF takes into account
+    the norm-bounded control input :math:`|| u ||_p \leq b`, where the norm power
+    :math:`p` and bound :math:`b` are specified as ``norm`` and ``bound``.
+
+    The method can also compute a High-Order (HO) DICCBF by passing more than one class
+    :math:`\mathcal{K}` functions ``alphas``.
+
+    As per [1]_, the HO-DICCBF :math:`\phi_m` of degree :math:`m` is recursively found
+    as
+
+    .. math::
+        \phi_m(x_k) = \inf_{u \in \mathcal{U}} \left\{ \phi_{m-1}(x_{k+1}) \right\}
+                      - \phi_{m-1}(x_k) + \alpha_m(\phi_{m-1}(x_k))
+
+    and should be imposed as the constraint :math:`\phi_m(x) \geq 0`.
+
+    Since the infimum does not in general have a closed-form solution, the term
+    :math:`\phi_{m-1}(x_{k+1})` is assumed to be affine in the control input :math:`u`,
+    i.e., :math:`\phi_{m-1}(x_{k+1}) = a^\top u + b`, for some vector :math:`a` and
+    scalar :math:`b` (these are determined automatically via linearization around
+    ``u0``). Higher order terms are ignored in the infimum.
+
+    Parameters
+    ----------
+    h : callable
+        The constraint function for which to build the ICCBF. It must be of the
+        signature :math:`x \rightarrow h(x)`.
+    x : casadi SX or MX
+        The state vector variable :math:`x`.
+    u : casadi SX or MX
+        The control input vector variable :math:`u`.
+    dynamics : callable
+        The dynamics function :math:`f` with signature :math:`x,u \rightarrow f(x, u)`.
+    alphas : iterable of callables
+        An iterable of class :math:`\mathcal{K}` functions :math:`\alpha_m` for
+        the HO-ICCBF. The length of the iterable determines the degree of the HO-ICCBF.
+    norm : float
+        The norm power :math:`p` for the control input norm constraint
+        :math:`||u||_p \le b`, with :math:`1 \le p \le \infty`.
+    bound : float, optional
+        The bound :math:`b` for the control input norm constraint :math:`||u||_p \le b`,
+        by default ``1.0``. Must be larger than zero.
+    u0 : array-like, optional
+        The control input around which to linearize the dynamics for the infimum
+        computation, by default ``0.0``.
+
+    Returns
+    -------
+    casadi SX or MX
+        Returns the HO-DICCBF function :math:`\phi_m` as a symbolic variable.
+
+    References
+    ----------
+    .. [1] Taekyung Kim, Robin Inho Kee and Dimitra Panagou. Learning to Refine Input
+           Constrained Control Barrier Functions via Uncertainty-Aware Online Parameter
+           Adaptation. arXiv preprint arXiv:2409.14616, 2024
+    """
+    if solver_opts is None:
+        solver_opts = {
+            "error_on_fail": True,
+            "expand": False,
+            "print_time": False,
+            "bound_consistency": True,
+            "calc_lam_p": False,
+            "calc_lam_x": False,
+        }
+        if solver == "fatrop" or solver == "ipopt":
+            solver_opts[solver] = {"max_iter": 500, "print_level": 0}
+
+    def compute_infimum(f: SymType) -> SymType:
+        problem = {"f": f, "x": u, "p": x}
+        if g is not None:
+            problem["g"] = g
+        solver_func = cs.nlpsol("internal_solver", solver, problem, solver_opts)
+        return solver_func(p=x, lbx=lbu, ubx=ubu, ubg=0)["f"]
+
+    x_next = dynamics(x, u)
+    phi = h(x)
+    phi_prev = None  # additional variable for the last iteration
+    for alpha in alphas:
+        phi_next = cs.substitute(phi, x, x_next)
+        phi_next_inf = compute_infimum(phi_next)
+        alpha_phi = alpha(phi)
+        phi_prev = phi
+        phi = phi_next_inf - phi + alpha_phi
+    return phi_next - phi_prev + alpha_phi  # skip infimum in last iteration
