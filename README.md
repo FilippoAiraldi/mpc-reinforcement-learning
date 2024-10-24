@@ -15,7 +15,7 @@ agents with Model Predictive Control (MPC) [[2]](#2) as function approximation.
 [![Source Code License](https://img.shields.io/badge/license-MIT-blueviolet)](https://github.com/FilippoAiraldi/mpc-reinforcement-learning/blob/main/LICENSE)
 ![Python 3.9](https://img.shields.io/badge/python->=3.9-green.svg)
 
-[![Tests](https://github.com/FilippoAiraldi/mpc-reinforcement-learning/actions/workflows/test-main.yml/badge.svg)](https://github.com/FilippoAiraldi/mpc-reinforcement-learning/actions/workflows/test-main.yml)
+[![Tests](https://github.com/FilippoAiraldi/mpc-reinforcement-learning/actions/workflows/tests.yml/badge.svg)](https://github.com/FilippoAiraldi/mpc-reinforcement-learning/actions/workflows/tests.yml)
 [![Docs](https://readthedocs.org/projects/mpc-reinforcement-learning/badge/?version=stable)](https://mpc-reinforcement-learning.readthedocs.io/en/stable/?badge=stable)
 [![Downloads](https://static.pepy.tech/badge/mpcrl)](https://www.pepy.tech/projects/mpcrl)
 [![Maintainability](https://api.codeclimate.com/v1/badges/9a46f52603d29c684c48/maintainability)](https://codeclimate.com/github/FilippoAiraldi/mpc-reinforcement-learning/maintainability)
