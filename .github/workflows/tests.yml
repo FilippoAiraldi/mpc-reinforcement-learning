@@ -1,32 +1,38 @@
-name: Test-Experimental
+name: Tests
 
 on:
   push:
-    branches:
-      - experimental
+    branches-ignore:
+      - 'refs/tags/*'
+  pull_request:
+    branches-ignore:
+      - 'refs/tags/*'
 
 jobs:
-
-  test-experimental:
-
+  tests:
     runs-on: ubuntu-latest
-
     strategy:
       fail-fast: false
       matrix:
         python-version: ["3.9", "3.10", "3.11"]
         DISABLE_JIT: [0, 1]
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-
       - name: Install dependencies
+        if: ${{ ! startsWith(github.ref, 'refs/heads/experimental') }}
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --upgrade setuptools
+          python -m pip install -r requirements.txt
+          python -m pip install -e .
+          python -m pip install -r requirements-tests.txt
+      - name: Install dependencies (latest csnlp)
+        if: ${{ startsWith(github.ref, 'refs/heads/experimental') }}
         run: |
           python -m pip install --upgrade pip
           python -m pip install --upgrade setuptools
@@ -35,9 +41,18 @@ jobs:
           python -m pip install -r requirements.txt
           python -m pip install -e .
           python -m pip install -r requirements-tests.txt
-
       - name: Test with unittest
         run: |
           coverage run -m unittest discover ./tests 'test_*.py'
         env:
           NUMBA_DISABLE_JIT: ${{ matrix.DISABLE_JIT }}
+      - name: Coverage with Code Climate (main only)
+        if: github.ref == 'refs/heads/main' && matrix.python-version == '3.9'  && matrix.DISABLE_JIT == 0
+        uses: paambaati/codeclimate-action@v9
+        env:
+          CC_TEST_REPORTER_ID: ${{ secrets.CODECLIMATE_REPORTER_ID }}
+        with:
+          coverageCommand: coverage xml
+          debug: true
+      - uses: pre-commit-ci/lite-action@v1.1.0
+        if: always()

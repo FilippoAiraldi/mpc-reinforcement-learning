@@ -99,8 +99,8 @@ References
    :alt: MIT License
 .. |Python 3.9| image:: https://img.shields.io/badge/python-%3E=3.9-green.svg
    :alt: Python 3.9
-.. |Tests| image:: https://github.com/FilippoAiraldi/mpc-reinforcement-learning/actions/workflows/test-main.yml/badge.svg
-   :target: https://github.com/FilippoAiraldi/mpc-reinforcement-learning/actions/workflows/test-main.yml
+.. |Tests| image:: https://github.com/FilippoAiraldi/mpc-reinforcement-learning/actions/workflows/tests.yml/badge.svg
+   :target: https://github.com/FilippoAiraldi/mpc-reinforcement-learning/actions/workflows/tests.yml
    :alt: Tests
 .. |Docs| image:: https://readthedocs.org/projects/mpc-reinforcement-learning/badge/?version=stable
    :target: https://mpc-reinforcement-learning.readthedocs.io/en/stable/?badge=stable
