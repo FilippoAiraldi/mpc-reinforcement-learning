@@ -87,17 +87,23 @@ class MonitorEpisodes(
 
         # if episode is done, save the current data to history
         if terminated or truncated:
-            # append data
-            self.observations.append(np.asarray(self.ep_observations))
-            self.actions.append(np.asarray(self.ep_actions))
-            self.rewards.append(np.asarray(self.ep_rewards))
-            self.episode_lengths.append(self.ep_length)
-            self.exec_times.append(perf_counter() - self.t0)
-
-            # clear this episode's data
-            self._clear_ep_data()
+            self.force_episode_end()
 
         return obs, reward, terminated, truncated, info
+
+    def force_episode_end(self) -> None:
+        """Appends all the accumulated data from the current/last episode to the main
+        deques (as would happen if the episode ended) and clears the current episode's
+        data."""
+        # append data
+        self.observations.append(np.asarray(self.ep_observations))
+        self.actions.append(np.asarray(self.ep_actions))
+        self.rewards.append(np.asarray(self.ep_rewards))
+        self.episode_lengths.append(self.ep_length)
+        self.exec_times.append(perf_counter() - self.t0)
+
+        # clear this episode's data
+        self._clear_ep_data()
 
     def _clear_ep_data(self) -> None:
         # clear this episode's lists and reset counters
