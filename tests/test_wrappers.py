@@ -74,8 +74,7 @@ def get_mpc(horizon: int, multistart: bool):
     return mpc
 
 
-class DummyAgent(Agent):
-    ...
+class DummyAgent(Agent): ...
 
 
 class DummyLearningAgent(LearningAgent):

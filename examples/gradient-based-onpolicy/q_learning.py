@@ -201,8 +201,7 @@ class LinearMpc(Mpc[cs.SX]):
             + cs.sum2(f.T @ cs.vertcat(x[:, :-1], u))
             + 0.5
             * cs.sum2(
-                gammapowers
-                * (cs.sum1(x[:, :-1] ** 2) + 0.5 * cs.sum1(u**2) + w.T @ s)
+                gammapowers * (cs.sum1(x[:, :-1] ** 2) + 0.5 * cs.sum1(u**2) + w.T @ s)
             )
         )
 

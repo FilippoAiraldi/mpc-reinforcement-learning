@@ -25,7 +25,10 @@ class GradientFreeOptimizer(BaseOptimizer[SymType], ABC):
     @abstractmethod
     def ask(
         self,
-    ) -> tuple[Union[dict[str, npt.ArrayLike], npt.ArrayLike], Optional[str],]:
+    ) -> tuple[
+        Union[dict[str, npt.ArrayLike], npt.ArrayLike],
+        Optional[str],
+    ]:
         """Asks the learning agent for a new set of parameters to evaluate.
 
         Returns

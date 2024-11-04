@@ -184,7 +184,6 @@ class LogLinearScheduler(ExponentialScheduler[ScType]):
 
 
 class Chain(Scheduler[ScType]):
-
     """Chains multiple schedulers together.
 
     Parameters
