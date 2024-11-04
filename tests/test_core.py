@@ -318,8 +318,7 @@ class TestExploration(unittest.TestCase):
         self.assertTrue(found_true and found_false)
 
     def test_epsilon_greedy_exploration__decays_strength(self):
-        class MockScheduler(S.NoScheduling):
-            ...
+        class MockScheduler(S.NoScheduling): ...
 
         epsilon_scheduler = MockScheduler(None)
         strength_scheduler = MockScheduler(None)
@@ -347,8 +346,7 @@ class TestExploration(unittest.TestCase):
         self.assertTrue(exploration.can_explore())
 
     def test_ornsteinuhlenbeck_exploration__decays_mean_and_sigma(self):
-        class MockScheduler(S.NoScheduling):
-            ...
+        class MockScheduler(S.NoScheduling): ...
 
         mean_scheduler = MockScheduler(None)
         sigma_scheduler = MockScheduler(None)

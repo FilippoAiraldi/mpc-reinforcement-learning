@@ -9,8 +9,7 @@ from scipy.special import comb
 from mpcrl.util import control, iters, math, named, seeding
 
 
-class DummyAgent(named.Named):
-    ...
+class DummyAgent(named.Named): ...
 
 
 class TestNamedAgent(unittest.TestCase):
