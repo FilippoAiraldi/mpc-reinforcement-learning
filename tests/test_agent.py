@@ -228,6 +228,7 @@ class TestAgent(unittest.TestCase):
             dual_vars=None,
             dual_vals=None,
             stats={"success": True},
+            solver_plugin=None,
         )
         agent._last_solution = sol
         method = "solve_multi" if self.multistart_nlp else "solve"
@@ -292,6 +293,7 @@ class TestAgent(unittest.TestCase):
             dual_vars=None,
             dual_vals=None,
             stats=None,
+            solver_plugin=None,
         )
         if vector:
             state = cs.DM(state.values())
@@ -341,6 +343,7 @@ class TestAgent(unittest.TestCase):
             dual_vars=None,
             dual_vals=None,
             stats=None,
+            solver_plugin=None,
         )
         if vector:
             state = cs.DM(state.values())
@@ -399,6 +402,7 @@ class TestAgent(unittest.TestCase):
                 dual_vars=None,
                 dual_vals=None,
                 stats={"success": success, "return_status": "bad"},
+                solver_plugin=None,
             ),
             actions1,
             actions2,
