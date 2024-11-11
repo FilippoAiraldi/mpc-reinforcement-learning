@@ -246,9 +246,9 @@ class LstdQLearningAgent(
         ord = self.optimizer._order
         theta = cs.vvcat(self._learnable_pars.sym.values())
         nlp = self._Q.nlp
-        x = nlp._x
-        p = nlp._p
-        lam_g_and_h = cs.vertcat(nlp._lam_g, nlp._lam_h)
+        x = nlp.x
+        p = nlp.p
+        lam_g_and_h = cs.vertcat(nlp.lam_g, nlp.lam_h)
 
         # compute first order sensitivity - necessary whatever the hessian type is
         snlp = NlpSensitivity(nlp, theta)
@@ -311,7 +311,7 @@ class LstdQLearningAgent(
         else:
             assert ord == 2, "Expected 2nd-order optimizer with `hessian_type=full`."
 
-            lam_lbx_and_ubx = cs.vertcat(nlp._lam_lbx, nlp._lam_ubx)
+            lam_lbx_and_ubx = cs.vertcat(nlp.lam_lbx, nlp.lam_ubx)
             Kp = snlp.jacobian("K-p")
             Ky = snlp.jacobian("K-y")
             dydtheta = -cs.solve(Ky, Kp)
