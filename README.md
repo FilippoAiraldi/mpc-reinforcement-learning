@@ -278,15 +278,15 @@ costs = agent.train(env=env, episodes=1, seed=69)
 ## Examples
 
 Our
-[examples](https://github.com/FilippoAiraldi/mpc-reinforcement-learning/tree/experimental/examples)
+[examples](https://mpc-reinforcement-learning.readthedocs.io/en/latest/auto_examples/index.html)
 subdirectory contains examples on how to use the library on some academic, small-scale
 application (a small linear time-invariant (LTI) system), tackled both with
-[on-policy Q-learning](https://github.com/FilippoAiraldi/mpc-reinforcement-learning/blob/experimental/examples/q_learning.py),
-[off-policy Q-learning](https://github.com/FilippoAiraldi/mpc-reinforcement-learning/blob/experimental/examples/q_learning_offpolicy.py)
+[on-policy Q-learning](https://mpc-reinforcement-learning.readthedocs.io/en/latest/auto_examples/gradient-based-onpolicy/q_learning.html#sphx-glr-auto-examples-gradient-based-onpolicy-q-learning-py),
+[off-policy Q-learning](https://mpc-reinforcement-learning.readthedocs.io/en/latest/auto_examples/gradient-based-offpolicy/q_learning_offpolicy.html#sphx-glr-auto-examples-gradient-based-offpolicy-q-learning-offpolicy-py)
 and
-[DPG](https://github.com/FilippoAiraldi/mpc-reinforcement-learning/blob/experimental/examples/dpg.py).
+[DPG](https://mpc-reinforcement-learning.readthedocs.io/en/latest/auto_examples/gradient-based-onpolicy/dpg.html#sphx-glr-auto-examples-gradient-based-onpolicy-dpg-py).
 While the aforementioned algorithms are all gradient-based, we also provide an
-[example on how to use Bayesian Optimization (BO)](https://github.com/FilippoAiraldi/mpc-reinforcement-learning/blob/experimental/examples/bayesopt.py)
+[example on how to use Bayesian Optimization (BO)](https://mpc-reinforcement-learning.readthedocs.io/en/latest/auto_examples/gradient-free/bayesopt.html#sphx-glr-auto-examples-gradient-free-bayesopt-py)
 [[6]](#6) to tune the MPC parameters in a gradient-free way.
 
 ---
