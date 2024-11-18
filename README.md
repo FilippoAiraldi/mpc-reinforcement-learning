@@ -281,12 +281,12 @@ Our
 [examples](https://github.com/FilippoAiraldi/mpc-reinforcement-learning/tree/main/examples)
 subdirectory contains examples on how to use the library on some academic, small-scale
 application (a small linear time-invariant (LTI) system), tackled both with
-[on-policy Q-learning](https://github.com/FilippoAiraldi/mpc-reinforcement-learning/blob/main/examples/q_learning.py),
-[off-policy Q-learning](https://github.com/FilippoAiraldi/mpc-reinforcement-learning/blob/main/examples/q_learning_offpolicy.py)
+[on-policy Q-learning](https://github.com/FilippoAiraldi/mpc-reinforcement-learning/blob/main/examples/gradient-based-onpolicy/q_learning.py),
+[off-policy Q-learning](https://github.com/FilippoAiraldi/mpc-reinforcement-learning/blob/main/examples/gradient-based-offpolicy/q_learning_offpolicy.py)
 and
-[DPG](https://github.com/FilippoAiraldi/mpc-reinforcement-learning/blob/main/examples/dpg.py).
+[DPG](https://github.com/FilippoAiraldi/mpc-reinforcement-learning/blob/main/examples/gradient-based-onpolicy/dpg.py).
 While the aforementioned algorithms are all gradient-based, we also provide an
-[example on how to use Bayesian Optimization (BO)](https://github.com/FilippoAiraldi/mpc-reinforcement-learning/blob/main/examples/bayesopt.py)
+[example on how to use Bayesian Optimization (BO)](https://github.com/FilippoAiraldi/mpc-reinforcement-learning/blob/main/examples/gradient-free/bayesopt.py)
 [[6]](#6) to tune the MPC parameters in a gradient-free way.
 
 ---
