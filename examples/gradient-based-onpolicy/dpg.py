@@ -232,16 +232,20 @@ class LinearMpc(Mpc[cs.SX]):
             "print_iteration": False,
             "print_status": False,
             "bound_consistency": True,
-            "calc_lam_x": True,
+            # "clip_inactive_lam": True,
+            "calc_lam_x": False,
             "calc_lam_p": False,
-            "qpsol": "qrqp",
-            "qpsol_options": {
-                "print_iter": False,
-                "print_header": False,
-                "error_on_fail": False,
+            "jit": False,
+            "fatrop": {
+                # "linear_solver": "pardiso",
+                # "tol": 1e-5,
+                # "barrier_tol_factor": 1,
+                "max_iter": 500,
+                # "sb": "yes",
+                "print_level": 0,
             },
         }
-        self.init_solver(opts, solver="sqpmethod")
+        self.init_solver(opts, solver="fatrop", type="nlp")
 
 
 # now, let's create the instances of such classes and start the training

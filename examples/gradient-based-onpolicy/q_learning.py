@@ -191,7 +191,28 @@ class LinearMpc(Mpc[cs.SX]):
         self.constraint("x_lb", x_bnd[0] + x_lb - s, "<=", x[:, 1:])
         self.constraint("x_ub", x[:, 1:], "<=", x_bnd[1] + x_ub + s)
 
+        # for k, (states, actions) in enumerate(
+        #     self.rolling_quantities(
+        #         dynamics=lambda x, u: A @ x + B * u + b,
+        #         states_kwargs={"name": "x", "size": nx, "bound_initial": False},
+        #         actions_kwargs={
+        #             "name": "u",
+        #             "size": nu,
+        #             "lb": a_bnd[0],
+        #             "ub": a_bnd[1],
+        #         },
+        #     )
+        # ):
+        #     if k > 0:
+        #         x, _, _ = states["x"]
+        #         s, _, _ = self.variable(f"s{k}", (nx, 1), lb=0)
+        #         self.constraint(f"x_lb_{k}", x_bnd[0] + x_lb - s, "<=", x)
+        #         self.constraint(f"x_ub_{k}", x, "<=", x_bnd[1] + x_ub + s)
+
         # objective
+        # x = self.states["x"]
+        # u = self.actions["u"]
+        # s = cs.hcat([self.variables[f"s{k}"] for k in range(1, N+1)])
         A_init, B_init = self.learnable_pars_init["A"], self.learnable_pars_init["B"]
         S = cs.DM(dlqr(A_init, B_init, 0.5 * np.eye(nx), 0.25 * np.eye(nu))[1])
         gammapowers = cs.DM(gamma ** np.arange(N)).T
@@ -224,14 +245,20 @@ class LinearMpc(Mpc[cs.SX]):
             "bound_consistency": True,
             "calc_lam_x": True,
             "calc_lam_p": False,
-            "qpsol": "qrqp",
-            "qpsol_options": {
-                "print_iter": False,
-                "print_header": False,
-                "error_on_fail": False,
+            # "ipopt": {
+            #     "max_iter": 500,
+            #     "sb": "yes",
+            #     "print_level": 0,
+            # },
+            # "debug": True,
+            # "structure_detection": "auto",
+            # "equality": [True] * self.ng + [False] * self.nh,
+            "fatrop": {
+                "max_iter": 500,
+                "print_level": 0,
             },
         }
-        self.init_solver(opts, solver="sqpmethod")
+        self.init_solver(opts, solver="fatrop", type="nlp")
 
 
 if __name__ == "__main__":

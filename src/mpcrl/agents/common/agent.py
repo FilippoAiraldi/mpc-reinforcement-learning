@@ -415,6 +415,12 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
         grad_pert = pert if exploration_mode == "gradient-based" else None
         sol = self._solve_mpc(V, state, perturbation=grad_pert, vals0=vals0, **kwargs)
         action_opt = cs.vertcat(*(sol.vals[u][:, 0] for u in V.actions.keys()))
+        # action_opt = cs.vertcat(
+        #     *(
+        #         sol.vals[u][:, 0] if u in sol.vals else sol.vals[f"{u}0"]
+        #         for u in V.actions.keys()
+        #     )
+        # )
 
         if sol.success:
             self._last_action = action_opt
@@ -568,6 +574,14 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
             for name, a in mpc.first_actions.items():
                 na_ = a.size1()
                 Q.nlp.remove_variable_bounds(name, "both", ((r, 0) for r in range(na_)))
+                # if name in Q.variables:
+                #     Q.nlp.remove_variable_bounds(
+                #         name, "both", ((r, 0) for r in range(na_))
+                #     )
+                # elif f"{name}0" in Q.variables:
+                #     Q.nlp.remove_variable_bounds(f"{name}0", "both")
+                # else:
+                #     raise RuntimeError("Unable to remove bounds on initial actions.")
 
         # for V, add the cost perturbation parameter (only if gradient-based)
         if self._exploration.mode == "gradient-based":
