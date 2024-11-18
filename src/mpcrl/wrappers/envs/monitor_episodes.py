@@ -41,18 +41,44 @@ class MonitorEpisodes(
     --------
     After the completion of an episode, these fields will look like this:
 
-    >>> env.observations = <deque of each episode's observations>
-    ... env.actions = <deque of each episode's actions>
-    ... env.rewards = <deque of each episode's rewards>
-    ... env.episode_lengths = <deque of each episode's episode length>
-    ... env.exec_times = <deque of each episode's execution time>
+        >>> env.observations = <deque of each episode's observations>
+        ... env.actions = <deque of each episode's actions>
+        ... env.rewards = <deque of each episode's rewards>
+        ... env.episode_lengths = <deque of each episode's episode length>
+        ... env.exec_times = <deque of each episode's execution time>
+
+    For vectorized environments the output will be in the form of::
+
+        >>> env.observations = <list of deque of each episode's observations>
+        ... env.actions = <list of deque of each episode's actions>
+        ... env.rewards = <list of deque of each episode's rewards>
+        ... env.episode_lengths = <list of deque of each episode's episode length>
+        ... env.exec_times = <list of deque of each episode's execution time>
+
     """
 
     def __init__(
         self, env: Env[ObsType, ActType], deque_size: Optional[int] = None
     ) -> None:
+        """This wrapper will keep track of observations, actions and rewards as well as
+        episode length and execution time.
+
+        Parameters
+        ----------
+        env : Env[ObsType, ActType]
+            The environment to apply the wrapper to. Can be a vectorized environment.
+        deque_size : int, optional
+            The maximum number of episodes to hold as historical data in the internal
+            deques. By default, `None`, i.e., unlimited.
+        """
         utils.RecordConstructorArgs.__init__(self, deque_size=deque_size)
         Wrapper.__init__(self, env)
+        try:
+            self.num_envs = self.get_wrapper_attr("num_envs")
+            self.is_vector_env = self.get_wrapper_attr("is_vector_env")
+        except AttributeError:
+            self.num_envs = 1
+            self.is_vector_env = False
         # long-term storages
         self.observations: Deque[npt.NDArray[ObsType]] = deque(maxlen=deque_size)
         self.actions: Deque[npt.NDArray[ActType]] = deque(maxlen=deque_size)
@@ -86,24 +112,19 @@ class MonitorEpisodes(
         self.ep_length += 1
 
         # if episode is done, save the current data to history
-        if terminated or truncated:
-            self.force_episode_end()
+        if not self.is_vector_env:
+            if terminated or truncated:
+                # append data
+                self.observations.append(np.asarray(self.ep_observations))
+                self.actions.append(np.asarray(self.ep_actions))
+                self.rewards.append(np.asarray(self.ep_rewards))
+                self.episode_lengths.append(self.ep_length)
+                self.exec_times.append(perf_counter() - self.t0)
 
-        return obs, reward, terminated, truncated, info
-
-    def force_episode_end(self) -> None:
-        """Appends all the accumulated data from the current/last episode to the main
-        deques (as would happen if the episode ended) and clears the current episode's
-        data."""
-        # append data
-        self.observations.append(np.asarray(self.ep_observations))
-        self.actions.append(np.asarray(self.ep_actions))
-        self.rewards.append(np.asarray(self.ep_rewards))
-        self.episode_lengths.append(self.ep_length)
-        self.exec_times.append(perf_counter() - self.t0)
-
-        # clear this episode's data
-        self._clear_ep_data()
+                # clear this episode's data
+                self._clear_ep_data()
+        else:
+            pass
 
     def _clear_ep_data(self) -> None:
         # clear this episode's lists and reset counters
@@ -112,3 +133,15 @@ class MonitorEpisodes(
         self.ep_rewards.clear()
         self.t0 = perf_counter()
         self.ep_length = 0
+
+
+if __name__ == "__main__":
+    import gymnasium as gym
+
+    env = gym.vector.make("CartPole-v1", num_envs=9)
+    env = MonitorEpisodes(env)
+    env.reset(seed=4)
+    while True:
+        obs, rew, truncated, terminated, info = env.step(env.action_space.sample())
+        if np.logical_or(truncated, terminated).all():
+            break
