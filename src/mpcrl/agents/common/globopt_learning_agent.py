@@ -60,12 +60,13 @@ class GlobOptLearningAgent(LearningAgent[SymType, None], ABC, Generic[SymType]):
         episode: int,
         init_state: ObsType,
         raises: bool = True,
+        penalty_on_infeas: float = 0.0,
+        truncate_on_infeas: bool = False,
     ) -> float:
         # simply evaluate the MPC on the env with the current set of parameters for one
         # episode, and then tell the optimizer the value of the objective function
-        rewards = 0.0
         state = init_state
-        truncated, terminated, timestep = False, False, 0
+        rewards, truncated, terminated, timestep = 0.0, False, False, 0
 
         while not (truncated or terminated):
             action, sol = self.state_value(state, False)
@@ -78,6 +79,9 @@ class GlobOptLearningAgent(LearningAgent[SymType, None], ABC, Generic[SymType]):
             rewards += float(r)
             timestep += 1
             self.on_timestep_end(env, episode, timestep)
+            if sol.infeasible:
+                rewards += penalty_on_infeas
+                truncated |= truncate_on_infeas
 
         values = (
             self._learnable_pars.value_as_dict

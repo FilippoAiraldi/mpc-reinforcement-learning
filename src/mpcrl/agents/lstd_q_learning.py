@@ -238,6 +238,8 @@ class LstdQLearningAgent(
         rollout: Iterable[tuple[ObsType, ActType, float, ObsType]],
         episode: int,
         raises: bool = True,
+        penalty_on_infeas: float = 0.0,
+        truncate_on_infeas: bool = False,
     ) -> None:
         # in the case of off-policy q-learning, rollouts are made of
         # State-Action-Reward-next State (SARS) tuples

@@ -127,6 +127,8 @@ class LearningAgent(
         seed: RngType = None,
         raises: bool = True,
         env_reset_options: Optional[dict[str, Any]] = None,
+        penalty_on_infeas: float = 0.0,
+        truncate_on_infeas: bool = False,
     ) -> npt.NDArray[np.floating]:
         """On-policy training of the agent on an environment.
 
@@ -144,6 +146,14 @@ class LearningAgent(
         env_reset_options : dict, optional
             Additional information to specify how the environment is reset at each
             evalution episode (optional, depending on the specific environment).
+        penalty_on_infeas : float, optional
+            Positive additive penalty to be applied when the MPC solver (for value or
+            action-value function, depending on the algorithm) fails to find a feasible
+            solution. By default ``0.0``, which implies no penalty.
+            TODO: describe each algorithm how this penalty is used.
+        truncate_on_infeas : bool, optional
+            If ``True``, when the MPC solver fails to find an infeasible solution, the
+            episode is truncated prematurely; othwerwise, the episode continues.
 
         Returns
         -------
@@ -163,6 +173,7 @@ class LearningAgent(
             assert isinstance(env.action_space, Box), "Env action space must be a Box,"
         rng = np.random.default_rng(seed)
         self.reset(rng)
+        penalty_on_infeas = min(penalty_on_infeas, 0.0)
         self._is_training = True
         self._raises = raises
         returns = np.zeros(episodes, float)
@@ -171,7 +182,9 @@ class LearningAgent(
         for episode in range(episodes):
             state, _ = env.reset(seed=mk_seed(rng), options=env_reset_options)
             self.on_episode_start(env, episode, state)
-            r = self.train_one_episode(env, episode, state, raises)
+            r = self.train_one_episode(
+                env, episode, state, raises, penalty_on_infeas, truncate_on_infeas
+            )
             self.on_episode_end(env, episode, r)
             returns[episode] = r
 
@@ -184,6 +197,8 @@ class LearningAgent(
         episode: int,
         init_state: ObsType,
         raises: bool = True,
+        penalty_on_infeas: float = 0.0,
+        truncate_on_infeas: bool = False,
     ) -> float:
         """On-policy training of the agent on an environment for one single episode.
 
@@ -198,6 +213,13 @@ class LearningAgent(
         raises : bool, optional
             If ``True``, when any of the MPC solver runs fails, or when an update fails,
             the corresponding error is raised; otherwise, only a warning is raised.
+        penalty_on_infeas : float, optional
+            Positive additive penalty to be applied when the MPC solver (for value or
+            action-value function, depending on the algorithm) fails to find a feasible
+            solution. By default ``0.0``, which implies no penalty.
+        truncate_on_infeas : bool, optional
+            If ``True``, when the MPC solver fails to find an infeasible solution, the
+            episode is truncated prematurely; othwerwise, the episode continues.
 
         Returns
         -------
@@ -223,6 +245,8 @@ class LearningAgent(
         episode_rollouts: Iterable[Iterable[Any]],
         seed: RngType = None,
         raises: bool = True,
+        penalty_on_infeas: float = 0.0,
+        truncate_on_infeas: bool = False,  # NOTE: does truncating here make sense?
     ) -> None:
         """Off-policy training of the agent on an environment.
 
@@ -239,6 +263,14 @@ class LearningAgent(
         raises : bool, optional
             If ``True``, when any of the MPC solver runs fails, or when an update fails,
             the corresponding error is raised; otherwise, only a warning is raised.
+        penalty_on_infeas : float, optional
+            Positive additive penalty to be applied when the MPC solver (for value or
+            action-value function, depending on the algorithm) fails to find a feasible
+            solution. By default ``0.0``, which implies no penalty.
+            TODO: explain how this penalty is used in each algorithm.
+        truncate_on_infeas : bool, optional
+            If ``True``, when the MPC solver fails to find an infeasible solution, the
+            episode is truncated prematurely; othwerwise, the episode continues.
 
         Raises
         ------
@@ -251,6 +283,7 @@ class LearningAgent(
         """
         rng = np.random.default_rng(seed)
         self.reset(rng)
+        penalty_on_infeas = min(penalty_on_infeas, 0.0)
         self._raises = raises
         env_proxy = "off-policy"
 
@@ -258,13 +291,20 @@ class LearningAgent(
         self.on_training_start(env_proxy)
         for episode, rollout in enumerate(episode_rollouts):
             self.on_episode_start(env_proxy, episode, float("nan"))
-            self.train_one_rollout(rollout, episode, raises)
+            self.train_one_rollout(
+                rollout, episode, raises, penalty_on_infeas, truncate_on_infeas
+            )
             self.on_episode_end(env_proxy, episode, float("nan"))
 
         self.on_training_end(env_proxy, np.empty(0))
 
     def train_one_rollout(
-        self, rollout: Iterable[Any], episode: int, raises: bool = True
+        self,
+        rollout: Iterable[Any],
+        episode: int,
+        raises: bool = True,
+        penalty_on_infeas: float = 0.0,
+        truncate_on_infeas: bool = False,  # NOTE: does truncating here make sense?
     ) -> None:
         """Train the agent in an off-policy manner on the given rollout.
 
@@ -277,6 +317,13 @@ class LearningAgent(
         raises : bool, optional
             If ``True``, when any of the MPC solver runs fails, or when an update fails,
             the corresponding error is raised; otherwise, only a warning is raised.
+        penalty_on_infeas : float, optional
+            Positive additive penalty to be applied when the MPC solver (for value or
+            action-value function, depending on the algorithm) fails to find a feasible
+            solution. By default ``0.0``, which implies no penalty.
+        truncate_on_infeas : bool, optional
+            If ``True``, when the MPC solver fails to find an infeasible solution, the
+            episode is truncated prematurely; othwerwise, the episode continues.
 
         Raises
         ------

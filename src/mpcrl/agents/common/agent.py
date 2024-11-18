@@ -487,6 +487,8 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
         seed: RngType = None,
         raises: bool = True,
         env_reset_options: Optional[dict[str, Any]] = None,
+        penalty_on_infeas: float = 0.0,
+        truncate_on_infeas: bool = False,
     ) -> npt.NDArray[np.floating]:
         r"""Evaluates the agent in a given environment.
 
@@ -507,6 +509,13 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
         env_reset_options : dict, optional
             Additional information to specify how the environment is reset at each
             evalution episode (optional, depending on the specific environment).
+        penalty_on_infeas : float, optional
+            Positive additive penalty to be applied when the value function MPC solver
+            fails to find a feasible solution. By default ``0.0``, which implies no
+            penalty is added to the return.
+        truncate_on_infeas : bool, optional
+            If ``True``, when the MPC solver fails to find an infeasible solution, the
+            episode is truncated prematurely; othwerwise, the episode continues.
 
         Returns
         -------
@@ -526,12 +535,13 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
         """
         rng = np.random.default_rng(seed)
         self.reset(rng)
+        penalty_on_infeas = min(penalty_on_infeas, 0.0)
         returns = np.zeros(episodes)
         self.on_validation_start(env)
 
         for episode in range(episodes):
             state, _ = env.reset(seed=mk_seed(rng), options=env_reset_options)
-            truncated, terminated, timestep = False, False, 0
+            rewards, truncated, terminated, timestep = 0.0, False, False, 0
             self.on_episode_start(env, episode, state)
 
             while not (truncated or terminated):
@@ -542,11 +552,15 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
                 state, r, truncated, terminated, _ = env.step(action)
                 self.on_env_step(env, episode, timestep)
 
-                returns[episode] += r
+                rewards += float(r)
                 timestep += 1
                 self.on_timestep_end(env, episode, timestep)
+                if sol.infeasible:
+                    rewards += penalty_on_infeas
+                    truncated |= truncate_on_infeas
 
-            self.on_episode_end(env, episode, returns[episode])
+            returns[episode] = rewards
+            self.on_episode_end(env, episode, rewards)
 
         self.on_validation_end(env, returns)
         return returns
