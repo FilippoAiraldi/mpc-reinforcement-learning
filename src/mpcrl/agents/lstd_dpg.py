@@ -6,6 +6,7 @@ import casadi as cs
 import numba as nb
 import numpy as np
 import numpy.typing as npt
+from csnlp.core.data import find_index_in_vector
 from csnlp.wrappers import Mpc, NlpSensitivity
 from gymnasium import Env
 
@@ -147,6 +148,10 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
     name : str, optional
         Name of the agent. If ``None``, one is automatically created from a counter of
         the class' instancies.
+    experimental_sensitivity : bool, optional
+        If ``True``, the sensitivity analysis is computed relying more on CasADi's
+        native differentiation APIs, instead of via the KKT conditions. It's an
+        experimental feature for now.
 
     Raises
     ------
@@ -179,6 +184,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         ridge_regression_regularization: float = 1e-6,
         use_last_action_on_fail: bool = False,
         name: Optional[str] = None,
+        experimental_sensitivity: bool = False,
     ) -> None:
         if exploration is None or isinstance(exploration, NoExploration):
             raise ValueError("DPG requires exploration, but none was provided.")
@@ -199,7 +205,11 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
             name=name,
         )
         self.hessian_type = hessian_type
-        self._sensitivity = self._init_sensitivity(linsolver)
+        if experimental_sensitivity:
+            self._init_sensitivity_experimental()
+        else:
+            self._sensitivity = self._init_sensitivity(linsolver)
+        self._experimental_sensitivity = experimental_sensitivity
         self._Phi = (
             monomials_basis_function(mpc.ns, 0, 2)
             if state_features is None
@@ -279,8 +289,12 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
                 # According to Gros and Zanon [2], it is hinted that the perturbed
                 # solution should be used instead (sol).
                 exploration = np.asarray((action - action_opt).elements())
-                sol_vals = np.asarray(sol_opt.x_and_lam_and_p.elements())
-                self._rollout.append((state, exploration, cost, state_new, sol_vals))
+                if self._experimental_sensitivity:
+                    jac = sol_opt.sensitivities["jac_x_p"]
+                    o = np.reshape(jac.elements(), jac.shape, "F")
+                else:
+                    o = np.asarray(sol_opt.x_and_lam_and_p.elements())
+                self._rollout.append((state, exploration, cost, state_new, o))
             else:
                 status = f"{sol.status}/{sol_opt.status}"
                 self.on_mpc_failure(episode, timestep, status, raises)
@@ -360,7 +374,10 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
 
         # compute Phi, dpidtheta, Psi, and CAFA weight v
         Phi = np.ascontiguousarray(self._Phi(S.T).elements()).reshape(N + 1, -1)
-        dpidtheta = self._sensitivity(vals, N)
+        if self._experimental_sensitivity:
+            pass  # TOOD: congegrate all already-computed sensitivities
+        else:
+            dpidtheta = self._sensitivity(vals, N)
         Psi = (dpidtheta @ E).reshape(N, dpidtheta.shape[1])
         v = _compute_cafa_weight_v(Phi, L, self.discount_factor, self.regularization)
 
@@ -368,6 +385,29 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         self.store_experience((L, Phi, Psi, dpidtheta, v))
         if self.policy_performances is not None:
             self.policy_performances.append(L.sum())
+
+    def _init_sensitivity_experimental(self) -> None:
+        solver = self._V.nlp.solver
+        assert solver is not None, "solver not yet set!"
+
+        u0 = cs.vcat(self._V.first_actions.values())
+        idx_u0 = find_index_in_vector(self.V.nlp.x, u0)
+        theta = cs.vvcat(self._learnable_pars.sym.values())
+        idx_theta = find_index_in_vector(self.V.nlp.p, theta)
+
+        sensitivity = solver.factory(
+            "primal_sens", solver.name_in(), solver.name_out() + ["jac:x:p"]
+        )
+        ins = sensitivity.mx_in()
+        ret = sensitivity(*ins)
+        ret = (*ret[:-1], ret[-1][idx_u0, idx_theta])
+        new_solver_name = solver.name() + "_sensitivity"
+        new_solver = cs.Function(
+            new_solver_name, ins, ret, sensitivity.name_in(), sensitivity.name_out()
+        )
+
+        self._V.unwrapped._solver.clear()
+        self._V.unwrapped._solver.func = new_solver
 
 
 @nb.njit(cache=True, nogil=True, parallel=True)

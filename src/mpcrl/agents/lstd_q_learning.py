@@ -6,6 +6,7 @@ import casadi as cs
 import numpy as np
 import numpy.typing as npt
 from csnlp import Solution
+from csnlp.core.data import find_index_in_vector
 from csnlp.wrappers import Mpc, NlpSensitivity
 from gymnasium import Env
 from scipy.linalg import cho_solve
@@ -118,6 +119,10 @@ class LstdQLearningAgent(
     name : str, optional
         Name of the agent. If ``None``, one is automatically created from a counter of
         the class' instancies.
+    experimental_sensitivity : bool, optional
+        If ``True``, the sensitivity analysis is computed relying more on CasADi's
+        native differentiation APIs, instead of via the KKT conditions. It's an
+        experimental feature for now.
     """
 
     def __init__(
@@ -140,6 +145,7 @@ class LstdQLearningAgent(
         use_last_action_on_fail: bool = False,
         remove_bounds_on_initial_action: bool = False,
         name: Optional[str] = None,
+        experimental_sensitivity: bool = False,
     ) -> None:
         super().__init__(
             mpc=mpc,
@@ -156,7 +162,11 @@ class LstdQLearningAgent(
             name=name,
         )
         self.hessian_type = hessian_type
-        self._sensitivity = self._init_sensitivity(hessian_type)
+        self._sensitivity = (
+            self._init_sensitivity_experimental(hessian_type)
+            if experimental_sensitivity
+            else self._init_sensitivity(hessian_type)
+        )
         self.td_errors: Optional[list[float]] = [] if record_td_errors else None
 
     def update(self) -> Optional[str]:
@@ -361,6 +371,102 @@ class LstdQLearningAgent(
 
         return func
 
+    def _init_sensitivity_experimental(
+        self, hessian_type: Literal["none", "approx", "full"]
+    ) -> Union[
+        Callable[[Solution], np.ndarray],
+        Callable[[Solution], tuple[np.ndarray, np.ndarray]],
+    ]:
+        """Internal utility to compute the derivative of ``Q(s,a)`` w.r.t. the learnable
+        parameters, a.k.a., ``theta``. Experimental version"""
+        solver = self._Q.nlp.solver
+        assert solver is not None, "solver not yet set!"
+        ord = self.optimizer._order
+
+        theta = cs.vvcat(self._learnable_pars.sym.values())
+        idx = find_index_in_vector(self.Q.nlp.p, theta)
+
+        if hessian_type == "full":
+            # use the CasADi's native high-level differentiation API to compute the full
+            # hessian of the lagrangian. Only working with sqpmethod. This will replace
+            # the solver itself, i.e., it cannot be computed from a solution.
+            assert ord == 2, "Expected 2nd-order optimizer with `hessian_type=full`."
+
+            ins = solver.mx_in()
+            ret = solver(*ins)  # x, f, g, lam_x, lam_g, lam_p
+            ret = (*ret, ret[1] + cs.dot(ret[2], ret[4]))  # no need for lbx and ubx
+            names_in = solver.name_in()
+            names_out = solver.name_out()
+            sensitivity = cs.Function(
+                "lag", ins, ret, names_in, names_out + ["gamma"]
+            ).factory(
+                "lag_sens", names_in, names_out + ["grad:gamma:p", "hess:gamma:p:p"]
+            )
+            sensitivity = _select_only_theta(sensitivity, idx, -1, -2)
+
+            # substitute original solver with the new one with sensitivity solver
+            self._Q.unwrapped._solver.clear()
+            self._Q.unwrapped._solver.func = sensitivity
+            shape = sensitivity.size_out("hess_gamma_p_p")
+
+            def func(sol: Solution) -> tuple[np.ndarray, np.ndarray]:
+                s = sol.sensitivities
+                return (
+                    np.asarray(s["grad_gamma_p"].elements())[idx],
+                    np.reshape(s["hess_gamma_p_p"].elements(), shape, "F")[idx][:, idx],
+                )
+
+        elif hessian_type == "none":
+            # use a lower-level API to generate gradient and approximate hessian
+            assert ord == 1, "Expected 1st-order optimizer with `hessian_type=none`."
+            sensitivity = solver.oracle().factory(
+                "lag_sens",
+                ["x", "p", "lam:f", "lam:g"],
+                ["grad:gamma:p"],
+                {"gamma": ["f", "g"]},
+            )
+            sensitivity = _select_only_theta(sensitivity, idx, 0)
+
+            def func(sol: Solution) -> np.ndarray:
+                J = sensitivity(sol.x, sol.p, 1.0, sol.lam_g_and_h)
+                return np.asarray(J.elements())
+
+        else:
+            assert ord == 2, "Expected 2nd-order optimizer with `hessian_type=approx`."
+            sensitivity = solver.oracle().factory(
+                "lag_sens",
+                ["x", "p", "lam:f", "lam:g"],
+                ["grad:gamma:p", "hess:gamma:p:p"],
+                {"gamma": ["f", "g"]},
+            )
+
+            # check if the hessian is not all zeros. If that's the case, we fall back to
+            # computing just the gradient
+            if sensitivity.nnz_out("hess_gamma_p_p") > 0:
+                sensitivity = _select_only_theta(sensitivity, idx, 0, 1)
+                shape = sensitivity.size_out("hess_gamma_p_p")
+
+                def func(sol: Solution) -> tuple[np.ndarray, np.ndarray]:
+                    J, H = sensitivity(sol.x, sol.p, 1.0, sol.lam_g_and_h)
+                    return np.asarray(J.elements()), np.reshape(
+                        H.elements(), shape, "F"
+                    )
+
+            else:
+                sensitivity = solver.oracle().factory(
+                    "lag_sens",
+                    ["x", "p", "lam:f", "lam:g"],
+                    ["grad:gamma:p"],
+                    {"gamma": ["f", "g"]},
+                )
+                sensitivity = _select_only_theta(sensitivity, idx, 0)
+
+                def func(sol: Solution) -> tuple[np.ndarray, np.ndarray]:
+                    J = sensitivity(sol.x, sol.p, 1.0, sol.lam_g_and_h)
+                    return np.asarray(J.elements()), 0.0
+
+        return func
+
     def _try_store_experience(
         self, cost: SupportsFloat, solQ: Solution[SymType], solV: Solution[SymType]
     ) -> bool:
@@ -385,3 +491,25 @@ class LstdQLearningAgent(
         if self.td_errors is not None:
             self.td_errors.append(td_error)
         return success
+
+
+def _select_only_theta(
+    func: cs.Function, theta_idx: npt.NDArray[np.int32], *output_n: int
+) -> cs.Function:
+    """Internal utility to select only the theta parameters from the sensitivity
+    function, which would output the sensitivity for all parameters otherwise."""
+    inputs = func.mx_in()
+    outputs = func(*inputs)
+    outputs = [outputs] if func.n_out() == 1 else list(outputs)
+    for n in output_n:
+        output = outputs[n]
+        if output.is_vector():
+            outputs[n] = (
+                output[theta_idx, :] if output.is_column() else output[:, theta_idx]
+            )
+        else:
+            outputs[n] = output[theta_idx, theta_idx]
+    name = func.name() + "_theta"
+    return cs.Function(
+        name, inputs, outputs, func.name_in(), func.name_out(), {"cse": True}
+    )

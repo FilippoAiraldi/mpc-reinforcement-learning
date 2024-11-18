@@ -216,41 +216,35 @@ class LinearMpc(Mpc[cs.SX]):
         )
 
         # solver
+        # opts = {
+        #     "expand": True,
+        #     "print_time": False,
+        #     "bound_consistency": True,
+        #     "calc_lam_x": True,
+        #     "calc_lam_p": False,
+        #     "ipopt": {"max_iter": 500, "sb": "yes", "print_level": 0},
+        # }
+        # self.init_solver(opts, solver="ipopt")
         opts = {
             "expand": True,
             "print_time": False,
+            "print_header": False,
+            "print_iteration": False,
+            "print_status": False,
             "bound_consistency": True,
+            "calc_lam_x": True,
             "calc_lam_p": False,
-            "fatrop": {"max_iter": 500, "print_level": 0},
+            "qpsol": "qrqp",
+            "qpsol_options": {
+                "print_iter": False,
+                "print_header": False,
+                "error_on_fail": False,
+            },
         }
-        self.init_solver(opts, solver="fatrop", type="nlp")
+        self.init_solver(opts, solver="sqpmethod")
 
 
-# %%
-# Simulation
-# ----------
-# So far, we have only defined the classes for the environment and the MPC controller.
-# Now, it is time to instantiate these and run the simulation. This is comprised of
-# multiple steps, which are detailed below.
-#
-# 1. We instantiate the environment. Note how it is wrapped in two different wrappers:
-#    :class:`gymnasium.wrappers.TimeLimit` is used to impose a maximum amount of steps
-#    to be simulated, whereas :class:`mpcrl.wrappers.envs.MonitorEpisodes` is used to
-#    record the state, action and reward signals at each time step for plotting
-#    purposes.
-# 2. We instantiate the MPC controller and define its learnable parameters.
-# 3. We instantiate the DPG agent. We pass different options to it, such as the update
-#    strategy, the optimizer, the Hessian type, etc. For plotting purposes, it is also
-#    wrapped such that the updated parameters are recorded. And we also log the progress
-#    of the simulation.
-# 4. We run the simulation. Under the hood, the agent will interact with the
-#    environment, collect data, and update the parameters of the MPC controller.
-# 5. Finally, we plot the results. The first plot shows the evolution of the states and
-#    the control action, and the corresponding bounds. The second plot shows the
-#    performance per rollout, the norm of the estimated policy gradient per rollout, and
-#    time-wise stage cost realizations. The last plot shows how each learnable parameter
-#    evolves over time.
-
+# now, let's create the instances of such classes and start the training
 if __name__ == "__main__":
     # instantiate the env and wrap it - since we will train for only one long episode,
     # tell the DPG agent to perform its LSTD computations over subtrajectories of length
@@ -280,14 +274,13 @@ if __name__ == "__main__":
                 exploration=E.OrnsteinUhlenbeckExploration(0.0, 0.05, mode="additive"),
                 record_policy_performance=True,
                 record_policy_gradient=True,
+                experimental_sensitivity=True,
             )
         ),
         level=logging.DEBUG,
         log_frequencies={"on_timestep_end": 1000},
     )
-
-    # launch the training simulation
-    agent.train(env=env, episodes=1, seed=69)
+    agent.train(env=env, episodes=1, seed=69, raises=False)
 
     # plot the results
     import matplotlib.pyplot as plt
