@@ -1,5 +1,5 @@
-import sys
-from collections.abc import Collection, Iterable
+from collections.abc import Collection
+from functools import singledispatchmethod
 from typing import Callable, Generic, Literal, Optional, SupportsFloat, Union
 
 import casadi as cs
@@ -7,12 +7,9 @@ import numpy as np
 import numpy.typing as npt
 from csnlp import Solution
 from csnlp.wrappers import Mpc, NlpSensitivity
-from gymnasium import Env
-
-if sys.version_info >= (3, 10):
-    from typing import TypeAlias
-else:
-    from typing_extensions import TypeAlias
+from gymnasium import Env, vector
+from scipy.linalg import cho_solve
+from typing_extensions import TypeAlias
 
 from ..core.experience import ExperienceReplay
 from ..core.exploration import ExplorationStrategy
@@ -164,22 +161,29 @@ class LstdQLearningAgent(
 
     def update(self) -> Optional[str]:
         sample = self.experience.sample()
-        if self.hessian_type == "none":
-            gradient = np.mean(list(sample), 0)
-            return self.optimizer.update(gradient)
+        gradient, Hessian = (np.mean(tuple(o), 0) for o in zip(*sample))
+        R = cholesky_added_multiple_identities(Hessian, maxiter=self.cho_maxiter)
+        step = cho_solve((R, True), gradient, **self.cho_solve_kwargs).reshape(-1)
+        return self._do_gradient_update(step)
 
-        gradients, hessians = zip(*sample)
-        gradient = np.mean(gradients, 0)
-        hessian = np.mean(hessians, 0)
-        return self.optimizer.update(gradient, hessian)
-
-    def train_one_episode(
+    @singledispatchmethod
+    def train_one_episode(  # type: ignore[override]
         self,
         env: Env[ObsType, ActType],
         episode: int,
         init_state: ObsType,
         raises: bool = True,
-    ) -> float:
+    ) -> npt.NDArray[np.floating]:
+        raise TypeError(f"Cannot train an agent on an env of type `{type(env)}`.")
+
+    @train_one_episode.register(Env)
+    def _(
+        self,
+        env: Env[ObsType, ActType],
+        episode: int,
+        init_state: ObsType,
+        raises: bool = True,
+    ) -> npt.NDArray[np.floating]:
         truncated = terminated = False
         timestep = 0
         rewards = 0.0
@@ -188,6 +192,91 @@ class LstdQLearningAgent(
 
         # solve for the first action
         action, solV = self.state_value(state, False, action_space=action_space)
+        if not solV.success:
+            self.on_mpc_failure(episode, None, solV.status, raises)
+
+        while not (truncated or terminated):
+            # compute Q(s,a)
+            solQ = self.action_value(state, action)
+
+            # step the system with action computed at the previous iteration
+            new_state, cost, truncated, terminated, _ = env.step(action)
+            self.on_env_step(env, episode, timestep)
+
+            # compute V(s+) and store transition
+            new_action, solV = self.state_value(new_state, False)
+            if not self._try_store_experience(cost, solQ, solV):
+                self.on_mpc_failure(
+                    episode, timestep, f"{solQ.status}/{solV.status}", raises
+                )
+
+            # increase counters
+            state = new_state
+            action = new_action
+            rewards += float(cost)
+            timestep += 1
+            self.on_timestep_end(env, episode, timestep)
+        return np.asarray(rewards)
+
+    @train_one_episode.register(vector.VectorEnv)
+    def _(
+        self,
+        env: vector.VectorEnv,
+        episode: int,
+        init_state: ObsType,
+        raises: bool = True,
+    ) -> npt.NDArray[np.floating]:
+        num_envs = env.num_envs
+        np.full(num_envs, False)
+        np.full_like(num_envs, False)
+        timesteps = np.zeros(num_envs, dtype=int)
+        rewards = np.zeros(num_envs, dtype=float)
+        states: list[ObsType] = list(init_state)  # type: ignore[arg-type]
+
+        # solve for the first action
+        action, solV = self.state_value(states, False)
+        if not solV.success:
+            self.on_mpc_failure(episode, None, solV.status, raises)
+
+        while not (truncated or terminated):
+            # compute Q(s,a)
+            solQ = self.action_value(state, action)
+
+            # step the system with action computed at the previous iteration
+            new_state, cost, truncated, terminated, _ = env.step(action)
+            self.on_env_step(env, episode, timestep)
+
+            # compute V(s+) and store transition
+            new_action, solV = self.state_value(new_state, False)
+            if not self._try_store_experience(cost, solQ, solV):
+                self.on_mpc_failure(
+                    episode, timestep, f"{solQ.status}/{solV.status}", raises
+                )
+
+            # increase counters
+            action = new_action
+            rewards += float(cost)
+            timestep += 1
+            self.on_timestep_end(env, episode, timestep)
+        return np.asarray(rewards)
+
+    @train_one_episode.register(vector.VectorEnv)
+    def _(
+        self,
+        env: vector.VectorEnv,
+        episode: int,
+        init_state: ObsType,
+        raises: bool = True,
+    ) -> npt.NDArray[np.floating]:
+        num_envs = env.num_envs
+        np.full(num_envs, False)
+        np.full_like(num_envs, False)
+        timesteps = np.zeros(num_envs, dtype=int)
+        rewards = np.zeros(num_envs, dtype=float)
+        states: list[ObsType] = list(init_state)  # type: ignore[arg-type]
+
+        # solve for the first action
+        action, solV = self.state_value(states, False)
         if not solV.success:
             self.on_mpc_failure(episode, None, solV.status, raises)
 
@@ -209,7 +298,6 @@ class LstdQLearningAgent(
                 )
 
             # increase counters
-            state = new_state
             action = new_action
             rewards += float(cost)
             timestep += 1
