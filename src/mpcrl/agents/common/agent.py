@@ -587,8 +587,60 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
         return V, Q
 
     def _post_setup_V_and_Q(self) -> None:
-        """Internal utility that is run after the creation of ``V`` and ``Q``, allowing
-        for further customization in inheriting classes."""
+        """Internal utility that is run after the creation of V and Q, allowing for
+        further customization in inheriting classes."""
+        # warn user of any constraints that linearly includes x0 and u0 (aside from
+        # x(0)==s0 and u(0)==a0), which may thus lead to LICQ-failure
+        # - u0 in Q should only appear in the 1st dynamics constraint and a0 con
+        # - u0 in V should only appear in the 1st dynamics constraint and lbx/ubx
+        # - x0 in V, Q should only appear in the 1st dynamics constraint and s0 con
+        # for mpc in (self._V, self._Q):
+        #     name = mpc.unwrapped.name[-1]
+        #     u0 = cs.vcat(self._V.first_actions.values())
+        #     x0 = cs.vvcat(self._V.first_states.values())
+        #     con = cs.vertcat(mpc.g, mpc.h, mpc.h_lbx, mpc.h_ubx)
+
+        #     if mpc.unwrapped.sym_type.__name__ == "SX":
+        #         nnz_con_u0 = len(set(cs.jacobian_sparsity(con, u0).get_triplet()[0]))
+        #         nnz_con_x0 = len(set(cs.jacobian_sparsity(con, x0).get_triplet()[0]))
+        #     else:
+        #         nnz_con_u0 = len(  # computes the same as above, but for MX
+        #             set(
+        #                 chain.from_iterable(
+        #                     cs.jacobian(con, a)[:, : a.size1()]
+        #                     .sparsity()
+        #                     .get_triplet()[0]
+        #                     for a in mpc.actions.values()
+        #                 )
+        #             )
+        #         )
+        #         nnz_con_x0 = len(
+        #             set(
+        #                 chain.from_iterable(
+        #                     cs.jacobian(con, s)[:, : s.size1()]
+        #                     .sparsity()
+        #                     .get_triplet()[0]
+        #                     for s in mpc.states.values()
+        #                 )
+        #             )
+        #         )
+
+        #     nnz_exp_u0 = mpc.ns + (mpc.na * 2 if name == "V" else mpc.na)
+        #     if nnz_con_u0 > nnz_exp_u0:
+        #         warnings.warn(
+        #             f"detected {nnz_con_u0} (expected {nnz_exp_u0}) constraints on "
+        #             f"initial actions in {name}; make sure that the initial action is"
+        #             "not overconstrained (LICQ may be compromised).",
+        #             RuntimeWarning,
+        #         )
+        #     nnz_exp_x0 = mpc.ns * 2
+        #     if nnz_con_x0 > nnz_exp_x0:
+        #         warnings.warn(
+        #             f"detected {nnz_con_x0} (expected {nnz_exp_x0}) constraints on "
+        #             f"initial states in {name}; make sure that the initial state is "
+        #             "not overconstrained (LICQ may be compromised).",
+        #             RuntimeWarning,
+        #         )
 
     def _get_parameters(
         self,

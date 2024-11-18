@@ -7,12 +7,12 @@ import numpy as np
 import numpy.typing as npt
 from csnlp import Solution
 from csnlp.wrappers import Mpc, NlpSensitivity
-from gymnasium import Env, vector
+from gymnasium import Env
 from scipy.linalg import cho_solve
 from typing_extensions import TypeAlias
 
 from ..core.experience import ExperienceReplay
-from ..core.exploration import ExplorationStrategy
+from ..core.exploration import ExplorationStrategy, NoExploration
 from ..core.parameters import LearnableParametersDict
 from ..core.update import UpdateStrategy
 from ..core.warmstart import WarmStartStrategy
@@ -189,6 +189,10 @@ class LstdQLearningAgent(
         rewards = 0.0
         state = init_state
         action_space = getattr(env, "action_space", None)
+        # NOTE: if no exploration is set, then we can get away by solving one MPC per
+        # iteration, instead of two. The reason is that `a=argmin V(s)` and `min Q(s,a)`
+        # are the same thing, because `a` has not been modified by any perturbation.
+        no_exploration = isinstance(self.exploration, NoExploration)
 
         # solve for the first action
         action, solV = self.state_value(state, False, action_space=action_space)
@@ -196,93 +200,8 @@ class LstdQLearningAgent(
             self.on_mpc_failure(episode, None, solV.status, raises)
 
         while not (truncated or terminated):
-            # compute Q(s,a)
-            solQ = self.action_value(state, action)
-
-            # step the system with action computed at the previous iteration
-            new_state, cost, truncated, terminated, _ = env.step(action)
-            self.on_env_step(env, episode, timestep)
-
-            # compute V(s+) and store transition
-            new_action, solV = self.state_value(new_state, False)
-            if not self._try_store_experience(cost, solQ, solV):
-                self.on_mpc_failure(
-                    episode, timestep, f"{solQ.status}/{solV.status}", raises
-                )
-
-            # increase counters
-            state = new_state
-            action = new_action
-            rewards += float(cost)
-            timestep += 1
-            self.on_timestep_end(env, episode, timestep)
-        return np.asarray(rewards)
-
-    @train_one_episode.register(vector.VectorEnv)
-    def _(
-        self,
-        env: vector.VectorEnv,
-        episode: int,
-        init_state: ObsType,
-        raises: bool = True,
-    ) -> npt.NDArray[np.floating]:
-        num_envs = env.num_envs
-        np.full(num_envs, False)
-        np.full_like(num_envs, False)
-        timesteps = np.zeros(num_envs, dtype=int)
-        rewards = np.zeros(num_envs, dtype=float)
-        states: list[ObsType] = list(init_state)  # type: ignore[arg-type]
-
-        # solve for the first action
-        action, solV = self.state_value(states, False)
-        if not solV.success:
-            self.on_mpc_failure(episode, None, solV.status, raises)
-
-        while not (truncated or terminated):
-            # compute Q(s,a)
-            solQ = self.action_value(state, action)
-
-            # step the system with action computed at the previous iteration
-            new_state, cost, truncated, terminated, _ = env.step(action)
-            self.on_env_step(env, episode, timestep)
-
-            # compute V(s+) and store transition
-            new_action, solV = self.state_value(new_state, False)
-            if not self._try_store_experience(cost, solQ, solV):
-                self.on_mpc_failure(
-                    episode, timestep, f"{solQ.status}/{solV.status}", raises
-                )
-
-            # increase counters
-            action = new_action
-            rewards += float(cost)
-            timestep += 1
-            self.on_timestep_end(env, episode, timestep)
-        return np.asarray(rewards)
-
-    @train_one_episode.register(vector.VectorEnv)
-    def _(
-        self,
-        env: vector.VectorEnv,
-        episode: int,
-        init_state: ObsType,
-        raises: bool = True,
-    ) -> npt.NDArray[np.floating]:
-        num_envs = env.num_envs
-        np.full(num_envs, False)
-        np.full_like(num_envs, False)
-        timesteps = np.zeros(num_envs, dtype=int)
-        rewards = np.zeros(num_envs, dtype=float)
-        states: list[ObsType] = list(init_state)  # type: ignore[arg-type]
-
-        # solve for the first action
-        action, solV = self.state_value(states, False)
-        if not solV.success:
-            self.on_mpc_failure(episode, None, solV.status, raises)
-
-        while not (truncated or terminated):
-            # compute Q(s,a)
-            solQ = self.action_value(state, action)
+            # compute Q(s,a), or copy V(s) if no exploration is set
+            solQ = solV if no_exploration else self.action_value(state, action)
 
             # step the system with action computed at the previous iteration
             new_state, cost, truncated, terminated, _ = env.step(action)
@@ -333,10 +252,8 @@ class LstdQLearningAgent(
         parameters, a.k.a., ``theta``."""
         ord = self.optimizer._order
         theta = cs.vvcat(self._learnable_pars.sym.values())
-        nlp = self._Q.nlp
-        x = nlp.x
-        p = nlp.p
-        lam_g_and_h = cs.vertcat(nlp.lam_g, nlp.lam_h)
+        nlp = (self._V if isinstance(self.exploration, NoExploration) else self._Q).nlp
+        cs.vertcat(nlp.primal_dual, nlp.p)
 
         # compute first order sensitivity - necessary whatever the hessian type is
         snlp = NlpSensitivity(nlp, theta)
