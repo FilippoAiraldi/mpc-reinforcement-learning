@@ -56,7 +56,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
     update_strategy : UpdateStrategy or int
         The strategy used to decide which frequency to update the mpc parameters with.
         If an ``int`` is passed, then the default strategy that updates every ``n``
-        env's steps is used (where ``n`` is the argument passed); otherwise, an instance
+        episodes is used (where ``n`` is the argument passed); otherwise, an instance
         of :class:`core.update.UpdateStrategy` can be passed to specify the desired
         strategy in more details.
     discount_factor : float
@@ -225,15 +225,10 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
 
     def update(self) -> Optional[str]:
         sample = self.experience.sample()
-        if self.hessian_type == "natural":
-            dJdtheta, fisher_hessian = _estimate_gradient_update(
-                sample, self.discount_factor, self.regularization, True
-            )
-        else:
-            dJdtheta = _estimate_gradient_update(
-                sample, self.discount_factor, self.regularization, False
-            )
-            fisher_hessian = None
+        compute_fisher_mat = self.hessian_type == "natural"
+        dJdtheta, fisher_hessian = _estimate_gradient_update(
+            sample, self.discount_factor, self.regularization, compute_fisher_mat
+        )
         if self.policy_gradients is not None:
             self.policy_gradients.append(dJdtheta)
         return self.optimizer.update(dJdtheta, fisher_hessian)
@@ -385,7 +380,7 @@ def _consolidate_rollout(
     for i in nb.prange(N):
         s, e, cost, _, sol_val = rollout[i]
         S[i] = s.reshape(-1)
-        E[i] = e
+        E[i, :, 0] = e
         L[i] = cost
         sol_vals[i] = sol_val
     S[-1] = rollout[-1][3].reshape(-1)
@@ -431,7 +426,7 @@ def _estimate_gradient_update(
     discount_factor: float,
     regularization: float,
     return_fisher_hessian: bool,
-) -> Union[np.ndarray, tuple[np.ndarray, np.ndarray]]:
+) -> tuple[np.ndarray, Optional[np.ndarray]]:
     """Internal utility to estimate the gradient of the policy and possibly the Fisher
     information matrix as well."""
     # compute average v and w
@@ -455,4 +450,4 @@ def _estimate_gradient_update(
 
     # compute only policy gradient estimate
     dJdtheta_ = [(o[3] @ o[3].transpose((0, 2, 1))).sum(0) @ w for o in sample_]
-    return np.mean(dJdtheta_, 0)
+    return np.mean(dJdtheta_, 0), None
