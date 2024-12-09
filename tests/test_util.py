@@ -265,9 +265,9 @@ class TestControl(unittest.TestCase):
         alphas = [lambda y: y**2] * 2
         actual_cbf2 = control.cbf(h, x, u, dynamics, alphas)
         h_ = h(x)
-        Lfh_ = control.lie_derivative(h_, x, f)  # v0 - v
-        Lf2h_ = control.lie_derivative(h_, x, f, 2)  # 0
-        LgLfh_ = control.lie_derivative(Lfh_, x, g)  # -1
+        Lfh_ = math.lie_derivative(h_, x, f)  # v0 - v
+        Lf2h_ = math.lie_derivative(h_, x, f, 2)  # 0
+        LgLfh_ = math.lie_derivative(Lfh_, x, g)  # -1
         expected_cbf2 = Lf2h_ + LgLfh_ * u + 2 * h_ * Lfh_ + (Lfh_ + h_**2) ** 2
         self.assertTrue(
             all(
