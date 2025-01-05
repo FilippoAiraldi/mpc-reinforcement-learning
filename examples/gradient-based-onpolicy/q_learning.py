@@ -243,7 +243,7 @@ class LinearMpc(Mpc[cs.SX]):
 
 if __name__ == "__main__":
     # instantiate the env and wrap it
-    env = MonitorEpisodes(TimeLimit(LtiSystem(), max_episode_steps=1_000))
+    env = MonitorEpisodes(TimeLimit(LtiSystem(), max_episode_steps=5_000))
 
     # now build the MPC and the dict of learnable parameters
     mpc = LinearMpc()
