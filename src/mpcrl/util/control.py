@@ -15,7 +15,9 @@ import numpy.typing as npt
 from scipy.linalg import solve_continuous_are as _solve_continuous_are
 from scipy.linalg import solve_discrete_are as _solve_discrete_are
 
-from .math import SymOrNumType, SymType, dual_norm, lie_derivative
+from .math import SymOrNumType, SymType
+from .math import dual_norm as _dual_norm
+from .math import lie_derivative as _lie_derivative
 
 
 def lqr(
@@ -236,7 +238,7 @@ def cbf(
     x_dot = dynamics(x, u)
     phi = h(x)
     for alpha in alphas:
-        phi = lie_derivative(phi, x, x_dot) + alpha(phi)
+        phi = _lie_derivative(phi, x, x_dot) + alpha(phi)
     # cs.depends_on(phi, u)
     # phi.which_depends("u", [name], 2, True)[0]
     return phi
@@ -399,14 +401,14 @@ def iccbf(
     """
     # find the dual norm of the given norm
     y = cs.SX.sym("y", u.shape[0], 1)
-    dual_norm_func = cs.Function("dual_norm", (y,), (dual_norm(y, norm),))
+    dual_norm_func = cs.Function("dual_norm", (y,), (_dual_norm(y, norm),))
 
     # continue from here as usual
     f, g = dynamics_f_and_g(x)
     phi = h(x)
     for alpha in alphas:
-        Lf_phi = lie_derivative(phi, x, f)
-        Lg_phi = lie_derivative(phi, x, g)
+        Lf_phi = _lie_derivative(phi, x, f)
+        Lg_phi = _lie_derivative(phi, x, g)
         Lg_phi_u_sup = bound * dual_norm_func(Lg_phi)
         alpha_phi = alpha(phi)
         phi = Lf_phi - Lg_phi_u_sup + alpha_phi
