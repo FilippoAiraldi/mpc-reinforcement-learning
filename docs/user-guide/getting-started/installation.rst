@@ -13,7 +13,7 @@ You can use `pip` to install **mpcrl** with the command
 
 **mpcrl** has the following dependencies
 
--  Python 3.9 or higher
+-  Python 3.9 or higher (though support and testing for 3.9 are deprecated)
 - `csnlp <https://casadi-nlp.readthedocs.io/en/stable/>`__
 - `SciPy <https://scipy.org/>`__
 - `Gymnasium <https://gymnasium.farama.org/>`__

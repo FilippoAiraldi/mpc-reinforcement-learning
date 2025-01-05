@@ -17,6 +17,8 @@ classifiers = [
 	"Programming Language :: Python :: 3.9",
 	"Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+	"Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Intended Audience :: Science/Research",
@@ -49,15 +51,15 @@ license-files = ["LICENSE"]
 version = {attr = "mpcrl.__version__"}
 
 [tool.black]
-target-version = ["py39", "py310", "py311"]
+target-version = ["py310", "py311", "py312", "py313"]
 color = true
 
 [tool.isort]
 profile = "black"
-py_version = 39
+py_version = 310
 
 [tool.mypy]
-python_version = "3.9"
+python_version = "3.10"
 plugins = ["numpy.typing.mypy_plugin"]
 exclude = ["tests"]
 

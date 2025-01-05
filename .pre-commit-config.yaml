@@ -2,7 +2,7 @@
 # See https://pre-commit.com/hooks.html for more hooks
 
 default_language_version:
-    python: python3.9
+    python: python3.10
 
 default_stages: [pre-commit, pre-push]
 
