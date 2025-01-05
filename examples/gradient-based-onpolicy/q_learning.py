@@ -185,7 +185,7 @@ class LinearMpc(Mpc[cs.SX]):
         s, _, _ = self.variable("s", (nx, N), lb=0)
 
         # dynamics
-        self.set_nonlinear_dynamics(lambda x, u: A @ x + B * u + b)
+        self.set_affine_dynamics(A, B, c=b)
 
         # other constraints
         self.constraint("x_lb", x_bnd[0] + x_lb - s, "<=", x[:, 1:])
