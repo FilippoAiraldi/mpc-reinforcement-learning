@@ -411,6 +411,10 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
             pert = None
         else:
             pert = exploration.perturbation(self.cost_perturbation_method, size=(na, 1))
+            assert np.shape(pert) == (na, 1), (
+                f"Expected shape of perturbation to be ({na}, 1); got "
+                f"{np.shape(pert)} instead."
+            )
 
         grad_pert = pert if exploration_mode == "gradient-based" else None
         sol = self._solve_mpc(V, state, perturbation=grad_pert, vals0=vals0, **kwargs)
