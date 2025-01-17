@@ -306,7 +306,6 @@ if __name__ == "__main__":
         hook="on_episode_end",
         frequency=10,
         n_eval_episodes=5,
-        eval_immediately=True,
         seed=seed,
     )
 
