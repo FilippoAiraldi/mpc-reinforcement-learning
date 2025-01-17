@@ -382,7 +382,6 @@ class TestEvaluate(unittest.TestCase):
         returns = [object() for _ in range(repeats + eval_immediately)]
         returns_iter = iter(returns)
         agent = mk_agent()
-        agent._is_training = True  # otherwise, Evaluate will not be invoked
         agent.evaluate = Mock(side_effect=lambda *_, **__: next(returns_iter))
         env = SimpleEnv()
         wrapped = wrappers_agents.Evaluate(
@@ -393,6 +392,7 @@ class TestEvaluate(unittest.TestCase):
             eval_immediately=eval_immediately,
             fix_seed=fix_seed,
         )
+        agent._is_training = True  # otherwise, Evaluate will not be invoked
 
         n_calls = frequency * repeats
         n_calls += int(frequency / 2)  # adds some spurious calls
