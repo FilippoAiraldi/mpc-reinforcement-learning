@@ -79,7 +79,7 @@ from gymnasium.wrappers import TimeLimit
 from more_itertools import pairwise
 
 from mpcrl import Agent, LearnableParameter, LearnableParametersDict, LstdQLearningAgent
-from mpcrl.optim import NetwonMethod
+from mpcrl.optim import NewtonMethod
 from mpcrl.util.control import dlqr
 from mpcrl.wrappers.agents import Evaluate, Log, RecordUpdates
 from mpcrl.wrappers.envs import MonitorEpisodes
@@ -293,7 +293,7 @@ if __name__ == "__main__":
                     learnable_parameters=learnable_pars,
                     discount_factor=mpc.discount_factor,
                     update_strategy=1,
-                    optimizer=NetwonMethod(learning_rate=5e-2),
+                    optimizer=NewtonMethod(learning_rate=5e-2),
                     hessian_type="approx",
                     record_td_errors=True,
                     remove_bounds_on_initial_action=True,

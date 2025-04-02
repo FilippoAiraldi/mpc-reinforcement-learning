@@ -10,7 +10,7 @@ __all__ = [
     "GradientDescent",
     "GradientFreeOptimizer",
     "GD",
-    "NetwonMethod",
+    "NewtonMethod",
     "NM",
     "RMSprop",
 ]
@@ -19,8 +19,8 @@ from .adam import Adam
 from .gradient_based_optimizer import GradientBasedOptimizer
 from .gradient_descent import GradientDescent
 from .gradient_free_optimizer import GradientFreeOptimizer
-from .newton_method import NetwonMethod
+from .newton_method import NewtonMethod
 from .rmsprop import RMSprop
 
 GD = GradientDescent
-NM = NetwonMethod
+NM = NewtonMethod

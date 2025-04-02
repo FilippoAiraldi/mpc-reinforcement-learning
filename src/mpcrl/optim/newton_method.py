@@ -9,10 +9,10 @@ from ..util.math import cholesky_added_multiple_identity
 from .gradient_based_optimizer import GradientBasedOptimizer, LrType, SymType
 
 
-class NetwonMethod(GradientBasedOptimizer[SymType, LrType]):
-    r"""Second-order gradient-based Netwon's method.
+class NewtonMethod(GradientBasedOptimizer[SymType, LrType]):
+    r"""Second-order gradient-based Newton's method.
 
-    In constrast to the first-order methods, the Netwon's method uses also the Hessian
+    In constrast to the first-order methods, the Newton's method uses also the Hessian
     of the loss function to compute the update. The unconstrained update is given by
 
     .. math:: \theta \gets \theta - \alpha H^{-1} g.
@@ -152,7 +152,7 @@ def _nm_unconstrained(
     weight_decay: float,
     cho_solve_kwargs: dict,
 ) -> np.ndarray:
-    """Computes the update's change according to the Netwon's Method."""
+    """Computes the update's change according to the Newton's Method."""
     if weight_decay <= 0.0:
         return -lr * cho_solve((L, True), g, **cho_solve_kwargs)
     return -np.linalg.solve(
@@ -170,7 +170,7 @@ def _nm_constrained(
     cho_before_update: bool,
     cho_solve_kwargs: dict,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Computes the update's change according to the Netwon's Method, which is solved
+    """Computes the update's change according to the Newton's Method, which is solved
     numerically due to the presence of constraints."""
     if weight_decay <= 0.0:
         if cho_before_update:
