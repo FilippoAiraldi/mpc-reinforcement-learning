@@ -254,7 +254,7 @@ Optimizers
    GradientBasedOptimizer
    Adam
    GradientDescent
-   NetwonMethod
+   NewtonMethod
    RMSprop
    :parts: 1
 
@@ -292,7 +292,7 @@ parameters).
    :nosignatures:
 
    GradientDescent
-   NetwonMethod
+   NewtonMethod
    Adam
    RMSprop
 

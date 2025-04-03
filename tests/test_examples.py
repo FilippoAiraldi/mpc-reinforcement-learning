@@ -48,7 +48,7 @@ from mpcrl import (
     WarmStartStrategy,
 )
 from mpcrl import exploration as E
-from mpcrl.optim import GradientDescent, NetwonMethod
+from mpcrl.optim import GradientDescent, NewtonMethod
 from mpcrl.util.geometry import ConvexPolytopeUniformSampler
 from mpcrl.wrappers.agents import Evaluate, Log, RecordUpdates
 from mpcrl.wrappers.envs import MonitorEpisodes
@@ -80,7 +80,7 @@ class TestExamples(unittest.TestCase):
                     mpc=mpc,
                     learnable_parameters=learnable_pars,
                     discount_factor=mpc.discount_factor,
-                    optimizer=NetwonMethod(
+                    optimizer=NewtonMethod(
                         learning_rate=5e-2,
                         max_percentage_update=1e3,  # does nothing; allows to test qp
                     ),
@@ -272,7 +272,7 @@ class TestExamples(unittest.TestCase):
                         learnable_parameters=learnable_pars,
                         discount_factor=mpc.discount_factor,
                         update_strategy=1,
-                        optimizer=NetwonMethod(learning_rate=5e-2),
+                        optimizer=NewtonMethod(learning_rate=5e-2),
                         hessian_type="approx",
                         record_td_errors=True,
                         remove_bounds_on_initial_action=True,

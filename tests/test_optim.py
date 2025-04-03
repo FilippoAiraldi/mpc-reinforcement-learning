@@ -171,10 +171,10 @@ class TestGradientDescent(unittest.TestCase):
         np.testing.assert_array_equal(learnable_pars.value, theta - 0.1 * g)
 
 
-class TestNetwonMethod(unittest.TestCase):
+class TestNewtonMethod(unittest.TestCase):
     @parameterized.expand(product((0.0, SMALL), (False, True)))
     def test_update__unconstrained(self, w: float, cho_before_update: bool):
-        opt = O.NetwonMethod(0.1, weight_decay=w, cho_before_update=cho_before_update)
+        opt = O.NewtonMethod(0.1, weight_decay=w, cho_before_update=cho_before_update)
         learnable_pars = LEARNABLE_PARS.copy(deep=True)
         learnable_pars.value = theta = np.random.randn(N_PARAMS)
         opt.set_learnable_parameters(learnable_pars)
@@ -191,7 +191,7 @@ class TestNetwonMethod(unittest.TestCase):
     def test_update__unconstrained__with_identity_hessian(
         self, w: float, cho_before_update: bool
     ):
-        opt = O.NetwonMethod(0.1, weight_decay=w, cho_before_update=cho_before_update)
+        opt = O.NewtonMethod(0.1, weight_decay=w, cho_before_update=cho_before_update)
         learnable_pars = LEARNABLE_PARS.copy(deep=True)
         learnable_pars.value = theta = np.random.randn(N_PARAMS)
         opt.set_learnable_parameters(learnable_pars)
@@ -205,7 +205,7 @@ class TestNetwonMethod(unittest.TestCase):
     def test_update__constrained__with_large_bounds_with_identity_hessian(
         self, w: float, cho_before_update: bool
     ):
-        opt = O.NetwonMethod(0.1, weight_decay=w, cho_before_update=cho_before_update)
+        opt = O.NewtonMethod(0.1, weight_decay=w, cho_before_update=cho_before_update)
         learnable_pars = LEARNABLE_PARS.copy(deep=True)
         learnable_pars.value = theta = np.random.randn(N_PARAMS)
         learnable_pars.lb = -np.abs(theta) * 100
@@ -221,7 +221,7 @@ class TestNetwonMethod(unittest.TestCase):
     def test_update__constrained__with_small_bounds(
         self, w: float, cho_before_update: bool
     ):
-        opt = O.NetwonMethod(0.1, weight_decay=w, cho_before_update=cho_before_update)
+        opt = O.NewtonMethod(0.1, weight_decay=w, cho_before_update=cho_before_update)
         learnable_pars = LEARNABLE_PARS.copy(deep=True)
         learnable_pars.value = theta = np.random.randn(N_PARAMS)
         lb = learnable_pars.lb = theta - np.abs(theta) * 5e-2
