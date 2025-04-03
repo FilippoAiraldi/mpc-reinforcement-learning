@@ -140,7 +140,7 @@ class LtiSystem(gym.Env[npt.NDArray[np.floating], float]):
         self, action: cs.DM
     ) -> tuple[npt.NDArray[np.floating], float, bool, bool, dict[str, Any]]:
         """Steps the LTI system."""
-        action = float(action)
+        action = np.asarray(action).item()
         x_new = self.A @ self.x + self.B * action
         x_new[0] += self.np_random.uniform(*self.e_bnd)
         r = self.get_stage_cost(self.x, action)
