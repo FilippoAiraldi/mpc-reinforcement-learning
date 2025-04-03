@@ -411,12 +411,14 @@ class OrnsteinUhlenbeckExploration(ExplorationStrategy):
         self.mean_scheduler.step()
         self.sigma_scheduler.step()
 
-    def perturbation(self, *_: Any, **__: Any) -> npt.NDArray[np.floating]:
+    def perturbation(
+        self, *_: Any, size: Union[int, tuple[int, ...]], **__: Any
+    ) -> npt.NDArray[np.floating]:
         sigma = self.sigma_scheduler.value
         noise = (
             self._prev_noise
             + self._dtheta_dt * (self.mean_scheduler.value - self._prev_noise)
-            + self._sqrt_dt * (sigma * self.np_random.normal(size=np.shape(sigma)))
+            + self._sqrt_dt * (sigma * self.np_random.normal(size=size))
         )
         self._prev_noise = noise
         return noise

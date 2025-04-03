@@ -218,7 +218,7 @@ class CstrEnv(gym.Env[npt.NDArray[np.floating], float]):
         self, action: cs.DM
     ) -> tuple[npt.NDArray[np.floating], float, bool, bool, dict[str, Any]]:
         """Steps the CSTR env."""
-        action = np.reshape(action, self.action_space.shape)
+        action = np.reshape(np.asarray(action), self.action_space.shape)
         assert self.action_space.contains(action), f"invalid step action {action}"
         integration = self.dynamics(x0=self._state, p=action)
         self._state = np.asarray(integration["xf"].elements())
