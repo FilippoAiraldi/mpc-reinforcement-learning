@@ -48,8 +48,8 @@ def summarize_array(
     min = a.min(axis=axis)
     max = a.max(axis=axis)
     return (
-        f"s={s} x∈[{min:.{precision}f}, {max:.{precision}f}] "
-        f"μ={mean:.{precision}f} σ={std:.{precision}f}"
+        f"s={s}, x∈[{min:.{precision}f}, {max:.{precision}f}], "
+        f"μ={mean:.{precision}f}, σ={std:.{precision}f}"
     )
 
 

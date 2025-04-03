@@ -325,14 +325,17 @@ class TestLog(unittest.TestCase):
 
 
 class TestRecordUpdates(unittest.TestCase):
-    def test__update__records_learnable_parameters_correctly(self):
+    @parameterized.expand([(1,), (3,), (20,)])
+    def test__update__records_learnable_parameters_correctly(self, frequency: int):
         n_params, n_updates = 3, 10
-        pars = np.random.rand(n_updates + 1, n_params)
+        pars = np.random.randn(n_updates + 1, n_params)
+        parsnames = [f"p{i}" for i in range(n_params)]
         parsdict = LearnableParametersDict(
-            [LearnableParameter(f"p{i}", 1, pars[0, i]) for i in range(n_params)]
+            (LearnableParameter(n, 1, pars[0, i]) for i, n in enumerate(parsnames))
         )
         agent = mk_agent()
         agent._learnable_pars = parsdict
+
         on_update_original = agent.on_update
         pars_iter = iter(pars[1:])
 
@@ -341,17 +344,15 @@ class TestRecordUpdates(unittest.TestCase):
             on_update_original()
 
         agent.on_update = Mock(return_value=None, side_effect=side_effect)
-        wrapped = wrappers_agents.RecordUpdates(agent)
+        wrapped = wrappers_agents.RecordUpdates(agent, frequency)
 
         for _ in range(n_updates):
             wrapped.on_update()
 
         agent.on_update.assert_has_calls([call()] * n_updates)
-        self.assertListEqual(
-            [f"p{i}" for i in range(n_params)], list(wrapped.updates_history.keys())
-        )
-        pars_actual = np.squeeze(list(wrapped.updates_history.values())).T
-        np.testing.assert_equal(pars_actual, pars)
+        self.assertListEqual(parsnames, list(wrapped.updates_history.keys()))
+        pars_recorded = np.squeeze(list(wrapped.updates_history.values()), 2).T
+        np.testing.assert_equal(pars_recorded, pars[::frequency])
 
 
 class TestEvaluate(unittest.TestCase):
@@ -382,7 +383,6 @@ class TestEvaluate(unittest.TestCase):
         returns = [object() for _ in range(repeats + eval_immediately)]
         returns_iter = iter(returns)
         agent = mk_agent()
-        agent._is_training = True  # otherwise, Evaluate will not be invoked
         agent.evaluate = Mock(side_effect=lambda *_, **__: next(returns_iter))
         env = SimpleEnv()
         wrapped = wrappers_agents.Evaluate(
@@ -393,6 +393,7 @@ class TestEvaluate(unittest.TestCase):
             eval_immediately=eval_immediately,
             fix_seed=fix_seed,
         )
+        agent._is_training = True  # otherwise, Evaluate will not be invoked
 
         n_calls = frequency * repeats
         n_calls += int(frequency / 2)  # adds some spurious calls

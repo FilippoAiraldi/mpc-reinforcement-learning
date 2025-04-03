@@ -17,6 +17,7 @@ classifiers = [
 	"Programming Language :: Python :: 3.9",
 	"Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+	"Programming Language :: Python :: 3.12",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Intended Audience :: Science/Research",
@@ -26,7 +27,7 @@ classifiers = [
 dependencies = [
     "typing_extensions >= 4.5.0 ; python_version <= '3.9'",
     "numba >= 0.57.1",
-    "csnlp >= 1.6.3.post1",
+    "csnlp >= 1.6.4",
     "scipy >= 1.11.0",
     "gymnasium >= 0.28.1",
 ]
@@ -49,15 +50,15 @@ license-files = ["LICENSE"]
 version = {attr = "mpcrl.__version__"}
 
 [tool.black]
-target-version = ["py39", "py310", "py311"]
+target-version = ["py310", "py311", "py312"]
 color = true
 
 [tool.isort]
 profile = "black"
-py_version = 39
+py_version = 310
 
 [tool.mypy]
-python_version = "3.9"
+python_version = "3.10"
 plugins = ["numpy.typing.mypy_plugin"]
 exclude = ["tests"]
 

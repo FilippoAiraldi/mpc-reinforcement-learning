@@ -20,6 +20,9 @@ def bool_cycle(frequency: int, starts_with: bool = False) -> _Iterator[bool]:
     Iterator of bool
         An iterator with the given frequency of ``True``.
     """
+    if frequency <= 1:
+        return itertools.repeat(True)
+
     iterator = itertools.cycle(
         itertools.chain(itertools.repeat(False, frequency - 1), (True,))
     )

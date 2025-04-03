@@ -377,6 +377,8 @@ class OrnsteinUhlenbeckExploration(ExplorationStrategy):
         self.sigma_scheduler = sigma
         self.theta = theta
         self.dt = dt
+        self._dtheta_dt = theta * dt
+        self._sqrt_dt = np.sqrt(dt)
         self.initial_noise = initial_noise
         self.reset(seed)
 
@@ -413,8 +415,8 @@ class OrnsteinUhlenbeckExploration(ExplorationStrategy):
         sigma = self.sigma_scheduler.value
         noise = (
             self._prev_noise
-            + (self.theta * self.dt) * (self.mean_scheduler.value - self._prev_noise)
-            + np.sqrt(self.dt) * (sigma * self.np_random.normal(size=np.shape(sigma)))
+            + self._dtheta_dt * (self.mean_scheduler.value - self._prev_noise)
+            + self._sqrt_dt * (sigma * self.np_random.normal(size=np.shape(sigma)))
         )
         self._prev_noise = noise
         return noise

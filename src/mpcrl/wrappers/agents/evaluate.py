@@ -83,13 +83,17 @@ class Evaluate(LearningWrapper[SymType, ExpType]):
             self._evaluate(force=True)
 
     def _evaluate(self, *_: Any, **kwargs: Any) -> None:
+        # we always return if an evaluation is already in progress to avoid reentrancy
+        if self._is_eval_in_progress:
+            return
+        # we return also if:
+        #  - the agent is not training (we do not want this hook to fire on .evaluate)
+        #  - or the cycle is not at the evaluation point
+        # unless we have forced an evaluation in __init__ via `eval_immediately=True`
+        forced = kwargs.get("force", False)
         unwrapped_agent = self.agent.unwrapped
         is_training = unwrapped_agent._is_training
-        if (
-            not is_training
-            or self._is_eval_in_progress
-            or (not kwargs.get("force", False) and not next(self._eval_cycle))
-        ):
+        if not forced and (not is_training or not next(self._eval_cycle)):
             return
 
         self._is_eval_in_progress = True

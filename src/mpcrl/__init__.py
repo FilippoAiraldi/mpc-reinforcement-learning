@@ -14,7 +14,17 @@ approximation :cite:`rawlings_model_2017`.
 ==================== =======================================================================
 """
 
-__version__ = "1.3.1.post2"
+import sys
+import warnings
+
+if sys.version_info < (3, 10):
+    warnings.warn(
+        "Support for Python 3.9 is deprecated and will not be tested in future "
+        "releases. Consider upgrading to Python 3.10 or higher for better support.",
+        DeprecationWarning,
+    )
+
+__version__ = "1.3.2rc5"
 
 __all__ = [
     "Agent",

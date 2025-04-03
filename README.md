@@ -68,7 +68,7 @@ pip install mpcrl
 
 **mpcrl** has the following dependencies
 
-- Python 3.9 or higher
+- Python 3.9 or higher (though support and testing for 3.9 are deprecated)
 - [csnlp](https://casadi-nlp.readthedocs.io/en/stable/)
 - [SciPy](https://scipy.org/)
 - [Gymnasium](https://gymnasium.farama.org/)
