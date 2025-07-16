@@ -68,7 +68,7 @@ def lqr(
         Returns the optimal state feedback matrix :math:`K` and the quadratic terminal
         cost-to-go matrix :math:`P`.
     """
-    P = _solve_continuous_are(A, B, Q, R, s=M)
+    P = _solve_continuous_are(A, B, Q, R, None, M)
     rhs = B.T.dot(P) if M is None else B.T.dot(P) + M.T
     K = np.linalg.solve(R, rhs)
     return K, P
@@ -122,7 +122,7 @@ def dlqr(
         Returns the optimal state feedback matrix :math:`K` and the quadratic terminal
         cost-to-go matrix :math:`P`.
     """
-    P = _solve_discrete_are(A, B, Q, R, s=M)
+    P = _solve_discrete_are(A, B, Q, R, None, M)
     rhs = B.T.dot(P).dot(A) if M is None else B.T.dot(P).dot(A) + M.T
     K = np.linalg.solve(B.T.dot(P).dot(B) + R, rhs)
     return K, P
