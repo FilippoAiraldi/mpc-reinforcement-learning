@@ -48,7 +48,7 @@ jobs:
         env:
           NUMBA_DISABLE_JIT: ${{ matrix.DISABLE_JIT }}
       - name: Coverage with Qlty (main, 3.10, no-jit only)
-        if: github.ref == 'refs/heads/main' && matrix.python-version == '3.10'  && matrix.DISABLE_JIT == 0
+        if: github.ref == 'refs/heads/main' && matrix.python-version == '3.10'  && matrix.DISABLE_JIT == 1
         uses: qltysh/qlty-action/coverage@v1
         with:
             token: ${{ secrets.QLTY_COVERAGE_TOKEN }}
