@@ -43,16 +43,15 @@ jobs:
           python -m pip install -r requirements-tests.txt
       - name: Test with unittest
         run: |
-          coverage run -m unittest discover ./tests 'test_*.py'
+          coverage run -m unittest discover ./tests
+          coverage lcov -o coverage.lcov
         env:
           NUMBA_DISABLE_JIT: ${{ matrix.DISABLE_JIT }}
-      - name: Coverage with Code Climate (main only)
+      - name: Coverage with Qlty (main, 3.10, no-jit only)
         if: github.ref == 'refs/heads/main' && matrix.python-version == '3.10'  && matrix.DISABLE_JIT == 0
-        uses: paambaati/codeclimate-action@v9
-        env:
-          CC_TEST_REPORTER_ID: ${{ secrets.CODECLIMATE_REPORTER_ID }}
+        uses: qltysh/qlty-action/coverage@v1
         with:
-          coverageCommand: coverage xml
-          debug: true
+            token: ${{ secrets.QLTY_COVERAGE_TOKEN }}
+            files: coverage.lcov
       - uses: pre-commit-ci/lite-action@v1.1.0
         if: always()

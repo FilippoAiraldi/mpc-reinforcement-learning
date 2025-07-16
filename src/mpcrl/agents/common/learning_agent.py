@@ -73,7 +73,7 @@ class LearningAgent(
     ) -> None:
         Agent.__init__(self, **kwargs)
         LearningAgentCallbackMixin.__init__(self)
-        self._learnable_pars = learnable_parameters
+        self._learnable_pars = self._reorder_learnable_parameters(learnable_parameters)
         if experience is None:
             experience = ExperienceReplay(maxlen=1)
         elif isinstance(experience, int):
@@ -303,6 +303,23 @@ class LearningAgent(
             In case the update fails, an error message is returned to be raised as error
             or warning; otherwise, `None` is returned.
         """
+
+    def _reorder_learnable_parameters(
+        self, learnable_parameters: LearnableParametersDict[SymType]
+    ) -> LearnableParametersDict[SymType]:
+        """Reorders the learnable parameters of the MPC according to their creation
+        order."""
+        reordered = [
+            learnable_parameters.pop(name)
+            for name in self.V.parameters.keys()
+            if name in learnable_parameters
+        ]
+        assert not learnable_parameters, (
+            "Not all learnable parameters could be reordered. "
+            "Please check for spurious learnable parameters in `learnable_parameters`."
+        )
+        learnable_parameters.update(reordered)
+        return learnable_parameters
 
     def _establish_callback_hooks(self) -> None:
         super()._establish_callback_hooks()
