@@ -182,15 +182,13 @@ class LstdQLearningAgent(
 
     def update(self) -> Optional[str]:
         raises = self._raises
-        gamma = self.discount_factor
-        sensitivity = self._sensitivity
         gradient_steps = (
             self.gradient_steps if self.gradient_steps > 0 else len(self.experience)
         )
         no_hessian = self.hessian_type == "none"
-        fail_on_td_target = self._fail_on_td_target
         statuses = ""
         ntheta = self._learnable_pars.size
+        td_errors = self.td_errors
 
         for step in range(gradient_steps):
             mean_gradient = np.zeros(ntheta)
@@ -203,34 +201,35 @@ class LstdQLearningAgent(
                     self.on_mpc_failure(
                         -1, None, "Failure during update (Q): " + solQ.status, raises
                     )
-                    td_error = float("nan")
+                    if td_errors is not None:
+                        td_errors.append(float("nan"))
                     continue
 
-                # compute Q value target - if failure, terminate early only if user
-                # asked for it via `fail_on_td_target`
-                target = cost
-                if not terminated:
+                # compute Q value target and TD error - if failure, terminate early only
+                # if user asked for it via `fail_on_td_target`
+                if terminated:
+                    td_error = cost - solQ.f
+                else:
                     _, solV = self.state_value(new_state, True)
-                    if not solV.success and fail_on_td_target:
+                    if not solV.success and self._fail_on_td_target:
                         self.on_mpc_failure(
                             -1, None, "Fail during update (V): " + solV.status, raises
                         )
-                        td_error = float("nan")
+                        if td_errors is not None:
+                            td_errors.append(float("nan"))
                         continue
-                    target += gamma * solV.f
-                td_error = target - solQ.f
-
-                if self.td_errors is not None:
-                    self.td_errors.append(td_error)
+                    td_error = cost + self.discount_factor * solV.f - solQ.f
+                if td_errors is not None:
+                    td_errors.append(td_error)
 
                 # accumulate sensitivities (gradient and hessian, if needed) of Q(s,a)
                 count_success += 1
                 if no_hessian:
-                    dQ = sensitivity(solQ)
+                    dQ = self._sensitivity(solQ)
                     gradient = -td_error * dQ
                     mean_gradient += (gradient - mean_gradient) / count_success
                 else:
-                    dQ, ddQ = sensitivity(solQ)
+                    dQ, ddQ = self._sensitivity(solQ)
                     gradient = -td_error * dQ
                     hessian = np.multiply.outer(dQ, dQ) - td_error * ddQ
                     mean_gradient += (gradient - mean_gradient) / count_success
