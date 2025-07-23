@@ -101,9 +101,10 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
            :attr:`init_action_constraint`)
          - a multistart ``mpc`` is given, but the warmstart strategy ``warmstart`` asks
            for an incompatible number of starting points to be generated
-         - a warmstart strategy ``warmstart`` is given, but the ``mpc`` does not have an
-           underlying multistart NLP problem, so it cannot handle multiple starting
-           points (see :attr:`csnlp.Nlp.is_multi` and
+         - a warmstart strategy ``warmstart`` or a collection of fixed parameters is
+           given, but the ``mpc`` does not have an underlying multistart NLP problem, so
+           it cannot handle multiple starting points or parameters (see
+           :attr:`csnlp.Nlp.is_multi` and
            :attr:`csnlp.multistart.MultistartNlp.is_multi`).
     """
 
@@ -145,15 +146,24 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
         ws_points = warmstart.n_points
         if mpc.is_multi and ws_points != 0 and mpc.nlp.starts - ws_points not in (0, 1):
             raise ValueError(
-                "A multistart MPC was given with {mpc.nlp.starts} multistarts, but the "
-                f"given warmstart strategy asks for {ws_points} starting points. "
+                f"A multistart MPC was given with {mpc.nlp.starts} multistarts, but "
+                f"the given warmstart strategy asks for {ws_points} starting points. "
                 "Expected either 0 warmstart points (i.e., it is disabled), or the same"
                 " number as MPC's multistarts, or at most one less."
             )
         elif not mpc.is_multi and ws_points > 0:
             raise ValueError(
                 "Got a warmstart strategy with more than 0 starting points, but the "
-                "given does not have an underlying multistart NLP problem."
+                "given MPC does not have an underlying multistart NLP problem."
+            )
+        elif (
+            not mpc.is_multi
+            and fixed_parameters is not None
+            and not isinstance(fixed_parameters, dict)
+        ):
+            raise ValueError(
+                "Got a collection of fixed parameters, but the given MPC does not have "
+                "an underlying multistart NLP problem."
             )
         Named.__init__(self, name)
         SupportsDeepcopyAndPickle.__init__(self)
