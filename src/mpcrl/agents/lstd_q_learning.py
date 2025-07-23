@@ -181,52 +181,48 @@ class LstdQLearningAgent(
         gradient_steps = (
             self.gradient_steps if self.gradient_steps > 0 else len(self.experience)
         )
-        hessian_type_is_none = self.hessian_type == "none"
-
-        gradients: list[npt.NDArray[np.floating]] = []
-        hessians: list[npt.NDArray[np.floating]] = []
+        no_hessian = self.hessian_type == "none"
         statuses = ""
 
         for step in range(gradient_steps):
-            sample = self.experience.sample()
-            gradients.clear()
-            hessians.clear()
-
-            for state, action, cost, new_state, terminated in sample:
+            mean_gradient = 0.0
+            mean_hessian = None if no_hessian else 0.0
+            count_success = 0
+            for state, action, cost, new_state, terminated in self.experience.sample():
                 # compute Q(s,a) and V(s+)
                 solQ = self.action_value(state, action)
                 _, solV = self.state_value(new_state, True)
 
                 if solQ.success and solV.success:
                     # compute the TD error and sensitivities of Q(s,a)
+                    count_success += 1
                     td_error = cost + (1 - terminated) * gamma * solV.f - solQ.f
-                    if hessian_type_is_none:
+                    if no_hessian:
                         dQ = sensitivity(solQ)
                         gradient = -td_error * dQ
+                        mean_gradient += (gradient - mean_gradient) / count_success
                     else:
                         dQ, ddQ = sensitivity(solQ)
                         gradient = -td_error * dQ
                         hessian = np.multiply.outer(dQ, dQ) - td_error * ddQ
-                        hessians.append(hessian)
-                    gradients.append(gradient)
+                        mean_gradient += (gradient - mean_gradient) / count_success
+                        mean_hessian += (hessian - mean_hessian) / count_success
                 else:
                     # report failure and store NaN TD error
                     msg = f"Failure during update: {solQ.status} (Q); {solV.status} (V)"
                     self.on_mpc_failure(-1, None, msg, raises)
-                    td_error = np.nan
+                    td_error = float("nan")
 
                 if self.td_errors is not None:
                     self.td_errors.append(td_error)
 
             # compute update with average gradient and hessian
-            if len(gradients) > 0:
-                mean_gradient = np.mean(gradients, 0)
-                mean_hessian = None if hessian_type_is_none else np.mean(hessians, 0)
+            if count_success > 0:
                 status = self.optimizer.update(mean_gradient, mean_hessian)
                 if status is not None:
                     statuses += f"{step}: {status}\n"
             else:
-                status = "no gradients computed, skipping update"
+                status = "No gradients computed, skipping update"
                 statuses += f"{step}: {status}\n"
 
         return statuses if statuses else None
