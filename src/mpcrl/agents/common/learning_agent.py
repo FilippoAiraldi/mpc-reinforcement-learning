@@ -60,7 +60,7 @@ class LearningAgent(
     -----
     This class makes no assumptions on the learning methodology used to update the MPC's
     learnable parameters. This could be either gradient-based or gradient-free, but the
-    logic implemented in this class should be largely remain untouched.
+    logic implemented in this class should largely remain untouched.
     """
 
     def __init__(
@@ -229,8 +229,7 @@ class LearningAgent(
             Raises if the agent does not support `behaviour_policy`.
         """
         raise NotImplementedError(
-            f"{self.__class__.__name__} does not implement `train_one_episode` for "
-            "on-policy learning."
+            f"{self.__class__.__name__} does not implement `train_one_episode`."
         )
 
     @abstractmethod
