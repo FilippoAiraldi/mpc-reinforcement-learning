@@ -4,7 +4,6 @@ import pickle
 import sys
 import unittest
 from operator import neg
-from sys import platform
 from warnings import filterwarnings
 
 from csnlp.multistart import RandomStartPoint, RandomStartPoints
@@ -35,7 +34,7 @@ from q_learning import LinearMpc as QLearningLinearMpc
 from q_learning import LtiSystem as QLearningLtiSystem
 from q_learning_offpolicy import LinearMpc as QLearningOffPolicyLinearMpc
 from q_learning_offpolicy import LtiSystem as QLearningOffPolicyLtiSystem
-from q_learning_offpolicy import get_rollout_generator
+from q_learning_offpolicy import get_behaviour_policy
 from scipy.io import loadmat
 
 from mpcrl import (
@@ -57,10 +56,13 @@ torch.set_default_device("cpu")
 torch.set_default_dtype(torch.float64)
 filterwarnings("ignore", "Mpc failure", module="mpcrl")
 
-DATA = loadmat(f"tests/data_test_examples_{platform}.mat", squeeze_me=True)
-
 
 class TestExamples(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.DATA = loadmat("tests/data_test_examples.mat", squeeze_me=True)
+
     @parameterized.expand([(False,), (True,)])
     def test_q_learning__with_copy_and_pickle(self, use_copy: bool):
         mpc = QLearningLinearMpc()
@@ -108,7 +110,7 @@ class TestExamples(unittest.TestCase):
         )
 
         # from scipy.io import savemat
-        # DATA.update({
+        # self.DATA.update({
         #     "ql_J": J,
         #     "ql_X": X,
         #     "ql_U": U,
@@ -116,14 +118,14 @@ class TestExamples(unittest.TestCase):
         #     "ql_TD": TD,
         #     "ql_pars": PARS,
         # })
-        # savemat(f"tests/data_test_examples_{platform}.mat", DATA)
+        # savemat("tests/data_test_examples.mat", self.DATA)
 
-        np.testing.assert_allclose(J, DATA["ql_J"], rtol=1e0, atol=1e0)
-        np.testing.assert_allclose(X, DATA["ql_X"], rtol=1e0, atol=1e0)
-        np.testing.assert_allclose(U, DATA["ql_U"], rtol=1e0, atol=1e0)
-        np.testing.assert_allclose(R, DATA["ql_R"], rtol=1e1, atol=1e1)
-        np.testing.assert_allclose(TD, DATA["ql_TD"], rtol=1e1, atol=1e1)
-        np.testing.assert_allclose(PARS, DATA["ql_pars"], rtol=1e0, atol=1e0)
+        np.testing.assert_allclose(J, self.DATA["ql_J"], rtol=1e-1, atol=1e-1)
+        np.testing.assert_allclose(X, self.DATA["ql_X"], rtol=1e-1, atol=1e-1)
+        np.testing.assert_allclose(U, self.DATA["ql_U"], rtol=1e-1, atol=1e-1)
+        np.testing.assert_allclose(R, self.DATA["ql_R"], rtol=1e-1, atol=1e-1)
+        np.testing.assert_allclose(TD, self.DATA["ql_TD"], rtol=1e-1, atol=1e-1)
+        np.testing.assert_allclose(PARS, self.DATA["ql_pars"], rtol=1e-1, atol=1e-1)
 
     @parameterized.expand([(False,), (True,)])
     def test_dpg__with_copy_and_pickle(self, use_copy: bool):
@@ -176,7 +178,7 @@ class TestExamples(unittest.TestCase):
         )
 
         # from scipy.io import savemat
-        # DATA.update({
+        # self.DATA.update({
         #     "dpg_J": J,
         #     "dpg_X": X,
         #     "dpg_U": U,
@@ -185,15 +187,15 @@ class TestExamples(unittest.TestCase):
         #     "dpg_Gest": Gest,
         #     "dpg_pars": PARS,
         # })
-        # savemat(f"tests/data_test_examples_{platform}.mat", DATA)
+        # savemat("tests/data_test_examples.mat", self.DATA)
 
-        np.testing.assert_allclose(J, DATA["dpg_J"], rtol=1e0, atol=1e0)
-        np.testing.assert_allclose(X, DATA["dpg_X"], rtol=1e0, atol=1e0)
-        np.testing.assert_allclose(U, DATA["dpg_U"], rtol=1e1, atol=1e1)
-        np.testing.assert_allclose(R, DATA["dpg_R"], rtol=1e1, atol=1e1)
-        np.testing.assert_allclose(Jest, DATA["dpg_Jest"], rtol=1e0, atol=1e0)
-        np.testing.assert_allclose(Gest, DATA["dpg_Gest"], rtol=1e3, atol=1e3)
-        np.testing.assert_allclose(PARS, DATA["dpg_pars"], rtol=1e0, atol=1e0)
+        np.testing.assert_allclose(J, self.DATA["dpg_J"], rtol=1e-1, atol=1e-1)
+        np.testing.assert_allclose(X, self.DATA["dpg_X"], rtol=1e-1, atol=1e-1)
+        np.testing.assert_allclose(U, self.DATA["dpg_U"], rtol=1e-1, atol=1e-1)
+        np.testing.assert_allclose(R, self.DATA["dpg_R"], rtol=1e-1, atol=1e-1)
+        np.testing.assert_allclose(Jest, self.DATA["dpg_Jest"], rtol=1e-1, atol=1e-1)
+        np.testing.assert_allclose(Gest, self.DATA["dpg_Gest"], rtol=1e-1, atol=1e-1)
+        np.testing.assert_allclose(PARS, self.DATA["dpg_pars"], rtol=1e-1, atol=1e-1)
 
     @parameterized.expand([(False,), (True,)])
     def test_bayesopt__with_copy_and_pickle(self, use_copy: bool):
@@ -244,13 +246,13 @@ class TestExamples(unittest.TestCase):
         R = np.squeeze(env.get_wrapper_attr("rewards"))
 
         # from scipy.io import savemat
-        # DATA.update({"bo_J": J, "bo_X": X, "bo_U": U, "bo_R": R})
-        # savemat(f"tests/data_test_examples_{platform}.mat", DATA)
+        # self.DATA.update({"bo_J": J, "bo_X": X, "bo_U": U, "bo_R": R})
+        # savemat("tests/data_test_examples.mat", self.DATA)
 
-        np.testing.assert_allclose(J, DATA["bo_J"], rtol=1e-2, atol=1e-2)
-        np.testing.assert_allclose(X, DATA["bo_X"], rtol=1e-2, atol=1e-2)
-        np.testing.assert_allclose(U, DATA["bo_U"], rtol=1e-2, atol=1e-2)
-        np.testing.assert_allclose(R, DATA["bo_R"], rtol=1e-2, atol=1e-2)
+        np.testing.assert_allclose(J, self.DATA["bo_J"], rtol=1e-2, atol=1e-2)
+        np.testing.assert_allclose(X, self.DATA["bo_X"], rtol=1e-2, atol=1e-2)
+        np.testing.assert_allclose(U, self.DATA["bo_U"], rtol=1e-2, atol=1e-2)
+        np.testing.assert_allclose(R, self.DATA["bo_R"], rtol=1e-2, atol=1e-2)
 
     @parameterized.expand([(False,), (True,)])
     def test_q_learning_offpolicy__with_copy_and_pickle(self, use_copy: bool):
@@ -264,6 +266,7 @@ class TestExamples(unittest.TestCase):
             )
         )
         seed = np.random.default_rng(69)
+        env = MonitorEpisodes(TimeLimit(QLearningLtiSystem(), max_episode_steps=100))
         agent = Evaluate(
             Log(
                 RecordUpdates(
@@ -287,14 +290,12 @@ class TestExamples(unittest.TestCase):
             n_eval_episodes=2,
             seed=seed,
         )
-        generate_rollout = get_rollout_generator(rollout_seed=69)
+        behaviour_policy = get_behaviour_policy()
 
         agent_copy = agent.copy()
         if use_copy:
             agent = agent_copy
-        agent.train_offpolicy(
-            episode_rollouts=(generate_rollout(n) for n in range(6)), seed=seed
-        )
+        agent.train(env=env, episodes=6, behaviour_policy=behaviour_policy, seed=69)
         J = np.asarray(agent.eval_returns)
         agent = pickle.loads(pickle.dumps(agent))
 
@@ -305,12 +306,16 @@ class TestExamples(unittest.TestCase):
         TD = np.squeeze(agent.td_errors)
 
         # from scipy.io import savemat
-        # DATA.update({"ql_offpol_J": J, "ql_offpol_TD": TD, "ql_offpol_pars": PARS})
-        # savemat(f"tests/data_test_examples_{platform}.mat", DATA)
+        # self.DATA.update(
+        #     {"ql_offpol_J": J, "ql_offpol_TD": TD, "ql_offpol_pars": PARS}
+        # )
+        # savemat("tests/data_test_examples.mat", self.DATA)
 
-        np.testing.assert_allclose(J, DATA["ql_offpol_J"], rtol=1e0, atol=1e0)
-        np.testing.assert_allclose(TD, DATA["ql_offpol_TD"], rtol=1e1, atol=1e1)
-        np.testing.assert_allclose(PARS, DATA["ql_offpol_pars"], rtol=1e0, atol=1e0)
+        np.testing.assert_allclose(J, self.DATA["ql_offpol_J"], rtol=1e-1, atol=1e-1)
+        np.testing.assert_allclose(TD, self.DATA["ql_offpol_TD"], rtol=1e-1, atol=1e-1)
+        np.testing.assert_allclose(
+            PARS, self.DATA["ql_offpol_pars"], rtol=1e-1, atol=1e-1
+        )
 
     def test_iccbf(self):
         Tfin = 10
@@ -323,8 +328,8 @@ class TestExamples(unittest.TestCase):
 
         X = np.hstack([S1, S2]).T
         U = np.vstack([A1, A2])
-        np.testing.assert_allclose(X, DATA["iccbf_X"])
-        np.testing.assert_allclose(U, DATA["iccbf_U"])
+        np.testing.assert_allclose(X, self.DATA["iccbf_X"])
+        np.testing.assert_allclose(U, self.DATA["iccbf_U"])
 
     @parameterized.expand([(False,), (True,)])
     def test_polytope_sampling(self, incrm: bool):
@@ -346,7 +351,7 @@ class TestExamples(unittest.TestCase):
         int_samples = sampler.sample_from_interior(n_samples)
         surf_samples = sampler.sample_from_surface(n_samples)
         samples = np.asarray((int_samples, surf_samples))
-        np.testing.assert_allclose(samples, DATA[f"polytope_samples_{int(incrm)}"])
+        np.testing.assert_allclose(samples, self.DATA[f"polytope_samples_{int(incrm)}"])
 
 
 if __name__ == "__main__":

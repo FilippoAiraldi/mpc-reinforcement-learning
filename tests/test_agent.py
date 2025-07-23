@@ -37,7 +37,6 @@ OPTS = {
         "print_options_documentation": "no",
     },
 }
-RESULTS = matio.loadmat(r"tests/data_test_agent.mat")
 
 
 @lru_cache
@@ -98,6 +97,11 @@ class DummyLearningAgent(LearningAgent):
 
 @parameterized_class("multistart_nlp", [(True,), (False,)])
 class TestAgent(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.RESULTS = matio.loadmat(r"tests/data_test_agent.mat")
+
     def test_init__raises__mpc_with_no_actions(self):
         with self.assertRaisesRegex(
             ValueError, "Expected Mpc with na>0; got na=0 instead."
@@ -305,10 +309,12 @@ class TestAgent(unittest.TestCase):
         np.testing.assert_array_equal(
             action, cs.vertcat(sol.vals["u1"][:, 0], sol.vals["u2"][:, 0])
         )
-        np.testing.assert_allclose(sol.f, RESULTS["state_value_f"].item(), rtol=1e-3)
+        np.testing.assert_allclose(
+            sol.f, self.RESULTS["state_value_f"].item(), rtol=1e-3
+        )
         np.testing.assert_allclose(
             sol.vals["u1"],
-            RESULTS["state_value_us"],
+            self.RESULTS["state_value_us"],
             rtol=1e-7,
             atol=1e-7,
         )
@@ -356,13 +362,13 @@ class TestAgent(unittest.TestCase):
             np.testing.assert_allclose(u1_0_0, a_opt)
             np.testing.assert_allclose(
                 sol.vals["u1"],
-                RESULTS["state_value_us"],
+                self.RESULTS["state_value_us"],
                 rtol=1e-7,
                 atol=1e-7,
             )
         else:
             np.testing.assert_allclose(u1_0_0, a_subopt)
-            self.assertTrue(sol.f >= RESULTS["state_value_f"].item())
+            self.assertTrue(sol.f >= self.RESULTS["state_value_f"].item())
 
     def test_evaluate__performs_correct_calls(self):
         seed = 69
