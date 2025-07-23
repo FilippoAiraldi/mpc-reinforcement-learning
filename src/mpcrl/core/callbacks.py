@@ -191,9 +191,8 @@ class AgentCallbackMixin(CallbackMixin):
         self, env: Env[ObsType, ActType], episode: int, state: ObsType
     ) -> None:
         """Callback called at the beginning of each episode in the training or
-        validation process (see :meth:`mpcrl.Agent.evaluate`,
-        :meth:`mpcrl.LearningAgent.train` and
-        :meth:`mpcrl.LearningAgent.train_offpolicy`).
+        validation process (see :meth:`mpcrl.Agent.evaluate` and
+        :meth:`mpcrl.LearningAgent.train`).
 
         Parameters
         ----------
@@ -210,8 +209,8 @@ class AgentCallbackMixin(CallbackMixin):
         self, env: Env[ObsType, ActType], episode: int, rewards: float
     ) -> None:
         """Callback called at the end of each episode in the training or evaluation
-        process (see :meth:`mpcrl.Agent.evaluate`, :meth:`mpcrl.LearningAgent.train` and
-        :meth:`mpcrl.LearningAgent.train_offpolicy`).
+        process (see :meth:`mpcrl.Agent.evaluate` and
+        :meth:`mpcrl.LearningAgent.train`).
 
         Parameters
         ----------
@@ -266,7 +265,7 @@ class LearningAgentCallbackMixin(AgentCallbackMixin):
 
     - :meth:`on_update_failure`, invoked when an update of the parametrization fails
     - :meth:`on_training_start`, invoked when training starts (see
-      :meth:`mpcrl.LearningAgent.train` and :meth:`mpcrl.LearningAgent.train_offpolicy`)
+      :meth:`mpcrl.LearningAgent.train`)
     - :meth:`on_training_end`, invoked when training ends
     - :meth:`on_update`, invoked after each update of the parametrization.
     """

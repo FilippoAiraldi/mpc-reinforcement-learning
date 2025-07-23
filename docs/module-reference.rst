@@ -92,11 +92,10 @@ Exceptions
 Finally, we also provide two custom warnings and exceptions to signal two distinct and
 important events, namely, when the MPC solver fails to find a solution, and when the
 update fails (usually the QP solver fails to find a solution). Since the methods
-:meth:`mpcrl.Agent.evaluate`, :meth:`mpcrl.LearningAgent.train` and
-:meth:`mpcrl.LearningAgent.train_offpolicy` accept the ``raises`` argument, we provide
-here both warnings and exceptions that can be raised in case of failures, depending on
-the value of said flag. We also provide two utility functions to conveniently raise
-these exceptions or warnings.
+:meth:`mpcrl.Agent.evaluate` and :meth:`mpcrl.LearningAgent.train` accept the ``raises``
+argument, we provide here both warnings and exceptions that can be raised in case of
+failures, depending on the value of said flag. We also provide two utility functions to
+conveniently raise these exceptions or warnings.
 
 .. autosummary::
    :toctree: generated

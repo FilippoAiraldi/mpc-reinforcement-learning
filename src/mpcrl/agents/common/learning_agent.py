@@ -30,9 +30,8 @@ class LearningAgent(
     on-policy and off-policy learning, which require further ad-hoc implementations. For
     on-policy learning, the :meth:`train` method should be run, which requires the
     implementation of :meth:`train_one_episode`. For off-policy learning, run
-    :meth:`train_offpolicy` and implement :meth:`train_one_rollout` instead. At least
-    one of the two implementations is required in the inheriting class, depending on the
-    learning algorithm. Some algorithms might support both.
+    :meth:`train` again but also provide a ``behaviour_policy`` argument. Note that some
+    algorithms might not support both on- and off-policy learning, such as DPG.
 
     Parameters
     ----------
