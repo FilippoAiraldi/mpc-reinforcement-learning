@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from collections.abc import Collection, Iterable
+from collections.abc import Collection
 from typing import Any, Callable, Generic, Optional, TypeVar, Union
 
 import numpy as np
@@ -126,6 +126,7 @@ class LearningAgent(
         episodes: int,
         seed: RngType = None,
         raises: bool = True,
+        behaviour_policy: Optional[Callable[[ObsType], ActType]] = None,
         env_reset_options: Optional[dict[str, Any]] = None,
     ) -> npt.NDArray[np.floating]:
         """On-policy training of the agent on an environment.
@@ -141,6 +142,11 @@ class LearningAgent(
         raises : bool, optional
             If ``True``, when any of the MPC solver runs fails, or when an update fails,
             the corresponding error is raised; otherwise, only a warning is raised.
+        behaviour_policy : callable from ObsType to ActType, optional
+            A callable that takes an observation and returns an action to be used as
+            behaviour policy for the agent. This is useful for training agents in an
+            off-policy offline way. This argument is not supported by on-policy
+            algorithms. If ``None``, the agent's policy is used. By default ``None``.
         env_reset_options : dict, optional
             Additional information to specify how the environment is reset at each
             evalution episode (optional, depending on the specific environment).
@@ -158,6 +164,8 @@ class LearningAgent(
         UpdateError or UpdateWarning
             Raises the error or the warning (depending on ``raises``) if the update
             fails.
+        ValueError
+            Raises if the agent does not support `behaviour_policy`.
         """
         if hasattr(env, "action_space"):
             assert isinstance(env.action_space, Box), "Env action space must be a Box,"
@@ -171,7 +179,7 @@ class LearningAgent(
         for episode in range(episodes):
             state, _ = env.reset(seed=mk_seed(rng), options=env_reset_options)
             self.on_episode_start(env, episode, state)
-            r = self.train_one_episode(env, episode, state, raises)
+            r = self.train_one_episode(env, episode, state, raises, behaviour_policy)
             self.on_episode_end(env, episode, r)
             returns[episode] = r
 
@@ -184,6 +192,7 @@ class LearningAgent(
         episode: int,
         init_state: ObsType,
         raises: bool = True,
+        behaviour_policy: Optional[Callable[[ObsType], ActType]] = None,
     ) -> float:
         """On-policy training of the agent on an environment for one single episode.
 
@@ -198,6 +207,11 @@ class LearningAgent(
         raises : bool, optional
             If ``True``, when any of the MPC solver runs fails, or when an update fails,
             the corresponding error is raised; otherwise, only a warning is raised.
+        behaviour_policy : callable from ObsType to ActType, optional
+            A callable that takes an observation and returns an action to be used as
+            behaviour policy for the agent. This is useful for training agents in an
+            off-policy offline way. This argument is not supported by on-policy
+            algorithms. If ``None``, the agent's policy is used. By default ``None``.
 
         Returns
         -------
@@ -212,84 +226,12 @@ class LearningAgent(
         UpdateError or UpdateWarning
             Raises the error or the warning (depending on ``raises``) if the update
             fails.
+        ValueError
+            Raises if the agent does not support `behaviour_policy`.
         """
         raise NotImplementedError(
             f"{self.__class__.__name__} does not implement `train_one_episode` for "
             "on-policy learning."
-        )
-
-    def train_offpolicy(
-        self,
-        episode_rollouts: Iterable[Iterable[Any]],
-        seed: RngType = None,
-        raises: bool = True,
-    ) -> None:
-        """Off-policy training of the agent on an environment.
-
-        Parameters
-        ----------
-        episode_rollouts : iterable of iterables of any
-            An iterable of episodical rollouts generated in an off-policy fashion. Each
-            rollout is itself a sequence of transitions, e.g., SARSA tuples. In other
-            words, ``episode_rollouts`` is a sequence of sequences of tuples. However,
-            in general, its nature and the tuples' can widely differ from learning
-            algorithm to learning algorithm.
-        seed : None, int, array_like of ints, SeedSequence, BitGenerator, Generator
-            Seed for the agent's random number generator. By default ``None``.
-        raises : bool, optional
-            If ``True``, when any of the MPC solver runs fails, or when an update fails,
-            the corresponding error is raised; otherwise, only a warning is raised.
-
-        Raises
-        ------
-        MpcSolverError or MpcSolverWarning
-            Raises the error or the warning (depending on ``raises``) if any of the MPC
-            solvers fail.
-        UpdateError or UpdateWarning
-            Raises the error or the warning (depending on ``raises``) if the update
-            fails.
-        """
-        rng = np.random.default_rng(seed)
-        self.reset(rng)
-        self._raises = raises
-        env_proxy = "off-policy"
-
-        self._is_training = True
-        self.on_training_start(env_proxy)
-        for episode, rollout in enumerate(episode_rollouts):
-            self.on_episode_start(env_proxy, episode, float("nan"))
-            self.train_one_rollout(rollout, episode, raises)
-            self.on_episode_end(env_proxy, episode, float("nan"))
-
-        self.on_training_end(env_proxy, np.empty(0))
-
-    def train_one_rollout(
-        self, rollout: Iterable[Any], episode: int, raises: bool = True
-    ) -> None:
-        """Train the agent in an off-policy manner on the given rollout.
-
-        Parameters
-        ----------
-        rollout : iterable of any
-            Rollout, i.e., a sequence of transitions generated off-policy, e.g., SARSA
-            tuples.  However, in general, these tuples can be of different nature,
-            depending on the specific learning algorithm.
-        raises : bool, optional
-            If ``True``, when any of the MPC solver runs fails, or when an update fails,
-            the corresponding error is raised; otherwise, only a warning is raised.
-
-        Raises
-        ------
-        MpcSolverError or MpcSolverWarning
-            Raises the error or the warning (depending on ``raises``) if any of the MPC
-            solvers fail.
-        UpdateError or UpdateWarning
-            Raises the error or the warning (depending on ``raises``) if the update
-            fails.
-        """
-        raise NotImplementedError(
-            f"{self.__class__.__name__} does not implement `train_offpolicy` for "
-            "off-policy learning."
         )
 
     @abstractmethod

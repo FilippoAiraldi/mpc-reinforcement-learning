@@ -239,7 +239,13 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         episode: int,
         init_state: ObsType,
         raises: bool = True,
+        behaviour_policy: Optional[Callable[[ObsType], ActType]] = None,
     ) -> float:
+        if behaviour_policy is not None:
+            raise ValueError(
+                "`behaviour_policy` is not supported by DPG; must be `None`"
+            )
+
         truncated = terminated = False
         timestep = 0
         rewards = 0.0

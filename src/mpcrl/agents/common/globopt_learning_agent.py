@@ -1,5 +1,5 @@
 from abc import ABC
-from typing import Any, Generic, Optional
+from typing import Any, Callable, Generic, Optional
 
 from gymnasium import Env
 
@@ -60,7 +60,13 @@ class GlobOptLearningAgent(LearningAgent[SymType, None], ABC, Generic[SymType]):
         episode: int,
         init_state: ObsType,
         raises: bool = True,
+        behaviour_policy: Optional[Callable[[ObsType], ActType]] = None,
     ) -> float:
+        if behaviour_policy is not None:
+            raise ValueError(
+                "`behaviour_policy` is not supported by DPG; must be `None`"
+            )
+
         # simply evaluate the MPC on the env with the current set of parameters for one
         # episode, and then tell the optimizer the value of the objective function
         rewards = 0.0

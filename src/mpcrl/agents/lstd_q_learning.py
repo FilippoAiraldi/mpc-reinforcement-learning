@@ -1,5 +1,5 @@
 import sys
-from collections.abc import Collection, Iterable
+from collections.abc import Collection
 from typing import Callable, Generic, Literal, Optional, SupportsFloat, Union
 
 import casadi as cs
@@ -237,6 +237,7 @@ class LstdQLearningAgent(
         episode: int,
         init_state: ObsType,
         raises: bool = True,
+        behaviour_policy: Optional[Callable[[ObsType], ActType]] = None,
     ) -> float:
         truncated = terminated = False
         timestep = 0
@@ -246,18 +247,21 @@ class LstdQLearningAgent(
         na = self.V.na
         ns = self.V.ns
 
-        # NOTE: the point of this method is to rollout the exploratory policy and
+        # NOTE: the point of this method is to rollout the behaviour policy and
         # populate the replay buffer with transitions. Updates are instead triggered via
         # callbacks on the events (e.g., timestep_end, env_step, etc.) and are not
         # part of this method but of `update()`
 
         while not (truncated or terminated):
-            # solve for the optimal (but potentially exploratory) action
-            action, solV = self.state_value(state, False, action_space=action_space)
-            if not solV.success:
-                self.on_mpc_failure(episode, None, solV.status, raises)
+            # compute the action to take
+            if behaviour_policy is None:
+                action, solV = self.state_value(state, False, action_space=action_space)
+                if not solV.success:
+                    self.on_mpc_failure(episode, None, solV.status, raises)
+            else:
+                action = behaviour_policy(state)
 
-            # step the system with action computed at the previous iteration
+            # step the system with action
             new_state, cost, truncated, terminated, _ = env.step(action)
             self.on_env_step(env, episode, timestep)
 
@@ -273,26 +277,6 @@ class LstdQLearningAgent(
             timestep += 1
             self.on_timestep_end(env, episode, timestep)
         return rewards
-
-    def train_one_rollout(
-        self,
-        rollout: Iterable[tuple[ObsType, ActType, float, ObsType]],
-        episode: int,
-        raises: bool = True,
-    ) -> None:
-        # in the case of off-policy q-learning, rollouts are made of
-        # State-Action-Reward-next State (SARS) tuples
-        for timestep, (state, action, cost, new_state) in enumerate(rollout, start=1):
-            # compute Q(s,a)
-            solQ = self.action_value(state, action)
-
-            # compute V(s+) and store transition
-            _, solV = self.state_value(new_state, False)
-            if not self._try_store_experience(cost, solQ, solV):
-                self.on_mpc_failure(
-                    episode, timestep, f"{solQ.status} (Q); {solV.status} (V)", raises
-                )
-            self.on_timestep_end("off-policy", episode, timestep)
 
     def _init_sensitivity(
         self, hessian_type: Literal["none", "approx", "full"]
