@@ -1,3 +1,4 @@
+# from pypi
 sphinx==7.3.7
 numpydoc==1.7.0
 sphinx_autodoc_typehints==2.2.2
@@ -6,6 +7,8 @@ sphinxcontrib-bibtex==2.6.2
 pydata_sphinx_theme==0.15.4
 memory_profiler
 matplotlib
+botorch
+
+# from PyTorch index
 --index-url https://download.pytorch.org/whl/cpu
 torch
-botorch
