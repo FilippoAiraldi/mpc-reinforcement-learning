@@ -229,11 +229,11 @@ class LearningAgent(
         Parameters
         ----------
         episode_rollouts : iterable of iterables of any
-            An iterable of episodical rollouts generated in an
-            off-policy fashion. Each rollout is itself a sequence of transitions, e.g.,
-            SARSA tuples. In other words, `episode_rollouts` is a sequence of sequences
-            of tuples. However, in general, its nature and the tuples' can widely differ
-            from learning algorithm to learning algorithm.
+            An iterable of episodical rollouts generated in an off-policy fashion. Each
+            rollout is itself a sequence of transitions, e.g., SARSA tuples. In other
+            words, ``episode_rollouts`` is a sequence of sequences of tuples. However,
+            in general, its nature and the tuples' can widely differ from learning
+            algorithm to learning algorithm.
         seed : None, int, array_like of ints, SeedSequence, BitGenerator, Generator
             Seed for the agent's random number generator. By default ``None``.
         raises : bool, optional

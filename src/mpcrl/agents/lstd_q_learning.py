@@ -239,7 +239,8 @@ class LstdQLearningAgent(
     def _init_sensitivity(
         self, hessian_type: Literal["none", "approx", "full"]
     ) -> Union[
-        Callable[[cs.DM], np.ndarray], Callable[[cs.DM], tuple[np.ndarray, np.ndarray]]
+        Callable[[Solution], np.ndarray],
+        Callable[[Solution], tuple[np.ndarray, np.ndarray]],
     ]:
         """Internal utility to compute the derivative of ``Q(s,a)`` w.r.t. the learnable
         parameters, a.k.a., ``theta``."""
