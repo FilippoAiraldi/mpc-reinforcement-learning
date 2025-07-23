@@ -25,7 +25,7 @@ from .common.rl_learning_agent import LrType, RlLearningAgent
 
 # the usual buffer of SARS tuples with terminated flags; see here why these are needed:
 # https://gymnasium.farama.org/tutorials/gymnasium_basics/handling_time_limits/
-ExpType: TypeAlias = Union[
+ExpType: TypeAlias = tuple[
     npt.NDArray[np.floating],
     npt.NDArray[np.floating],
     SupportsFloat,
