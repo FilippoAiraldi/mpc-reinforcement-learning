@@ -23,10 +23,14 @@ from ..optim.gradient_based_optimizer import GradientBasedOptimizer
 from .common.agent import ActType, ObsType, SymType
 from .common.rl_learning_agent import LrType, RlLearningAgent
 
-# the experience buffer contains the gradient and, possibly, the hessian of the Bellman
-# residuals w.r.t. the learnable parameters theta
+# the usual buffer of SARS tuples with terminated flags; see here why these are needed:
+# https://gymnasium.farama.org/tutorials/gymnasium_basics/handling_time_limits/
 ExpType: TypeAlias = Union[
-    npt.NDArray[np.floating], tuple[npt.NDArray[np.floating], npt.NDArray[np.floating]]
+    npt.NDArray[np.floating],
+    npt.NDArray[np.floating],
+    SupportsFloat,
+    npt.NDArray[np.floating],
+    bool,
 ]
 
 
@@ -85,6 +89,12 @@ class LstdQLearningAgent(
         is created and with sample size ``n``. Otherwise, pass an instance of
         :class:`core.experience.ExperienceReplay` to specify the requirements in more
         details.
+    gradient_steps : int, optional
+        When an update is due, how many gradient steps to perform. In each step, a new
+        batch of transitions (whose sample size is controlled by the ``experience``
+        argument) is sampled and a gradient step taken. Set to ``-1`` to take as
+        many steps as the current length of experience replay buffer. By default, it is
+        set to ``1``.
     warmstart : "last" or "last-successful" or WarmStartStrategy, optional
         The warmstart strategy for the MPC's NLP. If ``"last-successful"``, the last
         successful solution is used to warmstart the solver for the next iteration. If
@@ -135,6 +145,7 @@ class LstdQLearningAgent(
         ] = None,
         exploration: Optional[ExplorationStrategy] = None,
         experience: Union[None, int, ExperienceReplay[ExpType]] = None,
+        gradient_steps: int = 1,
         warmstart: Union[
             Literal["last", "last-successful"], WarmStartStrategy
         ] = "last-successful",
@@ -158,20 +169,67 @@ class LstdQLearningAgent(
             remove_bounds_on_initial_action=remove_bounds_on_initial_action,
             name=name,
         )
+        self.gradient_steps = gradient_steps
         self.hessian_type = hessian_type
         self._sensitivity = self._init_sensitivity(hessian_type)
         self.td_errors: Optional[list[float]] = [] if record_td_errors else None
 
     def update(self) -> Optional[str]:
-        sample = self.experience.sample()
-        if self.hessian_type == "none":
-            gradient = np.mean(list(sample), 0)
-            return self.optimizer.update(gradient)
+        raises = self._raises
+        gamma = self.discount_factor
+        sensitivity = self._sensitivity
+        gradient_steps = (
+            self.gradient_steps if self.gradient_steps > 0 else len(self.experience)
+        )
+        hessian_type_is_none = self.hessian_type == "none"
 
-        gradients, hessians = zip(*sample)
-        gradient = np.mean(gradients, 0)
-        hessian = np.mean(hessians, 0)
-        return self.optimizer.update(gradient, hessian)
+        gradients: list[npt.NDArray[np.floating]] = []
+        hessians: list[npt.NDArray[np.floating]] = []
+        statuses = ""
+
+        for step in range(gradient_steps):
+            sample = self.experience.sample()
+            gradients.clear()
+            hessians.clear()
+
+            for state, action, cost, new_state, terminated in sample:
+                # compute Q(s,a) and V(s+)
+                solQ = self.action_value(state, action)
+                _, solV = self.state_value(new_state, True)
+
+                if solQ.success and solV.success:
+                    # compute the TD error and sensitivities of Q(s,a)
+                    td_error = cost + (1 - terminated) * gamma * solV.f - solQ.f
+                    if hessian_type_is_none:
+                        dQ = sensitivity(solQ)
+                        gradient = -td_error * dQ
+                    else:
+                        dQ, ddQ = sensitivity(solQ)
+                        gradient = -td_error * dQ
+                        hessian = np.multiply.outer(dQ, dQ) - td_error * ddQ
+                        hessians.append(hessian)
+                    gradients.append(gradient)
+                else:
+                    # report failure and store NaN TD error
+                    msg = f"Failure during update: {solQ.status} (Q); {solV.status} (V)"
+                    self.on_mpc_failure(-1, None, msg, raises)
+                    td_error = np.nan
+
+                if self.td_errors is not None:
+                    self.td_errors.append(td_error)
+
+            # compute update with average gradient and hessian
+            if len(gradients) > 0:
+                mean_gradient = np.mean(gradients, 0)
+                mean_hessian = None if hessian_type_is_none else np.mean(hessians, 0)
+                status = self.optimizer.update(mean_gradient, mean_hessian)
+                if status is not None:
+                    statuses += f"{step}: {status}\n"
+            else:
+                status = "no gradients computed, skipping update"
+                statuses += f"{step}: {status}\n"
+
+        return statuses if statuses else None
 
     def train_one_episode(
         self,
@@ -185,32 +243,32 @@ class LstdQLearningAgent(
         rewards = 0.0
         state = init_state
         action_space = getattr(env, "action_space", None)
+        na = self.V.na
+        ns = self.V.ns
 
-        # solve for the first action
-        action, solV = self.state_value(state, False, action_space=action_space)
-        if not solV.success:
-            self.on_mpc_failure(episode, None, solV.status, raises)
+        # NOTE: the point of this method is to rollout the exploratory policy and
+        # populate the replay buffer with transitions. Updates are instead triggered via
+        # callbacks on the events (e.g., timestep_end, env_step, etc.) and are not
+        # part of this method but of `update()`
 
         while not (truncated or terminated):
-            # compute Q(s,a)
-            solQ = self.action_value(state, action)
+            # solve for the optimal (but potentially exploratory) action
+            action, solV = self.state_value(state, False, action_space=action_space)
+            if not solV.success:
+                self.on_mpc_failure(episode, None, solV.status, raises)
 
             # step the system with action computed at the previous iteration
             new_state, cost, truncated, terminated, _ = env.step(action)
             self.on_env_step(env, episode, timestep)
 
-            # compute V(s+) and store transition
-            new_action, solV = self.state_value(
-                new_state, False, action_space=action_space
-            )
-            if not self._try_store_experience(cost, solQ, solV):
-                self.on_mpc_failure(
-                    episode, timestep, f"{solQ.status} (Q); {solV.status} (V)", raises
-                )
+            # store transition in the experience replay buffer, even if the MPC failed
+            state_ = np.reshape(state, ns)
+            action_ = np.reshape(action, na)
+            new_state_ = np.reshape(new_state, ns)
+            self.store_experience((state_, action_, cost, new_state_, terminated))
 
             # increase counters
             state = new_state
-            action = new_action
             rewards += float(cost)
             timestep += 1
             self.on_timestep_end(env, episode, timestep)
@@ -356,28 +414,3 @@ class LstdQLearningAgent(
                     return np.asarray(J.elements()), 0.0
 
         return func
-
-    def _try_store_experience(
-        self, cost: SupportsFloat, solQ: Solution[SymType], solV: Solution[SymType]
-    ) -> bool:
-        """Internal utility that tries to store the gradient and hessian for the current
-        transition in memory, if both ``V`` and ``Q`` were successful; otherwise, does
-        not store it. Returns whether it was successful or not."""
-        success = solQ.success and solV.success
-        if success:
-            td_error = cost + self.discount_factor * solV.f - solQ.f
-            if self.hessian_type == "none":
-                dQ = self._sensitivity(solQ)
-                gradient = -td_error * dQ
-                self.store_experience(gradient)
-            else:
-                dQ, ddQ = self._sensitivity(solQ)
-                gradient = -td_error * dQ
-                hessian = np.multiply.outer(dQ, dQ) - td_error * ddQ
-                self.store_experience((gradient, hessian))
-        else:
-            td_error = np.nan
-
-        if self.td_errors is not None:
-            self.td_errors.append(td_error)
-        return success
