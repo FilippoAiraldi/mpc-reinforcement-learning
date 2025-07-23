@@ -111,6 +111,10 @@ class LstdQLearningAgent(
         this is usually much more expensive. This option must be in accordance with the
         choice of ``optimizer``, that is, if the optimizer does not use second order
         information, then this option must be set to ``none``.
+    fail_on_td_target : bool, optional
+        If ``True``, failures in computing :math:`V_\theta(s_+)` for the TD target will
+        raise an exception; otherwise, the TD target is still considered valid. By
+        default, ``True``.
     record_td_errors: bool, optional
         If ``True``, the TD errors are recorded in the field :attr:`td_errors`, which
         otherwise is ``None``. By default, does not record them.
@@ -150,6 +154,7 @@ class LstdQLearningAgent(
             Literal["last", "last-successful"], WarmStartStrategy
         ] = "last-successful",
         hessian_type: Literal["none", "approx", "full"] = "approx",
+        fail_on_td_target: bool = True,
         record_td_errors: bool = False,
         use_last_action_on_fail: bool = False,
         remove_bounds_on_initial_action: bool = False,
@@ -172,6 +177,7 @@ class LstdQLearningAgent(
         self.gradient_steps = gradient_steps
         self.hessian_type = hessian_type
         self._sensitivity = self._init_sensitivity(hessian_type)
+        self._fail_on_td_target = fail_on_td_target
         self.td_errors: Optional[list[float]] = [] if record_td_errors else None
 
     def update(self) -> Optional[str]:
@@ -182,39 +188,53 @@ class LstdQLearningAgent(
             self.gradient_steps if self.gradient_steps > 0 else len(self.experience)
         )
         no_hessian = self.hessian_type == "none"
+        fail_on_td_target = self._fail_on_td_target
         statuses = ""
+        ntheta = self._learnable_pars.size
 
         for step in range(gradient_steps):
-            mean_gradient = 0.0
-            mean_hessian = None if no_hessian else 0.0
+            mean_gradient = np.zeros(ntheta)
+            mean_hessian = None if no_hessian else np.zeros((ntheta, ntheta))
             count_success = 0
             for state, action, cost, new_state, terminated in self.experience.sample():
-                # compute Q(s,a) and V(s+)
+                # compute Q value estimate - if failure, terminate early
                 solQ = self.action_value(state, action)
-                _, solV = self.state_value(new_state, True)
-
-                if solQ.success and solV.success:
-                    # compute the TD error and sensitivities of Q(s,a)
-                    count_success += 1
-                    td_error = cost + (1 - terminated) * gamma * solV.f - solQ.f
-                    if no_hessian:
-                        dQ = sensitivity(solQ)
-                        gradient = -td_error * dQ
-                        mean_gradient += (gradient - mean_gradient) / count_success
-                    else:
-                        dQ, ddQ = sensitivity(solQ)
-                        gradient = -td_error * dQ
-                        hessian = np.multiply.outer(dQ, dQ) - td_error * ddQ
-                        mean_gradient += (gradient - mean_gradient) / count_success
-                        mean_hessian += (hessian - mean_hessian) / count_success
-                else:
-                    # report failure and store NaN TD error
-                    msg = f"Failure during update: {solQ.status} (Q); {solV.status} (V)"
-                    self.on_mpc_failure(-1, None, msg, raises)
+                if not solQ.success:
+                    self.on_mpc_failure(
+                        -1, None, "Failure during update (Q): " + solQ.status, raises
+                    )
                     td_error = float("nan")
+                    continue
+
+                # compute Q value target - if failure, terminate early only if user
+                # asked for it via `fail_on_td_target`
+                target = cost
+                if not terminated:
+                    _, solV = self.state_value(new_state, True)
+                    if not solV.success and fail_on_td_target:
+                        self.on_mpc_failure(
+                            -1, None, "Fail during update (V): " + solV.status, raises
+                        )
+                        td_error = float("nan")
+                        continue
+                    target += gamma * solV.f
+                td_error = target - solQ.f
 
                 if self.td_errors is not None:
                     self.td_errors.append(td_error)
+
+                # accumulate sensitivities (gradient and hessian, if needed) of Q(s,a)
+                count_success += 1
+                if no_hessian:
+                    dQ = sensitivity(solQ)
+                    gradient = -td_error * dQ
+                    mean_gradient += (gradient - mean_gradient) / count_success
+                else:
+                    dQ, ddQ = sensitivity(solQ)
+                    gradient = -td_error * dQ
+                    hessian = np.multiply.outer(dQ, dQ) - td_error * ddQ
+                    mean_gradient += (gradient - mean_gradient) / count_success
+                    mean_hessian += (hessian - mean_hessian) / count_success
 
             # compute update with average gradient and hessian
             if count_success > 0:
