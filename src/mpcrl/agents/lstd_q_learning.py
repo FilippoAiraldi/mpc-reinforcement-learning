@@ -194,13 +194,12 @@ class LstdQLearningAgent(
             mean_gradient = np.zeros(ntheta)
             mean_hessian = None if no_hessian else np.zeros((ntheta, ntheta))
             count_success = 0
-            for state, action, cost, new_state, terminated in self.experience.sample():
+            for i, (s, a, r, s_new, terminated) in enumerate(self.experience.sample()):
                 # compute Q value estimate - if failure, terminate early
-                solQ = self.action_value(state, action)
+                solQ = self.action_value(s, a)
                 if not solQ.success:
-                    self.on_mpc_failure(
-                        -1, None, "Failure during update (Q): " + solQ.status, raises
-                    )
+                    msg = f"Failure during update (trans. {i}; Q): {solQ.status}"
+                    self.on_mpc_failure(-1, None, msg, raises)
                     if td_errors is not None:
                         td_errors.append(float("nan"))
                     continue
@@ -208,17 +207,16 @@ class LstdQLearningAgent(
                 # compute Q value target and TD error - if failure, terminate early only
                 # if user asked for it via `fail_on_td_target`
                 if terminated:
-                    td_error = cost - solQ.f
+                    td_error = r - solQ.f
                 else:
-                    _, solV = self.state_value(new_state, True)
+                    _, solV = self.state_value(s_new, True)
                     if not solV.success and self._fail_on_td_target:
-                        self.on_mpc_failure(
-                            -1, None, "Fail during update (V): " + solV.status, raises
-                        )
+                        msg = f"Failure during update (trans. {i}; V): {solV.status}"
+                        self.on_mpc_failure(-1, None, msg, raises)
                         if td_errors is not None:
                             td_errors.append(float("nan"))
                         continue
-                    td_error = cost + self.discount_factor * solV.f - solQ.f
+                    td_error = r + self.discount_factor * solV.f - solQ.f
                 if td_errors is not None:
                     td_errors.append(td_error)
 
@@ -226,23 +224,20 @@ class LstdQLearningAgent(
                 count_success += 1
                 if no_hessian:
                     dQ = self._sensitivity(solQ)
-                    gradient = -td_error * dQ
-                    mean_gradient += (gradient - mean_gradient) / count_success
                 else:
                     dQ, ddQ = self._sensitivity(solQ)
-                    gradient = -td_error * dQ
                     hessian = np.multiply.outer(dQ, dQ) - td_error * ddQ
-                    mean_gradient += (gradient - mean_gradient) / count_success
                     mean_hessian += (hessian - mean_hessian) / count_success
+                gradient = -td_error * dQ
+                mean_gradient += (gradient - mean_gradient) / count_success
 
-            # compute update with average gradient and hessian
+            # compute update with average gradient and hessian, if any
             if count_success > 0:
                 status = self.optimizer.update(mean_gradient, mean_hessian)
                 if status is not None:
                     statuses += f"{step}: {status}\n"
             else:
-                status = "No gradients computed, skipping update"
-                statuses += f"{step}: {status}\n"
+                statuses += f"{step}: no gradients computed, skipping update\n"
 
         return statuses if statuses else None
 
