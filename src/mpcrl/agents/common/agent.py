@@ -316,7 +316,7 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
                 states = (state,)
             else:
                 cumsizes = np.cumsum([s.shape[0] for s in mpcstates.values()][:-1])
-                states = np.split(np.asarray(state), cumsizes)
+                states = np.array_split(np.asarray(state), cumsizes)
             x0_dict = dict(zip(mpcstates.keys(), states))
 
         # convert action dict to vector if not None

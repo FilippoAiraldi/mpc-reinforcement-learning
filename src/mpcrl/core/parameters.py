@@ -233,7 +233,7 @@ class LearnableParametersDict(
                 self[parname]._update_value(new_value, **is_close_kwargs)
         else:
             cumsizes = np.cumsum([p.size for p in self.values()])[:-1]
-            values_ = np.split(new_values, cumsizes)
+            values_ = np.array_split(new_values, cumsizes)
             for par, val in zip(self.values(), values_):
                 par._update_value(val.reshape(par.shape, order="F"), **is_close_kwargs)
 
