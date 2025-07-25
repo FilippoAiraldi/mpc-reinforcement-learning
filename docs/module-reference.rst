@@ -231,7 +231,7 @@ Other learning agents
 
 We also provide other learning agents that do not use gradient-based approaches to
 update their parameters, but rather rely on other global gradient-free optimization
-techniques. See also class:`optim.GradientFreeOptimizer`.
+techniques. See also :class:`optim.GradientFreeOptimizer`.
 
 .. autosummary::
    :toctree: generated
