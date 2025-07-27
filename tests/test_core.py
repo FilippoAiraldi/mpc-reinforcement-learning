@@ -535,7 +535,7 @@ class TestParameters(unittest.TestCase):
         theta_sym = cstype.sym("theta", shape)
         f = theta_sym[0]
         df = cs.evalf(cs.jacobian(f, theta_sym)[0])
-        p1 = LearnableParameter[float]("theta", shape, 1, -1, 2, sym={"v": theta_sym})
+        p1 = LearnableParameter[float]("theta", shape, 1, -1, 2, sym=theta_sym)
         pars = LearnableParametersDict((p1,))
         if copy:
             new_pars = pars.copy(deep=deep)
@@ -552,15 +552,13 @@ class TestParameters(unittest.TestCase):
         np.testing.assert_array_equal(p1.value, p2.value)
         np.testing.assert_array_equal(p1.lb, p2.lb)
         np.testing.assert_array_equal(p1.ub, p2.ub)
-        np.testing.assert_equal(df, cs.evalf(cs.jacobian(f, p1.sym["v"])[0]))
+        np.testing.assert_equal(df, cs.evalf(cs.jacobian(f, p1.sym)[0]))
         if copy:
             if deep:
                 self.assertIsNot(p1.sym, p2.sym)
-                self.assertIsNot(p1.sym["v"], p2.sym["v"])
             else:
                 self.assertIs(p1.sym, p2.sym)
-                self.assertIs(p1.sym["v"], p2.sym["v"])
-            np.testing.assert_equal(df, cs.evalf(cs.jacobian(f, p2.sym["v"])[0]))
+            np.testing.assert_equal(df, cs.evalf(cs.jacobian(f, p2.sym)[0]))
         else:
             self.assertFalse(hasattr(p2, "sym"))
 
