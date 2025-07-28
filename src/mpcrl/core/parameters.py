@@ -123,7 +123,9 @@ class LearnableParameter(SupportsDeepcopyAndPickle, Generic[SymType]):
         return f"<{self.__class__.__name__}(name={self.name},shape={self.shape})>"
 
 
-class LearnableParametersDict(dict[str, LearnableParameter[SymType]]):
+class LearnableParametersDict(
+    dict[str, LearnableParameter[SymType]], SupportsDeepcopyAndPickle
+):
     """:class:`dict`-based collection of :class:`LearnableParameter` instances that
     simplifies the process of managing and updating these. The dict contains pairs of
     parameter's name and parameter's instance.
@@ -150,9 +152,10 @@ class LearnableParametersDict(dict[str, LearnableParameter[SymType]]):
         self, pars: Optional[Iterable[LearnableParameter[SymType]]] = None
     ) -> None:
         if pars is None:
-            super().__init__()
+            dict.__init__(self)
         else:
-            super().__init__(map(lambda p: (p.name, p), pars))
+            dict.__init__(self, map(lambda p: (p.name, p), pars))
+        SupportsDeepcopyAndPickle.__init__(self)
 
     @cached_property
     def size(self) -> int:
