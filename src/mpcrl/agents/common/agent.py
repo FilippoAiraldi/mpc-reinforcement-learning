@@ -348,10 +348,12 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
             vals0 = self._last_solution.vals
 
         # use the warmstart strategy to generate multiple initial points for the NLP if
-        # the NLP supports multi and `vals0` is not already an iterable of dict
-        if mpc.is_multi and (vals0 is None or isinstance(vals0, dict)):
+        # the NLP supports multi, warmstarting is enabled, and `vals0` is not already an
+        # iterable of dict
+        ws_points = self._warmstart.n_points
+        if mpc.is_multi and ws_points and (vals0 is None or isinstance(vals0, dict)):
             more_vals0s = self._warmstart.generate(vals0)
-            if mpc.nlp.starts > self._warmstart.n_points:
+            if mpc.nlp.starts > ws_points:
                 # the difference between these two has been checked to be at most one,
                 # meaning we can include `vals0` itself
                 more_vals0s = chain((vals0,), more_vals0s)
