@@ -44,7 +44,7 @@ jobs:
       - name: Test with unittest
         run: |
           coverage run -m unittest discover ./tests
-          coverage lcov -o coverage.lcov
+          coverage lcov -i -o coverage.lcov
         env:
           NUMBA_DISABLE_JIT: ${{ matrix.DISABLE_JIT }}
       - name: Coverage with Qlty (main, 3.10, no-jit only)
