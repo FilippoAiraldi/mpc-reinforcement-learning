@@ -185,6 +185,7 @@ class LearningAgent(
         self.on_training_end(env, returns)
         return returns
 
+    @abstractmethod
     def train_one_episode(
         self,
         env: Env[ObsType, ActType],
@@ -228,9 +229,6 @@ class LearningAgent(
         ValueError
             Raises if the agent does not support `behaviour_policy`.
         """
-        raise NotImplementedError(
-            f"{self.__class__.__name__} does not implement `train_one_episode`."
-        )
 
     @abstractmethod
     def update(self) -> Optional[str]:
@@ -241,7 +239,7 @@ class LearningAgent(
         -------
         errormsg : str or None
             In case the update fails, an error message is returned to be raised as error
-            or warning; otherwise, `None` is returned.
+            or warning; otherwise, ``None`` is returned.
         """
 
     def _reorder_learnable_parameters(

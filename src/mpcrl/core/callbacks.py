@@ -1,6 +1,6 @@
 """As it will be clear from the inheritance diagram in :ref:`module_reference_agents`,
 all agents are derived from mixin classes that define callbacks and manage hooks
-attached to these callbacks. These system allows not only the user to customize the
+attached to these callbacks. This system allows not only the user to customize the
 behaviour of a derived agent every time a callback is triggered, but also to easily
 implement and manage all those events and quantities that need to be scheduled during
 training and evaluation. Some examples of such events are the decay of the learning rate
