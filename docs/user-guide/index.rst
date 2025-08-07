@@ -9,30 +9,32 @@ its basic functionalities, as well as information and explanations about the dif
 components of the library and how to use these to implement and deploy MPC-based RL
 agents.
 
-.. toctree::
-   :caption: Gettting started
+---------------
+Getting started
+---------------
 
+.. toctree::
    getting-started/installation
    getting-started/simple-task
 
-.. toctree::
-   :caption: Theory
+------
+Theory
+------
 
+.. toctree::
    theory/rl
    theory/mpc
    theory/mpcrl
    theory/globopt
 
+------
+Agents
+------
+
 .. toctree::
-   :caption: Agents
-
-   agents/hierarchy.rst
-   agents/agent.rst
-   agents/learning-agents.rst
-   agents/grad-based-rl-agents.rst
-   agents/grad-free-agents.rst
-
-
+   agents/inheritance
+   agents/base-agents
+   agents/concrete-agents
 
 
 .. _user_guide_callbacks:
