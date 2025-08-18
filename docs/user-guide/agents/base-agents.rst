@@ -4,8 +4,8 @@
 Base agent classes
 ------------------
 
-In this section we discuss the various base agent clases that are available in :mod:`mpcrl`
-in more details.
+In this section we discuss the various base agent clases that are available in
+:mod:`mpcrl` in more details.
 
 
 
@@ -40,9 +40,9 @@ further customization of its behaviour
   action in the action-value function approximation.
 
 Overall, this class lays the foundation for the rest of the learning agents, but is not
-the focus of the library. Nevertheless, it comes in handy for benchmarking and testing the
-MPC controller in the environment prior to the application of any learning strategy, or
-to generate expert off-policy rollout sequences.
+the focus of the library. Nevertheless, it comes in handy for benchmarking and testing
+the MPC controller in the environment prior to the application of any learning strategy,
+or to generate expert off-policy rollout sequences.
 
 
 
@@ -119,7 +119,15 @@ subclasses:
 :class:`RlLearningAgent` (gradient-based)
 -----------------------------------------
 
-TODO
+Building from :class:`LearningAgent`, this is the base abstract class for all
+gradient-based RL algorithms. Why gradient-based? Because at instantiation, it accepts
+an instance of :class:`optim.GradientBasedOptimizer`, which, as the name suggests,
+implements an update strategy that leverages (first and possibly second order)
+gradient information of the specific learning loss to guide the updates to the MPC
+parametrization. See :ref:`user_guide_optim` for more discussion on available
+optimizers. How these Jacobian and Hessian matrices are computed depends on the RL
+algorithm at hand, if possible at all. Lastly, the class constructor also accepts a
+``discount_factor``.
 
 
 
