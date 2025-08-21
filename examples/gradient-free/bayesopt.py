@@ -304,12 +304,11 @@ def get_cstr_mpc(
     # variables (state, action)
     y_space, u_space = env.observation_space, env.action_space
     ny, nu = y_space.shape[0], u_space.shape[0]
-    y, _ = mpc.state(
+    y = mpc.state(
         "y",
         ny,
         lb=y_space.low[:, None],
         ub=[[1e2], [1e3]],  # just some high numbers to bound the state domain
-        bound_initial=False,
     )
     u, _ = mpc.action("u", nu, lb=u_space.low[:, None], ub=u_space.high[:, None])
 

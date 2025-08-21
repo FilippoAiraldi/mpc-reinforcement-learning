@@ -307,28 +307,16 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
         Solution
             The solution of the MPC.
         """
-        # convert state keys into initial state keys (i.e., with "_0")
-        if isinstance(state, dict):
-            x0_dict = {f"{k}_0": v for k, v in state.items()}
-        else:
-            mpcstates = mpc.initial_states
-            if len(mpcstates) == 1:
-                states = (state,)
-            else:
-                cumsizes = np.cumsum([s.shape[0] for s in mpcstates.values()][:-1])
-                states = np.array_split(np.asarray(state), cumsizes)
-            x0_dict = dict(zip(mpcstates.keys(), states))
-
         # convert action dict to vector if not None
         if action is None:
             u0_vec = None
         elif isinstance(action, dict):
-            u0_vec = cs.vertcat(*(action[k] for k in mpc.actions.keys()))
+            u0_vec = cs.vcat([action[k] for k in mpc.actions.keys()])
         else:
             u0_vec = action
 
-        # merge (initial) state, action and perturbation in unique dict
-        additional_pars = x0_dict
+        # merge action and perturbation in unique dict
+        additional_pars = {}
         if u0_vec is not None:
             additional_pars[self.init_action_parameter] = u0_vec
         if self.cost_perturbation_parameter in mpc.parameters:
@@ -338,12 +326,13 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
 
         # create pars and vals0
         pars = self._get_parameters()
-        if pars is None:
-            pars = additional_pars
-        elif isinstance(pars, dict):
-            pars.update(additional_pars)
-        else:  # iterable of dict
-            pars = _update_dicts(pars, additional_pars)
+        if additional_pars:
+            if pars is None:
+                pars = additional_pars
+            elif isinstance(pars, dict):
+                pars.update(additional_pars)
+            else:  # iterable of dict
+                pars = _update_dicts(pars, additional_pars)
         if vals0 is None and self._last_solution is not None:
             vals0 = self._last_solution.vals
 
@@ -360,7 +349,7 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
             vals0 = more_vals0s
 
         # solve and store solution
-        sol = mpc(pars, vals0)
+        sol = mpc.solve_ocp(state, pars, vals0)
         if store_solution and (self._warmstart.store_always or sol.success):
             self._last_solution = sol
         return sol

@@ -197,7 +197,7 @@ Qtilde = mpc.parameter("Qtilde", (nx, nx))
 Rtilde = mpc.parameter("Rtilde", (nu, nu))
 
 # create the variables of the controller
-x, _ = mpc.state("x", nx)
+x = mpc.state("x", nx)
 u, _ = mpc.action("u", nu, lb=-1.0, ub=1.0)
 
 # set the dynamics
