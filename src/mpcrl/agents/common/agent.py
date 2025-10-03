@@ -558,13 +558,13 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
 
     def _setup_V_and_Q(
         self,
-        mpc: Mpc[SymType] | tuple[Mpc[SymType], Mpc[SymType]],
+        mpc: tuple[Mpc[SymType]] | tuple[Mpc[SymType], Mpc[SymType]],
         remove_bounds_on_initial_action: bool,
     ) -> tuple[Mpc[SymType], Mpc[SymType]]:
         """Internal utility to setup the function approximators for the value function
         ``V(s)`` and the quality function ``Q(s,a)``."""
         # create V and Q function approximations
-        V, Q = mpc if isinstance(mpc, tuple) else (mpc, mpc.copy())
+        V, Q = mpc if len(mpc) == 2 else (mpc[0], mpc[0].copy())
         V.unwrapped.name += "_V"
         Q.unwrapped.name += "_Q"
 
