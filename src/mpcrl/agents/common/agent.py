@@ -173,7 +173,7 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
         self._last_action_on_fail = use_last_action_on_fail
         self._last_solution: Optional[Solution[SymType]] = None
         self._last_action: Optional[cs.DM] = None
-        self._V, self._Q = self._setup_V_and_Q(mpcs, remove_bounds_on_initial_action)
+        self._V, self._Q = self._setup_V_and_Q(mpc, remove_bounds_on_initial_action)
         self._post_setup_V_and_Q()
 
     @property
@@ -558,13 +558,13 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
 
     def _setup_V_and_Q(
         self,
-        mpc: tuple[Mpc[SymType]] | tuple[Mpc[SymType], Mpc[SymType]],
+        mpc: Mpc[SymType] | tuple[Mpc[SymType], Mpc[SymType]],
         remove_bounds_on_initial_action: bool,
     ) -> tuple[Mpc[SymType], Mpc[SymType]]:
         """Internal utility to setup the function approximators for the value function
         ``V(s)`` and the quality function ``Q(s,a)``."""
         # create V and Q function approximations
-        V, Q = mpc if len(mpc) == 2 else (mpc[0], mpc[0].copy())
+        V, Q = mpc if isinstance(mpc, tuple) else (mpc, mpc.copy())
         V.unwrapped.name += "_V"
         Q.unwrapped.name += "_Q"
 
