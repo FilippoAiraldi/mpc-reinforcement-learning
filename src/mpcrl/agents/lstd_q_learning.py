@@ -164,11 +164,12 @@ class LstdQLearningAgent(
         self.td_errors: Optional[list[float]] = [] if record_td_errors else None
 
     def update(self) -> Optional[str]:
+        if len(self.experience) <= 0:
+            return "Experience buffer empty."
         sample = self.experience.sample()
         if self.hessian_type == "none":
             gradient = np.mean(list(sample), 0)
             return self.optimizer.update(gradient)
-
         gradients, hessians = zip(*sample)
         gradient = np.mean(gradients, 0)
         hessian = np.mean(hessians, 0)

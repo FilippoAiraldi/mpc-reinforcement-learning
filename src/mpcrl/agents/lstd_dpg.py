@@ -225,6 +225,8 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         )
 
     def update(self) -> Optional[str]:
+        if len(self.experience) <= 0:
+            return "Experience buffer empty."
         sample = self.experience.sample()
         compute_fisher_mat = self.hessian_type == "natural"
         dJdtheta, fisher_hessian = _estimate_gradient_update(
