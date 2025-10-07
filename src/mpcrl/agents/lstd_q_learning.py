@@ -167,8 +167,11 @@ class LstdQLearningAgent(
         if self.hessian_type == "none":
             gradient = np.mean(list(sample), 0)
             return self.optimizer.update(gradient)
-
-        gradients, hessians = zip(*sample)
+        try:
+            gradients, hessians = zip(*sample)
+        except:
+            n_pars = self.learnable_parameters.size
+            gradients, hessians = (np.zeros((n_pars,)),), (np.zeros((n_pars, n_pars)),)
         gradient = np.mean(gradients, 0)
         hessian = np.mean(hessians, 0)
         return self.optimizer.update(gradient, hessian)
