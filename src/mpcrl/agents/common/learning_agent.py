@@ -342,10 +342,7 @@ class LearningAgent(
         """Internal utility to check if an update is due and perform it."""
         if not self._is_training or not self._update_strategy.can_update():
             return
-        if len(self.experience) <= 0:
-            update_msg = "Experience buffer empty."
-        else:
-            update_msg = self.update()
+        update_msg = self.update()
         if update_msg is not None:
             self.on_update_failure(episode, timestep, update_msg, self._raises)
         self.on_update()
