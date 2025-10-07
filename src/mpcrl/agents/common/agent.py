@@ -102,9 +102,10 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
            :attr:`init_action_constraint`)
          - a multistart ``mpc`` is given, but the warmstart strategy ``warmstart`` asks
            for an incompatible number of starting points to be generated
-         - a warmstart strategy ``warmstart`` is given, but the ``mpc`` does not have an
-           underlying multistart NLP problem, so it cannot handle multiple starting
-           points (see :attr:`csnlp.Nlp.is_multi` and
+         - a warmstart strategy ``warmstart`` or a collection of fixed parameters is
+           given, but the ``mpc`` does not have an underlying multistart NLP problem, so
+           it cannot handle multiple starting points or parameters (see
+           :attr:`csnlp.Nlp.is_multi` and
            :attr:`csnlp.multistart.MultistartNlp.is_multi`).
     """
 
@@ -145,18 +146,31 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
             warmstart = WarmStartStrategy(warmstart)
         ws_points = warmstart.n_points
         mpcs = (mpc,) if not isinstance(mpc, tuple) else mpc
-        for m in mpcs:
-            if m.is_multi and ws_points != 0 and m.nlp.starts - ws_points not in (0, 1):
+        for mpc_ in mpcs:
+            if (
+                mpc_.is_multi
+                and ws_points != 0
+                and mpc_.nlp.starts - ws_points not in (0, 1)
+            ):
                 raise ValueError(
-                    "A multistart MPC was given with {mpc.nlp.starts} multistarts, but the "
-                    f"given warmstart strategy asks for {ws_points} starting points. "
-                    "Expected either 0 warmstart points (i.e., it is disabled), or the same"
-                    " number as MPC's multistarts, or at most one less."
+                    f"A multistart MPC was given with {mpc_.nlp.starts} multistarts, "
+                    f"but the given warmstart strategy asks for {ws_points} starting "
+                    "points. Expected either 0 warmstart points (i.e., it is disabled),"
+                    " or the same number as MPC's multistarts, or at most one less."
                 )
-            elif not m.is_multi and ws_points > 0:
+            elif not mpc_.is_multi and ws_points > 0:
                 raise ValueError(
-                    "Got a warmstart strategy with more than 0 starting points, but the "
-                    "given does not have an underlying multistart NLP problem."
+                    "Got a warmstart strategy with more than 0 starting points, but "
+                    "the given MPC does not have an underlying multistart NLP problem."
+                )
+            elif (
+                not mpc_.is_multi
+                and fixed_parameters is not None
+                and not isinstance(fixed_parameters, dict)
+            ):
+                raise ValueError(
+                    "Got a collection of fixed parameters, but the given MPC does not "
+                    "have an underlying multistart NLP problem."
                 )
         Named.__init__(self, name)
         SupportsDeepcopyAndPickle.__init__(self)
@@ -309,7 +323,7 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
                 states = (state,)
             else:
                 cumsizes = np.cumsum([s.shape[0] for s in mpcstates.values()][:-1])
-                states = np.split(np.asarray(state), cumsizes)
+                states = np.array_split(np.asarray(state), cumsizes)
             x0_dict = dict(zip(mpcstates.keys(), states))
 
         # convert action dict to vector if not None
@@ -341,10 +355,12 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
             vals0 = self._last_solution.vals
 
         # use the warmstart strategy to generate multiple initial points for the NLP if
-        # the NLP supports multi and `vals0` is not already an iterable of dict
-        if mpc.is_multi and (vals0 is None or isinstance(vals0, dict)):
+        # the NLP supports multi, warmstarting is enabled, and `vals0` is not already an
+        # iterable of dict
+        ws_points = self._warmstart.n_points
+        if mpc.is_multi and ws_points and (vals0 is None or isinstance(vals0, dict)):
             more_vals0s = self._warmstart.generate(vals0)
-            if mpc.nlp.starts > self._warmstart.n_points:
+            if mpc.nlp.starts > ws_points:
                 # the difference between these two has been checked to be at most one,
                 # meaning we can include `vals0` itself
                 more_vals0s = chain((vals0,), more_vals0s)

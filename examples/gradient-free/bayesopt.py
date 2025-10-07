@@ -48,7 +48,7 @@ import gymnasium as gym
 import numpy as np
 import numpy.typing as npt
 import torch
-from botorch.acquisition import ExpectedImprovement
+from botorch.acquisition import LogExpectedImprovement
 from botorch.fit import fit_gpytorch_mll
 from botorch.models import SingleTaskGP
 from botorch.models.transforms import Normalize
@@ -426,7 +426,7 @@ class BoTorchOptimizer(GradientFreeOptimizer):
         fit_gpytorch_mll(ExactMarginalLogLikelihood(gp.likelihood, gp))
 
         # maximize the acquisition function to get the next guess
-        af = ExpectedImprovement(gp, train_targets.amin(), maximize=False)
+        af = LogExpectedImprovement(gp, train_targets.amin(), maximize=False)
         seed = self._seed + self._n_ask
         acqfun_optimizer = (
             optimize_acqf(af, bounds, 1, 16, 64, {"seed": seed})[0].numpy().reshape(-1)

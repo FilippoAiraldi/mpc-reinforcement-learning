@@ -14,7 +14,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
         DISABLE_JIT: [0, 1]
     steps:
       - name: Checkout
@@ -44,7 +44,7 @@ jobs:
       - name: Test with unittest
         run: |
           coverage run -m unittest discover ./tests
-          coverage lcov -o coverage.lcov
+          coverage lcov -i -o coverage.lcov
         env:
           NUMBA_DISABLE_JIT: ${{ matrix.DISABLE_JIT }}
       - name: Coverage with Qlty (main, 3.10, no-jit only)

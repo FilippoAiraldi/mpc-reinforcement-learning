@@ -148,11 +148,13 @@ class LearnableParametersDict(
     underlying dict is modified.
     """
 
-    def __init__(self, pars: Optional[Iterable[LearnableParameter[SymType]]] = None):
+    def __init__(
+        self, pars: Optional[Iterable[LearnableParameter[SymType]]] = None
+    ) -> None:
         if pars is None:
             dict.__init__(self)
         else:
-            dict.__init__(self, map(lambda p: (p.name, p), chain(pars)))
+            dict.__init__(self, map(lambda p: (p.name, p), pars))
         SupportsDeepcopyAndPickle.__init__(self)
 
     @cached_property
@@ -233,7 +235,7 @@ class LearnableParametersDict(
                 self[parname]._update_value(new_value, **is_close_kwargs)
         else:
             cumsizes = np.cumsum([p.size for p in self.values()])[:-1]
-            values_ = np.split(new_values, cumsizes)
+            values_ = np.array_split(new_values, cumsizes)
             for par, val in zip(self.values(), values_):
                 par._update_value(val.reshape(par.shape, order="F"), **is_close_kwargs)
 
@@ -288,7 +290,7 @@ class LearnableParametersDict(
         return (
             SupportsDeepcopyAndPickle.copy(self, invalidate_caches)
             if deep
-            else LearnableParametersDict[SymType](self.values())
+            else self.__class__(self.values())
         )
 
     def stringify(

@@ -56,8 +56,8 @@ def summarize_array(
 def cholesky_added_multiple_identity(
     A: npt.NDArray[np.floating], beta: float = 1e-3, maxiter: int = 1000
 ) -> npt.NDArray[np.floating]:
-    r"""Lower Cholesky factorization with added multiple of the identity matrix to ensure
-    positive-definitiveness from Algorithm 3.3 in :cite:`nocedal_numerical_2006`.
+    r"""Lower Cholesky factorization with added multiple of the identity matrix to
+    ensure positive-definitiveness from Algorithm 3.3 in :cite:`nocedal_numerical_2006`.
 
     The basic idea is to add a multiple of the identity matrix to the original matrix
     unitl the factorization is successful, i.e., find :math:`\tau \ge 0` such that

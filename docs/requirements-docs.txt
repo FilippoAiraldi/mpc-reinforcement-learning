@@ -6,7 +6,6 @@ sphinxcontrib-bibtex==2.6.2
 pydata_sphinx_theme==0.15.4
 memory_profiler
 matplotlib
-more_itertools
---find-links https://download.pytorch.org/whl/cpu
-torch
 botorch
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch

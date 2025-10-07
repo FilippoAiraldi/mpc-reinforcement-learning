@@ -25,7 +25,7 @@ from .common.rl_learning_agent import LrType, RlLearningAgent
 
 # the experience buffer contains the gradient and, possibly, the hessian of the Bellman
 # residuals w.r.t. the learnable parameters theta
-ExpType: TypeAlias = Union[
+ExpType: TypeAlias = tuple[
     npt.NDArray[np.floating], tuple[npt.NDArray[np.floating], npt.NDArray[np.floating]]
 ]
 
@@ -45,8 +45,8 @@ class LstdQLearningAgent(
     Parameters
     ----------
     mpc : :class:`csnlp.wrappers.Mpc` or tuple of :class:`csnlp.wrappers.Mpc`
-        The MPC controller used as policy provider by this agent. If a tuple, the
-        first entry is used to create the approximation of the state function
+        The MPC controller used as policy provider by this agent. If a tuple, the first
+        entry is used to create the approximation of the state function
         :math:`V_\theta(s)` and the second for that of  :math:`Q_\theta(s,a)`.
         Otherwise, the instance is modified in place to create both approximations,
         so it is recommended not to modify it further after initialization of the

@@ -15,6 +15,7 @@ documentation of that module for more basic information. See also
 :ref:`user_guide_warmstarting`."""
 
 from collections.abc import Generator
+from functools import cached_property
 from itertools import chain
 from typing import Literal, Optional
 
@@ -79,7 +80,7 @@ class WarmStartStrategy:
         self.update_biases_for_random_points = update_biases_for_random_points
         self.reset(seed)
 
-    @property
+    @cached_property
     def n_points(self) -> int:
         """Returns the number of both random and structured starting points."""
         return (0 if self.random_points is None else self.random_points.multistarts) + (

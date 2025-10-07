@@ -301,7 +301,7 @@ class LearningAgent(
         -------
         errormsg : str or None
             In case the update fails, an error message is returned to be raised as error
-            or warning; otherwise, `None` is returned.
+            or warning; otherwise, ``None`` is returned.
         """
 
     def _reorder_learnable_parameters(

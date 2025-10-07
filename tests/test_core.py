@@ -529,31 +529,36 @@ class TestParameters(unittest.TestCase):
         for p in [p1, p2, p3, p4]:
             self.assertIn(p.name, S)
 
-    @parameterized.expand(product([cs.SX, cs.MX], [False, True]))
-    def test_deepcopy(self, cstype: Union[cs.SX, cs.MX], copy: bool):
+    @parameterized.expand(product([cs.SX, cs.MX], [False, True], [False, True]))
+    def test_deepcopy(self, cstype: Union[cs.SX, cs.MX], copy: bool, deep: bool):
         shape = (5, 2)
         theta_sym = cstype.sym("theta", shape)
         f = theta_sym[0]
         df = cs.evalf(cs.jacobian(f, theta_sym)[0])
-        p1 = LearnableParameter[float]("theta", shape, 1, -1, 2, sym={"v": theta_sym})
+        p1 = LearnableParameter[float]("theta", shape, 1, -1, 2, sym=theta_sym)
         pars = LearnableParametersDict((p1,))
         if copy:
-            new_pars = pars.copy(deep=True)
+            new_pars = pars.copy(deep=deep)
         else:
             new_pars: LearnableParametersDict = pickle.loads(pickle.dumps(pars))
         p2: LearnableParameter = new_pars["theta"]
-        self.assertIsNot(p1, p2)
+        if copy and not deep:
+            self.assertIs(p1, p2)
+        else:
+            self.assertIsNot(p1, p2)
         self.assertEqual(p1.name, p2.name)
         self.assertEqual(p1.shape, p2.shape)
         self.assertEqual(p1.size, p2.size)
         np.testing.assert_array_equal(p1.value, p2.value)
         np.testing.assert_array_equal(p1.lb, p2.lb)
         np.testing.assert_array_equal(p1.ub, p2.ub)
-        np.testing.assert_equal(df, cs.evalf(cs.jacobian(f, p1.sym["v"])[0]))
+        np.testing.assert_equal(df, cs.evalf(cs.jacobian(f, p1.sym)[0]))
         if copy:
-            self.assertIsNot(p1.sym, p2.sym)
-            self.assertIsNot(p1.sym["v"], p2.sym["v"])
-            np.testing.assert_equal(df, cs.evalf(cs.jacobian(f, p2.sym["v"])[0]))
+            if deep:
+                self.assertIsNot(p1.sym, p2.sym)
+            else:
+                self.assertIs(p1.sym, p2.sym)
+            np.testing.assert_equal(df, cs.evalf(cs.jacobian(f, p2.sym)[0]))
         else:
             self.assertFalse(hasattr(p2, "sym"))
 

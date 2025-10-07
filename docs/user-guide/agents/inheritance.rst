@@ -28,7 +28,7 @@ Callbacks
 
 While some of the classes in the diagram are outside the scope of this documentation,
 let us notice that the :class:`Agent` and the :class:`LearningAgent`
-classes inherit from the mixins :class:`core.callbacks.CallbackMixin` and
+classes inherit from the mixins :class:`core.callbacks.AgentCallbackMixin` and
 :class:`core.callbacks.LearningAgentCallbackMixin`, respectively. These base
 classes are fundamental to the implementation of the agents as they provide the backbone
 for other functionalities, such as updates and schedulers, to be hooked into each agent
