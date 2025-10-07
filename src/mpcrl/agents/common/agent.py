@@ -145,19 +145,15 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
             warmstart = WarmStartStrategy(warmstart)
         ws_points = warmstart.n_points
         mpcs = (mpc,) if not isinstance(mpc, tuple) else mpc
-        for mpc in mpcs:
-            if (
-                mpc.is_multi
-                and ws_points != 0
-                and mpc.nlp.starts - ws_points not in (0, 1)
-            ):
+        for m in mpcs:
+            if m.is_multi and ws_points != 0 and m.nlp.starts - ws_points not in (0, 1):
                 raise ValueError(
                     "A multistart MPC was given with {mpc.nlp.starts} multistarts, but the "
                     f"given warmstart strategy asks for {ws_points} starting points. "
                     "Expected either 0 warmstart points (i.e., it is disabled), or the same"
                     " number as MPC's multistarts, or at most one less."
                 )
-            elif not mpc.is_multi and ws_points > 0:
+            elif not m.is_multi and ws_points > 0:
                 raise ValueError(
                     "Got a warmstart strategy with more than 0 starting points, but the "
                     "given does not have an underlying multistart NLP problem."
