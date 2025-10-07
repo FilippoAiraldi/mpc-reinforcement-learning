@@ -48,13 +48,14 @@ class LstdQLearningAgent(
 
     Parameters
     ----------
-    mpc : :class:`csnlp.wrappers.Mpc`
-        The MPC controller used as policy provider by this agent. The instance is
-        modified in place to create the approximations of the state function
-        :math:`V_\theta(s)` and action value function :math:`Q_\theta(s,a)`, so it is
-        recommended not to modify it further after initialization of the agent.
-        Moreover, some parameter and constraint names will need to be created, so an
-        error is thrown if these names are already in use in the mpc.
+    mpc : :class:`csnlp.wrappers.Mpc` or tuple of :class:`csnlp.wrappers.Mpc`
+        The MPC controller used as policy provider by this agent. If a tuple, the first
+        entry is used to create the approximation of the state function
+        :math:`V_\theta(s)` and the second for that of  :math:`Q_\theta(s,a)`.
+        Otherwise, the instance is modified in place to create both approximations,
+        so it is recommended not to modify it further after initialization of the
+        agent. Moreover, some parameter and constraint names will need to be created,
+        so an error is thrown if these names are already in use in the mpc.
     update_strategy : UpdateStrategy or int
         The strategy used to decide which frequency to update the mpc parameters with.
         If an ``int`` is passed, then the default strategy that updates every ``n``
@@ -139,7 +140,7 @@ class LstdQLearningAgent(
 
     def __init__(
         self,
-        mpc: Mpc[SymType],
+        mpc: Mpc[SymType] | tuple[Mpc[SymType], Mpc[SymType]],
         update_strategy: Union[int, UpdateStrategy],
         discount_factor: float,
         optimizer: GradientBasedOptimizer,

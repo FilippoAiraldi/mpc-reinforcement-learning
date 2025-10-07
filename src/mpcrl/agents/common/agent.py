@@ -48,13 +48,14 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
 
     Parameters
     ----------
-    mpc : :class:`csnlp.wrappers.Mpc`
-        The MPC controller used as policy provider by this agent. The instance is
-        modified in place to create the approximations of the state function
-        :math:`V_\theta(s)` and action value function :math:`Q_\theta(s,a)`, so it is
-        recommended not to modify it further after initialization of the agent.
-        Moreover, some parameter and constraint names will need to be created, so an
-        error is thrown if these names are already in use in the mpc.
+    mpc : :class:`csnlp.wrappers.Mpc` or tuple of :class:`csnlp.wrappers.Mpc`
+        The MPC controller used as policy provider by this agent. If a tuple, the
+        first entry is used to create the approximation of the state function
+        :math:`V_\theta(s)` and the second for that of  :math:`Q_\theta(s,a)`.
+        Otherwise, the instance is modified in place to create both approximations,
+        so it is recommended not to modify it further after initialization of the
+        agent. Moreover, some parameter and constraint names will need to be created,
+        so an error is thrown if these names are already in use in the mpc.
     fixed_parameters : dict of (str, array_like) or collection of, optional
         A dict (or collection of dict, in case of the ``mpc`` wrapping an underlying
         :class:`csnlp.multistart.MultistartNlp` instance) whose keys are the names of
@@ -129,7 +130,7 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
 
     def __init__(
         self,
-        mpc: Mpc[SymType],
+        mpc: Mpc[SymType] | tuple[Mpc[SymType], Mpc[SymType]],
         fixed_parameters: Union[
             None, dict[str, npt.ArrayLike], Collection[dict[str, npt.ArrayLike]]
         ] = None,
@@ -144,27 +145,33 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
         if isinstance(warmstart, str):
             warmstart = WarmStartStrategy(warmstart)
         ws_points = warmstart.n_points
-        if mpc.is_multi and ws_points != 0 and mpc.nlp.starts - ws_points not in (0, 1):
-            raise ValueError(
-                f"A multistart MPC was given with {mpc.nlp.starts} multistarts, but "
-                f"the given warmstart strategy asks for {ws_points} starting points. "
-                "Expected either 0 warmstart points (i.e., it is disabled), or the same"
-                " number as MPC's multistarts, or at most one less."
-            )
-        elif not mpc.is_multi and ws_points > 0:
-            raise ValueError(
-                "Got a warmstart strategy with more than 0 starting points, but the "
-                "given MPC does not have an underlying multistart NLP problem."
-            )
-        elif (
-            not mpc.is_multi
-            and fixed_parameters is not None
-            and not isinstance(fixed_parameters, dict)
-        ):
-            raise ValueError(
-                "Got a collection of fixed parameters, but the given MPC does not have "
-                "an underlying multistart NLP problem."
-            )
+        mpcs = (mpc,) if not isinstance(mpc, tuple) else mpc
+        for mpc_ in mpcs:
+            if (
+                mpc_.is_multi
+                and ws_points != 0
+                and mpc_.nlp.starts - ws_points not in (0, 1)
+            ):
+                raise ValueError(
+                    f"A multistart MPC was given with {mpc_.nlp.starts} multistarts, "
+                    f"but the given warmstart strategy asks for {ws_points} starting "
+                    "points. Expected either 0 warmstart points (i.e., it is disabled),"
+                    " or the same number as MPC's multistarts, or at most one less."
+                )
+            elif not mpc_.is_multi and ws_points > 0:
+                raise ValueError(
+                    "Got a warmstart strategy with more than 0 starting points, but "
+                    "the given MPC does not have an underlying multistart NLP problem."
+                )
+            elif (
+                not mpc_.is_multi
+                and fixed_parameters is not None
+                and not isinstance(fixed_parameters, dict)
+            ):
+                raise ValueError(
+                    "Got a collection of fixed parameters, but the given MPC does not "
+                    "have an underlying multistart NLP problem."
+                )
         Named.__init__(self, name)
         SupportsDeepcopyAndPickle.__init__(self)
         AgentCallbackMixin.__init__(self)
@@ -562,26 +569,28 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
         return returns
 
     def _setup_V_and_Q(
-        self, mpc: Mpc[SymType], remove_bounds_on_initial_action: bool
+        self,
+        mpc: Mpc[SymType] | tuple[Mpc[SymType], Mpc[SymType]],
+        remove_bounds_on_initial_action: bool,
     ) -> tuple[Mpc[SymType], Mpc[SymType]]:
         """Internal utility to setup the function approximators for the value function
         ``V(s)`` and the quality function ``Q(s,a)``."""
-        na = mpc.na
-        if na <= 0:
-            raise ValueError(f"Expected Mpc with na>0; got na={na} instead.")
-
         # create V and Q function approximations
-        V, Q = mpc, mpc.copy()
+        V, Q = mpc if isinstance(mpc, tuple) else (mpc, mpc.copy())
         V.unwrapped.name += "_V"
         Q.unwrapped.name += "_Q"
+
+        na = V.na
+        if na <= 0:
+            raise ValueError(f"Expected Mpc with na>0; got na={na} instead.")
 
         # for Q, add the additional constraint on the initial action to be equal to a0,
         # and remove the now useless upper/lower bounds on the initial action
         a0 = Q.nlp.parameter(self.init_action_parameter, (na, 1))
-        u0 = cs.vcat(mpc.first_actions.values())
+        u0 = cs.vcat(Q.first_actions.values())
         Q.nlp.constraint(self.init_action_constraint, u0, "==", a0)
         if remove_bounds_on_initial_action:
-            for name, a in mpc.first_actions.items():
+            for name, a in Q.first_actions.items():
                 na_ = a.size1()
                 Q.nlp.remove_variable_bounds(name, "both", ((r, 0) for r in range(na_)))
 
@@ -589,8 +598,8 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
         if self._exploration.mode == "gradient-based":
             perturbation = V.nlp.parameter(self.cost_perturbation_parameter, (na, 1))
             f = V.nlp.f
-            if mpc.is_wrapped(wrappers.NlpScaling):
-                f = mpc.scale(f)
+            if V.is_wrapped(wrappers.NlpScaling):
+                f = V.scale(f)
             V.nlp.minimize(f + cs.dot(perturbation, u0))
 
         # invalidate caches for V and Q since some modifications have been done
