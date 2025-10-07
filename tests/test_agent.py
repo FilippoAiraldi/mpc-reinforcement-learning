@@ -9,7 +9,7 @@ import casadi as cs
 import numpy as np
 from csnlp import Nlp, scaling
 from csnlp.core.solutions import EagerSolution
-from csnlp.multistart import ParallelMultistartNlp
+from csnlp.multistart import StackedMultistartNlp
 from csnlp.wrappers import Mpc, NlpScaling
 from parameterized import parameterized, parameterized_class
 from scipy import io as matio
@@ -60,22 +60,23 @@ def get_mpc(horizon: int, multistart: bool):
     u_nom = 1e8
     scaler = scaling.Scaler()
     scaler.register("y", scale=y_nom)
+    scaler.register("y_0", scale=y_nom)
     scaler.register("v", scale=v_nom)
+    scaler.register("v_0", scale=v_nom)
     scaler.register("m", scale=m_nom)
+    scaler.register("m_0", scale=m_nom)
     scaler.register("u1", scale=u_nom)
     scaler.register("u2", scale=u_nom)
     nlp = (
-        ParallelMultistartNlp[cs.MX](
-            sym_type="MX", starts=K, parallel_kwargs={"n_jobs": 2}
-        )
+        StackedMultistartNlp[cs.MX](sym_type="MX", starts=K)
         if multistart
         else Nlp[cs.MX](sym_type="MX")
     )
     nlp = NlpScaling[cs.MX](nlp, scaler=scaler, warns=False)
     mpc = Mpc[cs.MX](nlp, prediction_horizon=N)
-    y = mpc.state("y")
-    _ = mpc.state("v")
-    m = mpc.state("m", lb=0)
+    y, _ = mpc.state("y")
+    _, _ = mpc.state("v")
+    m, _ = mpc.state("m", lb=0)
     mpc.action("u1", lb=0, ub=5e7)
     u2, _ = mpc.action("u2", lb=0, ub=5e7)
     mpc.disturbance("d", 3)
@@ -94,7 +95,7 @@ class DummyLearningAgent(LearningAgent):
         return
 
 
-@parameterized_class("multistart_nlp", [(False,), (True,)])
+@parameterized_class("multistart_nlp", [(True,), (False,)])
 class TestAgent(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -234,33 +235,36 @@ class TestAgent(unittest.TestCase):
             solver_plugin=None,
         )
         agent._last_solution = sol
-        mpc.solve_ocp = MagicMock(return_value=sol)
+        method = "solve_multi" if self.multistart_nlp else "solve"
+        setattr(mpc.nlp, method, MagicMock(return_value=sol))
 
         agent._solve_mpc(mpc, state=s, action=a, perturbation=pert)
 
-        call_pars = fixed_pars.copy()
+        call_pars = {
+            **fixed_pars,
+            "y_0": s[0] if vector else s["y"],
+            "v_0": s[1] if vector else s["v"],
+            "m_0": s[2] if vector else s["m"],
+        }
         if mpctype == "V":
             call_pars[Agent.cost_perturbation_parameter] = pert
         else:
             call_pars[Agent.init_action_parameter] = a if vector else cs.DM(a.values())
 
-        overwritten_method = mpc.solve_ocp
+        overwritten_method = getattr(mpc.nlp, method)
         overwritten_method.assert_called_once()
         call_args = overwritten_method.call_args.args
-        actual_call_initial_conditions, actual_call_pars, actual_call_vals0 = call_args
-        if vector:
-            np.testing.assert_array_equal(actual_call_initial_conditions, s)
-        else:
-            self.assertDictEqual(actual_call_initial_conditions, s)
+        actual_call_pars, actual_call_vals0 = call_args
         if multiple_pars:
             for pars_i in actual_call_pars:
                 self.assertEqual(len(mpc.unwrapped._pars.keys() - pars_i.keys()), 0)
                 for key in call_pars:
                     np.testing.assert_allclose(pars_i[key], call_pars[key], rtol=0)
         else:
-            self.assertFalse(len(mpc.unwrapped._pars.keys() - actual_call_pars.keys()))
+            pars = actual_call_pars
+            self.assertEqual(len(mpc.unwrapped._pars.keys() - pars.keys()), 0)
             for key in call_pars:
-                np.testing.assert_array_equal(actual_call_pars[key], call_pars[key])
+                np.testing.assert_allclose(pars[key], call_pars[key], rtol=0)
         self.assertIs(actual_call_vals0, vals0)
 
     @parameterized.expand(product((False, True), (False, True)))
@@ -276,15 +280,8 @@ class TestAgent(unittest.TestCase):
         mpc = get_mpc(horizon, self.multistart_nlp)
         agent = Agent(mpc=mpc, fixed_parameters=fixed_pars)
 
-        # NOTE: remember to manually scale the initial conditions and vals0
-        scaler: scaling.Scaler = mpc.scaler
         state = {"y": 0, "v": 0, "m": 5e5}
-        for key, value in state.items():
-            state[key] = scaler.scale(key, value)
         vals0 = {"y": 0, "v": 0, "m": 5e5, "u1": 1e8, "u2": 0}
-        for key, value in vals0.items():
-            vals0[key] = scaler.scale(key, value)
-
         agent._last_solution = EagerSolution(
             f=0.0,
             p_sym=None,
@@ -318,8 +315,8 @@ class TestAgent(unittest.TestCase):
         np.testing.assert_allclose(
             sol.vals["u1"],
             self.RESULTS["state_value_us"],
-            rtol=1e-5,
-            atol=1e-5,
+            rtol=1e-7,
+            atol=1e-7,
         )
 
     @parameterized.expand(product((False, True), (False, True)))
@@ -334,17 +331,9 @@ class TestAgent(unittest.TestCase):
         agent = Agent(mpc=mpc, fixed_parameters=fixed_pars)
 
         a_opt, a_subopt = 5e7, 1.42e7
-        action = {"u1": a_opt if a_optimal else a_subopt, "u2": 0}
-
-        # NOTE: remember to manually scale the initial conditions and vals0
-        scaler: scaling.Scaler = mpc.scaler
         state = {"y": 0, "v": 0, "m": 5e5}
-        for key, value in state.items():
-            state[key] = scaler.scale(key, value)
+        action = {"u1": a_opt if a_optimal else a_subopt, "u2": 0}
         vals0 = {**state, **action}
-        for key, value in vals0.items():
-            vals0[key] = scaler.scale(key, value)
-
         agent._last_solution = EagerSolution(
             f=None,
             p_sym=None,
@@ -374,8 +363,8 @@ class TestAgent(unittest.TestCase):
             np.testing.assert_allclose(
                 sol.vals["u1"],
                 self.RESULTS["state_value_us"],
-                rtol=1e-5,
-                atol=1e-5,
+                rtol=1e-7,
+                atol=1e-7,
             )
         else:
             np.testing.assert_allclose(u1_0_0, a_subopt)

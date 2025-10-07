@@ -11,7 +11,7 @@ import casadi as cs
 import gymnasium as gym
 import numpy as np
 from csnlp import Nlp, scaling
-from csnlp.multistart import MappedMultistartNlp
+from csnlp.multistart import StackedMultistartNlp
 from csnlp.wrappers import Mpc, NlpScaling
 from parameterized import parameterized
 
@@ -55,15 +55,15 @@ def get_mpc(horizon: int, multistart: bool):
     scaler.register("u1", scale=u_nom)
     scaler.register("u2", scale=u_nom)
     nlp = (
-        MappedMultistartNlp[cs.MX](sym_type="MX", starts=K, parallelization="thread")
+        StackedMultistartNlp[cs.MX](sym_type="MX", starts=K)
         if multistart
         else Nlp[cs.MX](sym_type="MX")
     )
     nlp = NlpScaling[cs.MX](nlp, scaler=scaler)
     mpc = Mpc[cs.MX](nlp, prediction_horizon=N)
-    y = mpc.state("y")
-    _ = mpc.state("v")
-    m = mpc.state("m", lb=0)
+    y, _ = mpc.state("y")
+    _, _ = mpc.state("v")
+    m, _ = mpc.state("m", lb=0)
     mpc.action("u1", lb=0, ub=5e7)
     u2, _ = mpc.action("u2", lb=0, ub=5e7)
     mpc.disturbance("d", 3)
