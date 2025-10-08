@@ -7,7 +7,6 @@ from random import shuffle
 from typing import Union
 from unittest.mock import Mock
 
-import casadi as cs
 import numpy as np
 from csnlp.multistart import RandomStartPoints, StructuredStartPoints
 from parameterized import parameterized
@@ -478,23 +477,18 @@ class TestParameters(unittest.TestCase):
                 array_equal(pars.lb, cat([p.lb.flatten("F") for p in PARS]))
                 array_equal(pars.ub, cat([p.ub.flatten("F") for p in PARS]))
                 array_equal(pars.value, cat([p.value.flatten("F") for p in PARS]))
-                sym1 = cs.veccat(*(p.sym for p in pars.values()))
-                sym2 = cs.veccat(*(p.sym for p in PARS))
-                array_equal(cs.evalf(cs.simplify(sym1 - sym2)), 0)
             else:
                 self.assertTupleEqual(pars.lb.shape, (0,))
                 self.assertTupleEqual(pars.ub.shape, (0,))
                 self.assertTupleEqual(pars.value.shape, (0,))
 
-        p1 = LearnableParameter[float](
-            "t1", (4, 6), 1.0, -1.0, 2.0, cs.SX.sym("t1", 4, 6)
-        )
-        p2 = LearnableParameter[float]("t2", 2, 2.0, -2.0, 3.0, cs.SX.sym("t2", 2))
+        p1 = LearnableParameter("t1", (4, 6), 1.0, -1.0, 2.0)
+        p2 = LearnableParameter("t2", 2, 2.0, -2.0, 3.0)
         PARS = [p1, p2]
         pars = LearnableParametersDict(PARS)
         check(pars, PARS)
 
-        p3 = LearnableParameter[float]("t3", 3, 3.0, -3.0, 4.0, cs.SX.sym("t3", 3))
+        p3 = LearnableParameter("t3", 3, 3.0, -3.0, 4.0)
         if method == "setitem":
             pars[p3.name] = p3
             PARS = [p1, p2, p3]
@@ -520,22 +514,19 @@ class TestParameters(unittest.TestCase):
         check(pars, PARS)
 
     def test_parameters_dict__stringify(self):
-        p1 = LearnableParameter[None]("p1", 1, 1)
-        p2 = LearnableParameter[None]("p2", 1, 2.0)
-        p3 = LearnableParameter[None]("p3", 100, np.random.randint(0, 100, size=100))
-        p4 = LearnableParameter[None]("p4", 100, np.random.rand(100))
+        p1 = LearnableParameter("p1", 1, 1)
+        p2 = LearnableParameter("p2", 1, 2.0)
+        p3 = LearnableParameter("p3", 100, np.random.randint(0, 100, size=100))
+        p4 = LearnableParameter("p4", 100, np.random.rand(100))
         pars = LearnableParametersDict((p1, p2, p3, p4))
         S = pars.stringify()
         for p in [p1, p2, p3, p4]:
             self.assertIn(p.name, S)
 
-    @parameterized.expand(product([cs.SX, cs.MX], [False, True], [False, True]))
-    def test_deepcopy(self, cstype: Union[cs.SX, cs.MX], copy: bool, deep: bool):
+    @parameterized.expand(product([False, True], [False, True]))
+    def test_deepcopy(self, copy: bool, deep: bool):
         shape = (5, 2)
-        theta_sym = cstype.sym("theta", shape)
-        f = theta_sym[0]
-        df = cs.evalf(cs.jacobian(f, theta_sym)[0])
-        p1 = LearnableParameter[float]("theta", shape, 1, -1, 2, sym=theta_sym)
+        p1 = LearnableParameter("theta", shape, 1, -1, 2)
         pars = LearnableParametersDict((p1,))
         if copy:
             new_pars = pars.copy(deep=deep)
@@ -552,15 +543,6 @@ class TestParameters(unittest.TestCase):
         np.testing.assert_array_equal(p1.value, p2.value)
         np.testing.assert_array_equal(p1.lb, p2.lb)
         np.testing.assert_array_equal(p1.ub, p2.ub)
-        np.testing.assert_equal(df, cs.evalf(cs.jacobian(f, p1.sym)[0]))
-        if copy:
-            if deep:
-                self.assertIsNot(p1.sym, p2.sym)
-            else:
-                self.assertIs(p1.sym, p2.sym)
-            np.testing.assert_equal(df, cs.evalf(cs.jacobian(f, p2.sym)[0]))
-        else:
-            self.assertFalse(hasattr(p2, "sym"))
 
 
 class TestUpdateStrategy(unittest.TestCase):

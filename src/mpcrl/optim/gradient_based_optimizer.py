@@ -5,12 +5,12 @@ import numpy as np
 import numpy.typing as npt
 
 from ..core.schedulers import NoScheduling, Scheduler
-from .base_optimizer import BaseOptimizer, SymType
+from .base_optimizer import BaseOptimizer
 
 LrType = TypeVar("LrType", npt.NDArray[np.floating], float)
 
 
-class GradientBasedOptimizer(BaseOptimizer[SymType], Generic[SymType, LrType]):
+class GradientBasedOptimizer(BaseOptimizer, Generic[LrType]):
     """Base class for first- and second-order gradient-based optimization algorithms.
 
     Parameters

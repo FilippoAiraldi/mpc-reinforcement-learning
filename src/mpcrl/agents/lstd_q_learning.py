@@ -130,7 +130,7 @@ class LstdQLearningAgent(
         update_strategy: Union[int, UpdateStrategy],
         discount_factor: float,
         optimizer: GradientBasedOptimizer,
-        learnable_parameters: LearnableParametersDict[SymType],
+        learnable_parameters: LearnableParametersDict,
         fixed_parameters: Union[
             None, dict[str, npt.ArrayLike], Collection[dict[str, npt.ArrayLike]]
         ] = None,
@@ -246,8 +246,8 @@ class LstdQLearningAgent(
         """Internal utility to compute the derivative of ``Q(s,a)`` w.r.t. the learnable
         parameters, a.k.a., ``theta``."""
         ord = self.optimizer._order
-        theta = cs.vvcat(self._learnable_pars.sym.values())
         nlp = self._Q.nlp
+        theta = cs.vvcat([nlp.parameters[p] for p in self._learnable_pars])
         x = nlp.x
         p = nlp.p
         lam_g_and_h = cs.vertcat(nlp.lam_g, nlp.lam_h)

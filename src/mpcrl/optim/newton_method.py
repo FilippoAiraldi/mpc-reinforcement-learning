@@ -6,10 +6,10 @@ from scipy.linalg import cho_solve
 
 from ..core.schedulers import Scheduler
 from ..util.math import cholesky_added_multiple_identity
-from .gradient_based_optimizer import GradientBasedOptimizer, LrType, SymType
+from .gradient_based_optimizer import GradientBasedOptimizer, LrType
 
 
-class NewtonMethod(GradientBasedOptimizer[SymType, LrType]):
+class NewtonMethod(GradientBasedOptimizer[LrType]):
     r"""Second-order gradient-based Newton's method.
 
     In constrast to the first-order methods, the Newton's method uses also the Hessian

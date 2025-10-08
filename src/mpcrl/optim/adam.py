@@ -4,12 +4,12 @@ import casadi as cs
 import numpy as np
 import numpy.typing as npt
 
-from ..core.parameters import LearnableParametersDict, SymType
+from ..core.parameters import LearnableParametersDict
 from ..core.schedulers import Scheduler
 from .gradient_based_optimizer import GradientBasedOptimizer, LrType
 
 
-class Adam(GradientBasedOptimizer[SymType, LrType]):
+class Adam(GradientBasedOptimizer[LrType]):
     r"""First-order gradient-based Adam and AdamW optimizers, based on
     :cite:`kingma_adam_2014` and :class:`torch.optim.Adam`, and
     :cite:`loshchilov_decoupled_2017` and :class:`torch.optim.AdamW`, respectively.
@@ -107,7 +107,7 @@ class Adam(GradientBasedOptimizer[SymType, LrType]):
         self.decoupled_weight_decay = decoupled_weight_decay
         self.amsgrad = amsgrad
 
-    def set_learnable_parameters(self, pars: LearnableParametersDict[SymType]) -> None:
+    def set_learnable_parameters(self, pars: LearnableParametersDict) -> None:
         super().set_learnable_parameters(pars)
         # initialize also running averages
         n = pars.size

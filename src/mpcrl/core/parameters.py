@@ -14,7 +14,7 @@ from collections.abc import Iterable
 from functools import cached_property
 from itertools import chain
 from numbers import Integral
-from typing import Any, Generic, Optional, TypeVar, Union
+from typing import Any, Optional, Union
 
 import numpy as np
 import numpy.typing as npt
@@ -23,13 +23,11 @@ from csnlp.util.io import SupportsDeepcopyAndPickle
 
 from ..util.math import summarize_array
 
-SymType = TypeVar("SymType")  # most likely, T is cs.SX or MX
 
-
-class LearnableParameter(SupportsDeepcopyAndPickle, Generic[SymType]):
+class LearnableParameter(SupportsDeepcopyAndPickle):
     """A parameter that is learnable, that is, it can be adjusted via RL or any other
-    learning strategy. This class is useful for managing symbols, bounds and value of
-    the learnable parameter.
+    learning strategy. This class is useful for managing bounds and value of the
+    learnable parameter.
 
     Parameters
     ----------
@@ -43,15 +41,12 @@ class LearnableParameter(SupportsDeepcopyAndPickle, Generic[SymType]):
         Lower bound of the parameter values. If not specified, it is unbounded.
     ub : array_like, optional
         Upper bound of the parameter values. If not specified, it is unbounded.
-    sym : T, optional
-        An optional reference to a symbolic variable representing this parameter.
 
     Raises
     ------
     ValueError
         Raises if ``value``, ``lb`` or ``ub`` cannot be broadcasted to a 1D vector with
-        shape equal to ``shape``; or if the shape of the symbolic variable ``sym`` does
-        not match the shape of the parameter.
+        shape equal to ``shape``.
     """
 
     def __init__(
@@ -61,15 +56,12 @@ class LearnableParameter(SupportsDeepcopyAndPickle, Generic[SymType]):
         value: npt.ArrayLike,
         lb: npt.ArrayLike = -np.inf,
         ub: npt.ArrayLike = +np.inf,
-        sym: Optional[SymType] = None,
     ) -> None:
         super().__init__()
         self.name = name
         self.shape: tuple[int, ...] = (shape,) if isinstance(shape, Integral) else shape
-        self.sym = sym
         self.lb: npt.NDArray[np.floating] = np.broadcast_to(lb, shape)
         self.ub: npt.NDArray[np.floating] = np.broadcast_to(ub, shape)
-        self._check_sym_shape()
         self._update_value(value)
 
     @property
@@ -106,16 +98,6 @@ class LearnableParameter(SupportsDeepcopyAndPickle, Generic[SymType]):
             )
         self.value: npt.NDArray[np.floating] = np.clip(v, lb, ub)
 
-    def _check_sym_shape(self) -> None:
-        """Internal utility for checking that the shape of the symbolic variable matches
-        the shape of the parameter."""
-        if self.sym is None or not hasattr(self.sym, "shape"):
-            return
-        sym_shape = tuple(self.sym.shape)
-        shape = self.shape + tuple(1 for _ in range(len(sym_shape) - len(self.shape)))
-        if sym_shape != shape:
-            raise ValueError("Shape of `sym` does not match `shape`.")
-
     def __str__(self) -> str:
         return f"<{self.name}(shape={self.shape})>"
 
@@ -123,18 +105,15 @@ class LearnableParameter(SupportsDeepcopyAndPickle, Generic[SymType]):
         return f"<{self.__class__.__name__}(name={self.name},shape={self.shape})>"
 
 
-class LearnableParametersDict(
-    dict[str, LearnableParameter[SymType]], SupportsDeepcopyAndPickle
-):
+class LearnableParametersDict(dict[str, LearnableParameter], SupportsDeepcopyAndPickle):
     """:class:`dict`-based collection of :class:`LearnableParameter` instances that
     simplifies the process of managing and updating these. The dict contains pairs of
     parameter's name and parameter's instance.
 
     Parameters can be retrieved as a normal dictionary by their names, but the class
     also offers several properties that are useful for managing the parameters in bulk,
-    such as :attr:`lb`, :attr:`ub`, :attr:`value`, :attr:`value_as_dict` and
-    :attr:`sym`. With a single call to :meth:`update_values`, the values of the
-    parameters can also be updated.
+    such as :attr:`lb`, :attr:`ub`, :attr:`value`, :attr:`value_as_dict`. With a single
+    call to :meth:`update_values`, the values of the parameters can also be updated.
 
     Parameters
     ----------
@@ -148,9 +127,7 @@ class LearnableParametersDict(
     underlying dict is modified.
     """
 
-    def __init__(
-        self, pars: Optional[Iterable[LearnableParameter[SymType]]] = None
-    ) -> None:
+    def __init__(self, pars: Optional[Iterable[LearnableParameter]] = None) -> None:
         if pars is None:
             dict.__init__(self)
         else:
@@ -194,15 +171,6 @@ class LearnableParametersDict(
         """Gets the values of all the learnable parameters as a :class:`dict`."""
         return {p.name: p.value for p in self.values()}
 
-    @cached_property
-    def sym(self) -> dict[str, Optional[SymType]]:
-        """Gets symbols of all the learnable parameters, in a dict. If one parameter
-        does not possess the symbol, ``None`` is put."""
-        return {
-            parname: None if par.sym is None else par.sym
-            for parname, par in self.items()
-        }
-
     @invalidate_cache(value, value_as_dict)
     def update_values(
         self,
@@ -239,26 +207,21 @@ class LearnableParametersDict(
             for par, val in zip(self.values(), values_):
                 par._update_value(val.reshape(par.shape, order="F"), **is_close_kwargs)
 
-    __cache_decorator = invalidate_cache(size, lb, ub, value, value_as_dict, sym)
+    __cache_decorator = invalidate_cache(size, lb, ub, value, value_as_dict)
 
     @__cache_decorator
-    def __setitem__(self, name: str, par: LearnableParameter[SymType]) -> None:
+    def __setitem__(self, name: str, par: LearnableParameter) -> None:
         assert name == par.name, f"Key '{name}' must match parameter name '{par.name}'."
         return super().__setitem__(name, par)
 
     @__cache_decorator
     def update(
-        self,
-        pars: Iterable[LearnableParameter[SymType]],
-        *args: LearnableParameter[SymType],
+        self, pars: Iterable[LearnableParameter], *args: LearnableParameter
     ) -> None:
         return super().update(map(lambda p: (p.name, p), chain(pars, args)))
 
     @__cache_decorator
-    def setdefault(
-        self,
-        par: LearnableParameter[SymType],
-    ) -> LearnableParameter[SymType]:
+    def setdefault(self, par: LearnableParameter) -> LearnableParameter:
         return super().setdefault(par.name, par)
 
     __delitem__ = __cache_decorator(dict.__delitem__)
@@ -268,7 +231,7 @@ class LearnableParametersDict(
 
     def copy(
         self, deep: bool = False, invalidate_caches: bool = True
-    ) -> "LearnableParametersDict[SymType]":
+    ) -> "LearnableParametersDict":
         """Creates a shallow or deep copy of the dict of learnable parameters.
 
         Parameters
@@ -284,7 +247,7 @@ class LearnableParametersDict(
 
         Returns
         -------
-        LearnableParametersDict[T]
+        LearnableParametersDict
             A copy of the dict of learnable parameters.
         """
         return (

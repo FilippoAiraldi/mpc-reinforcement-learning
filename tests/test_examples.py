@@ -16,7 +16,6 @@ for folder in (
 ):
     sys.path.append(os.path.join(os.getcwd(), f"examples/{folder}"))
 
-import casadi as cs
 import numpy as np
 import torch
 from acc_with_iccbf import (
@@ -52,25 +51,22 @@ from mpcrl.util.geometry import ConvexPolytopeUniformSampler
 from mpcrl.wrappers.agents import Evaluate, Log, RecordUpdates
 from mpcrl.wrappers.envs import MonitorEpisodes
 
-torch.set_default_device("cpu")
-torch.set_default_dtype(torch.float64)
-filterwarnings("ignore", "Mpc failure", module="mpcrl")
-
 
 class TestExamples(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
+        torch.set_default_device("cpu")
+        torch.set_default_dtype(torch.float64)
+        filterwarnings("ignore", "Mpc failure", module="mpcrl")
         cls.DATA = loadmat("tests/data_test_examples.mat", squeeze_me=True)
 
     @parameterized.expand([(False,), (True,)])
     def test_q_learning__with_copy_and_pickle(self, use_copy: bool):
         mpc = QLearningLinearMpc()
-        learnable_pars = LearnableParametersDict[cs.SX](
+        learnable_pars = LearnableParametersDict(
             (
-                LearnableParameter(
-                    name=name, shape=val.shape, value=val, sym=mpc.parameters[name]
-                )
+                LearnableParameter(name=name, shape=val.shape, value=val)
                 for name, val in mpc.learnable_pars_init.items()
             )
         )
@@ -130,11 +126,9 @@ class TestExamples(unittest.TestCase):
     @parameterized.expand([(False,), (True,)])
     def test_dpg__with_copy_and_pickle(self, use_copy: bool):
         mpc = DpgLinearMpc()
-        learnable_pars = LearnableParametersDict[cs.SX](
+        learnable_pars = LearnableParametersDict(
             (
-                LearnableParameter(
-                    name=name, shape=val.shape, value=val, sym=mpc.parameters[name]
-                )
+                LearnableParameter(name=name, shape=val.shape, value=val)
                 for name, val in mpc.learnable_pars_init.items()
             )
         )
@@ -208,9 +202,9 @@ class TestExamples(unittest.TestCase):
         pars = mpc.parameters
         Y = mpc.variables["y"].shape
         U = mpc.variables["u"].shape
-        learnable_pars = LearnableParametersDict[cs.SX](
+        learnable_pars = LearnableParametersDict(
             (
-                LearnableParameter(n, pars[n].shape, (ub + lb) / 2, lb, ub, pars[n])
+                LearnableParameter(n, pars[n].shape, (ub + lb) / 2, lb, ub)
                 for n, lb, ub in [("narx_weights", -2, 2), ("backoff", 0, 5)]
             )
         )
@@ -257,11 +251,9 @@ class TestExamples(unittest.TestCase):
     @parameterized.expand([(False,), (True,)])
     def test_q_learning_offpolicy__with_copy_and_pickle(self, use_copy: bool):
         mpc = QLearningOffPolicyLinearMpc()
-        learnable_pars = LearnableParametersDict[cs.SX](
+        learnable_pars = LearnableParametersDict(
             (
-                LearnableParameter(
-                    name=name, shape=val.shape, value=val, sym=mpc.parameters[name]
-                )
+                LearnableParameter(name=name, shape=val.shape, value=val)
                 for name, val in mpc.learnable_pars_init.items()
             )
         )

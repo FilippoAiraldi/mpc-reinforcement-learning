@@ -67,7 +67,7 @@ class LearningAgent(
     def __init__(
         self,
         update_strategy: Union[int, UpdateStrategy],
-        learnable_parameters: LearnableParametersDict[SymType],
+        learnable_parameters: LearnableParametersDict,
         experience: Union[None, int, ExperienceReplay[ExpType]] = None,
         **kwargs: Any,
     ) -> None:
@@ -97,7 +97,7 @@ class LearningAgent(
         return self._update_strategy
 
     @property
-    def learnable_parameters(self) -> LearnableParametersDict[SymType]:
+    def learnable_parameters(self) -> LearnableParametersDict:
         """Gets the parameters of the MPC that can be learnt by the agent."""
         return self._learnable_pars
 
@@ -305,21 +305,19 @@ class LearningAgent(
         """
 
     def _reorder_learnable_parameters(
-        self, learnable_parameters: LearnableParametersDict[SymType]
-    ) -> LearnableParametersDict[SymType]:
+        self, dict_: LearnableParametersDict
+    ) -> LearnableParametersDict:
         """Reorders the learnable parameters of the MPC according to their creation
         order."""
         reordered = [
-            learnable_parameters.pop(name)
-            for name in self.V.parameters.keys()
-            if name in learnable_parameters
+            dict_.pop(name) for name in self.V.parameters.keys() if name in dict_
         ]
-        assert not learnable_parameters, (
+        assert not dict_, (
             "Not all learnable parameters could be reordered. "
             "Please check for spurious learnable parameters in `learnable_parameters`."
         )
-        learnable_parameters.update(reordered)
-        return learnable_parameters
+        dict_.update(reordered)
+        return dict_
 
     def _establish_callback_hooks(self) -> None:
         super()._establish_callback_hooks()

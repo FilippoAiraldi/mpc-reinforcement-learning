@@ -4,12 +4,12 @@ import casadi as cs
 import numpy as np
 import numpy.typing as npt
 
-from ..core.parameters import LearnableParametersDict, SymType
+from ..core.parameters import LearnableParametersDict
 from ..core.schedulers import Scheduler
 from .gradient_based_optimizer import GradientBasedOptimizer, LrType
 
 
-class RMSprop(GradientBasedOptimizer[SymType, LrType]):
+class RMSprop(GradientBasedOptimizer[LrType]):
     r"""RMSprop optimizer, based on :cite:`hinton_neural_2012` and
     :class:`torch.optim.RMSprop`.
 
@@ -106,7 +106,7 @@ class RMSprop(GradientBasedOptimizer[SymType, LrType]):
         self.momentum = momentum
         self.centered = centered
 
-    def set_learnable_parameters(self, pars: LearnableParametersDict[SymType]) -> None:
+    def set_learnable_parameters(self, pars: LearnableParametersDict) -> None:
         super().set_learnable_parameters(pars)
         # initialize also running averages
         n = pars.size

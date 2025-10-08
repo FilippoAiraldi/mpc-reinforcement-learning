@@ -260,9 +260,9 @@ if __name__ == "__main__":
 
     # now build the MPC and the dict of learnable parameters
     mpc = LinearMpc()
-    learnable_pars = LearnableParametersDict[cs.SX](
+    learnable_pars = LearnableParametersDict(
         (
-            LearnableParameter(name, val.shape, val, sym=mpc.parameters[name])
+            LearnableParameter(name, val.shape, val)
             for name, val in mpc.learnable_pars_init.items()
         )
     )

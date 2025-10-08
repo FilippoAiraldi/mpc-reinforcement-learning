@@ -503,7 +503,7 @@ if __name__ == "__main__":
     multistarts = 10
     mpc = get_cstr_mpc(env, horizon, multistarts, n_jobs=multistarts)
     pars = mpc.parameters
-    learnable_pars = LearnableParametersDict[cs.SX](
+    learnable_pars = LearnableParametersDict(
         (
             LearnableParameter(n, pars[n].shape, (lb + ub) / 2, lb, ub, pars[n])
             for n, lb, ub in [("narx_weights", -2, 2), ("backoff", 0, 10)]
