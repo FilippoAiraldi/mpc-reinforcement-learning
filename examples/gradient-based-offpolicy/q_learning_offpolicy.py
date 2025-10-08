@@ -66,6 +66,7 @@ controller.
 
 import logging
 from collections.abc import Callable, Iterable
+from itertools import pairwise
 from typing import Any, Optional
 
 import casadi as cs
@@ -76,7 +77,6 @@ from csnlp import Nlp
 from csnlp.wrappers import Mpc
 from gymnasium.spaces import Box
 from gymnasium.wrappers import TimeLimit
-from more_itertools import pairwise
 
 from mpcrl import Agent, LearnableParameter, LearnableParametersDict, LstdQLearningAgent
 from mpcrl.optim import NewtonMethod
