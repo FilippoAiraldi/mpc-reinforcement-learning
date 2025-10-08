@@ -1,5 +1,5 @@
 from abc import ABC
-from typing import Any, Callable, Generic, Optional
+from typing import Any, Callable, Optional
 
 from gymnasium import Env
 
@@ -7,11 +7,10 @@ from mpcrl.agents.common.agent import ActType, ObsType
 
 from ...core.update import UpdateStrategy
 from ...optim.gradient_free_optimizer import GradientFreeOptimizer
-from .agent import SymType
-from .learning_agent import LearningAgent
+from .learning_agent import LearningAgent, SymType
 
 
-class GlobOptLearningAgent(LearningAgent[SymType, None], ABC, Generic[SymType]):
+class GlobOptLearningAgent(LearningAgent[SymType, None], ABC):
     """Class for learning agents that employ gradient-free Global Optimization
     strategies (e.g., Bayesian Optimization) to learn/improve the MPC policy.
 
@@ -35,9 +34,7 @@ class GlobOptLearningAgent(LearningAgent[SymType, None], ABC, Generic[SymType]):
          - ``"update_strategy"``: updates are fixed at the end of each episode.
     """
 
-    def __init__(
-        self, optimizer: GradientFreeOptimizer[SymType], **kwargs: Any
-    ) -> None:
+    def __init__(self, optimizer: GradientFreeOptimizer, **kwargs: Any) -> None:
         for key in ("experience", "update_strategy"):
             if key in kwargs:
                 raise ValueError(

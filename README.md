@@ -251,9 +251,9 @@ from mpcrl.optim import GradientDescent
 learnable_pars_init = {"Atilde": ..., "Btilde": ..., "Qtilde": ..., "Rtilde": ...}
 
 # create the set of parameters that should be learnt
-learnable_pars = LearnableParametersDict[cs.SX](
+learnable_pars = LearnableParametersDict(
     (
-        LearnableParameter(name, val.shape, val, sym=mpc.parameters[name])
+        LearnableParameter(name, val.shape, val)
         for name, val in learnable_pars_init.items()
     )
 )

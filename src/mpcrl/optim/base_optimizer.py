@@ -1,11 +1,11 @@
-from typing import Any, Generic
+from typing import Any
 
 import numpy as np
 
-from ..core.parameters import LearnableParametersDict, SymType
+from ..core.parameters import LearnableParametersDict
 
 
-class BaseOptimizer(Generic[SymType]):
+class BaseOptimizer:
     """Base class for optimization algorithms.
 
     This class contains useful methods for, e.g., initializing the optimizer, retrieving
@@ -22,9 +22,9 @@ class BaseOptimizer(Generic[SymType]):
 
     def __init__(self, max_percentage_update: float = float("+inf")) -> None:
         self.max_percentage_update = max_percentage_update
-        self.learnable_parameters: LearnableParametersDict[SymType] = None
+        self.learnable_parameters: LearnableParametersDict
 
-    def set_learnable_parameters(self, pars: LearnableParametersDict[SymType]) -> None:
+    def set_learnable_parameters(self, pars: LearnableParametersDict) -> None:
         """Makes the optimization class aware of the dictionary of the learnable
         parameters whose values are to be updated.
 

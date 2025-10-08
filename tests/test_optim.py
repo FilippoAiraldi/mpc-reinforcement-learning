@@ -41,7 +41,7 @@ class TestGradientBasedOptimizer(unittest.TestCase):
         self.assertIs(opt.lr_scheduler.value, lr)
         self.assertIsNone(opt.hook)
         self.assertIs(opt.max_percentage_update, perc)
-        self.assertIsNone(opt.learnable_parameters)
+        self.assertFalse(hasattr(opt, "learnable_parameters"))
         self.assertIsNone(opt._update_solver)
 
     def test_init__with_scheduler(self):

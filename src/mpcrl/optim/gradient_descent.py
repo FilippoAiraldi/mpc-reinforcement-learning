@@ -5,10 +5,10 @@ import numpy as np
 import numpy.typing as npt
 
 from ..core.schedulers import Scheduler
-from .gradient_based_optimizer import GradientBasedOptimizer, LrType, SymType
+from .gradient_based_optimizer import GradientBasedOptimizer, LrType
 
 
-class GradientDescent(GradientBasedOptimizer[SymType, LrType]):
+class GradientDescent(GradientBasedOptimizer[LrType]):
     r"""First-order Gradient descent optimizer, based on
     :cite:`sutskever_importance_2013` and :class:`torch.optim.SGD`.
 

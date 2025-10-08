@@ -4,10 +4,10 @@ from typing import Optional, Union
 import numpy as np
 import numpy.typing as npt
 
-from .base_optimizer import BaseOptimizer, SymType
+from .base_optimizer import BaseOptimizer
 
 
-class GradientFreeOptimizer(BaseOptimizer[SymType], ABC):
+class GradientFreeOptimizer(BaseOptimizer, ABC):
     """Base class for gradient-free optimization algorithms, e.g., Bayesian
     Optimization.
 

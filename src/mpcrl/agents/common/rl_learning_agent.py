@@ -32,7 +32,7 @@ class RlLearningAgent(
     def __init__(
         self,
         discount_factor: float,
-        optimizer: GradientBasedOptimizer[SymType, LrType],
+        optimizer: GradientBasedOptimizer[LrType],
         **kwargs: Any,
     ) -> None:
         self.discount_factor = discount_factor

@@ -162,7 +162,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         update_strategy: Union[int, UpdateStrategy],
         discount_factor: float,
         optimizer: GradientBasedOptimizer,
-        learnable_parameters: LearnableParametersDict[SymType],
+        learnable_parameters: LearnableParametersDict,
         exploration: ExplorationStrategy,
         fixed_parameters: Union[
             None, dict[str, npt.ArrayLike], Collection[dict[str, npt.ArrayLike]]
@@ -313,7 +313,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         ), "expected 1st-order (2nd-order) optimizer with `none` (`natural`) hessian"
         nlp = self._V.nlp
         y = nlp.primal_dual
-        theta = cs.vvcat(self._learnable_pars.sym.values())
+        theta = cs.vvcat([nlp.parameters[p] for p in self._learnable_pars])
         u0 = cs.vcat(self._V.first_actions.values())
         x_lam_p = cs.vertcat(nlp.primal_dual, nlp.p)
 
