@@ -61,7 +61,8 @@ class GlobOptLearningAgent(LearningAgent[SymType, None], ABC):
     ) -> float:
         if behaviour_policy is not None:
             raise ValueError(
-                "`behaviour_policy` is not supported by DPG; must be `None`"
+                f"`behaviour_policy` is not supported by {self.__class__.__name__}; "
+                "must be `None`."
             )
 
         # simply evaluate the MPC on the env with the current set of parameters for one

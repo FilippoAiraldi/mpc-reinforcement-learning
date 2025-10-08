@@ -246,7 +246,8 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
     ) -> float:
         if behaviour_policy is not None:
             raise ValueError(
-                "`behaviour_policy` is not supported by DPG; must be `None`"
+                f"`behaviour_policy` is not supported by {self.__class__.__name__}; "
+                "must be `None`."
             )
 
         truncated = terminated = False
