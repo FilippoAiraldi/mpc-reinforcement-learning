@@ -78,8 +78,8 @@ class TestExamples(unittest.TestCase):
                     mpc=mpc,
                     learnable_parameters=learnable_pars,
                     discount_factor=mpc.discount_factor,
-                    optimizer=NewtonMethod(
-                        learning_rate=5e-2,
+                    optimizer=GradientDescent(
+                        learning_rate=1e-4,
                         max_percentage_update=1e3,  # does nothing; allows to test qp
                     ),
                     hessian_type="approx",
@@ -267,7 +267,10 @@ class TestExamples(unittest.TestCase):
                         learnable_parameters=learnable_pars,
                         discount_factor=mpc.discount_factor,
                         update_strategy=1,
-                        optimizer=NewtonMethod(learning_rate=5e-2),
+                        optimizer=NewtonMethod(
+                            learning_rate=5e-2,
+                            max_percentage_update=1e3,  # does nothing; allows to test
+                        ),
                         hessian_type="approx",
                         record_td_errors=True,
                         remove_bounds_on_initial_action=True,
