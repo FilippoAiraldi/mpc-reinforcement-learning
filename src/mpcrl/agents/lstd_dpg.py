@@ -97,13 +97,6 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         MPC's NLP instance. This is useful to generate multiple initial conditions for
         highly non-convex, nonlinear problems. This feature can only be used with an
         MPC that has an underlying multistart NLP problem (see :mod:`csnlp.multistart`).
-    hessian_type : {"none", "natural"}, optional
-        The type of hessian to use in this (potentially) second-order algorithm.
-        If ``"none"``, no second order information is used. If ``"natural"``, the Fisher
-        information matrix is used to perform a natural policy gradient update. This
-        option must be in accordance with the choice of ``optimizer``, that is, if the
-        optimizer does not use second order information, then this option must be set to
-        ``none``.
     rollout_length : int, optional
         Number of steps of each closed-loop simulation, which defines a complete
         trajectory of the states (i.e., a rollout), and is saved in the experience as a
@@ -154,6 +147,12 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
     ValueError
         If the exploration strategy is ``None`` or an instance of ``NoExploration``, as
         DPG requires exploration.
+
+    Notes
+    -----
+    If a second-order gradient-based optimizer is provided, then a natural policy
+    gradient provided ``optimizer`` is first-order only, then the Fisher information
+    matrix is used to perform a natural policy gradient update.
     """
 
     def __init__(
@@ -171,7 +170,6 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         warmstart: Union[
             Literal["last", "last-successful"], WarmStartStrategy
         ] = "last-successful",
-        hessian_type: Literal["none", "natural"] = "none",
         rollout_length: int = -1,
         record_policy_performance: bool = False,
         record_policy_gradient: bool = False,
@@ -199,7 +197,6 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
             use_last_action_on_fail=use_last_action_on_fail,
             name=name,
         )
-        self.hessian_type = hessian_type
         self._sensitivity = self._init_sensitivity(linsolver)
         self._Phi = (
             monomials_basis_function(mpc.ns, 0, 2)
@@ -228,9 +225,8 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
         if len(self.experience) <= 0:
             return "Experience buffer empty."
         sample = self.experience.sample()
-        compute_fisher_mat = self.hessian_type == "natural"
         dJdtheta, fisher_hessian = _estimate_gradient_update(
-            sample, self.discount_factor, self.regularization, compute_fisher_mat
+            sample, self.discount_factor, self.regularization, self.optimizer.order == 2
         )
         if self.policy_gradients is not None:
             self.policy_gradients.append(dJdtheta)
@@ -309,9 +305,6 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
     def _init_sensitivity(self, linsolver: str) -> Callable[[cs.DM, int], np.ndarray]:
         """Internal utility to compute the derivatives w.r.t. the learnable parameters
         and other functions in order to estimate the policy gradient."""
-        assert (self.hessian_type == "none" and self.optimizer._order == 1) or (
-            self.hessian_type == "natural" and self.optimizer._order == 2
-        ), "expected 1st-order (2nd-order) optimizer with `none` (`natural`) hessian"
         nlp = self._V.nlp
         y = nlp.primal_dual
         theta = cs.vvcat([nlp.parameters[p] for p in self._learnable_pars])

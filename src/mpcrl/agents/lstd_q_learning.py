@@ -105,13 +105,12 @@ class LstdQLearningAgent(
         MPC's NLP instance. This is useful to generate multiple initial conditions for
         highly non-convex, nonlinear problems. This feature can only be used with an
         MPC that has an underlying multistart NLP problem (see :mod:`csnlp.multistart`).
-    hessian_type : {"none", "approx", "full"}, optional
-        The type of hessian to use in this (potentially) second-order algorithm.
-        If ``"none"``, no second order information is used. If ``"approx"``, an easier
-        approximation of it is used; otherwise, the full hessian is computed, but
-        this is usually much more expensive. This option must be in accordance with the
-        choice of ``optimizer``, that is, if the optimizer does not use second order
-        information, then this option must be set to ``none``.
+    hessian_type : {"approx", "full"}, optional
+        The type of hessian to use in this (potentially) second-order algorithm. If the
+        provided ``optimizer`` is first-order only, then this option is ignored.
+        Otherwise, if ``"approx"``, a computationally lighter approximation of full
+        Hessian is used; otherwise, the full hessian is computed, but this is usually
+        much more expensive.
     fail_on_td_target : bool, optional
         If ``True``, failures in computing :math:`V_\theta(s_+)` for the TD target will
         raise an exception; otherwise, the TD target is still considered valid. By
@@ -154,7 +153,7 @@ class LstdQLearningAgent(
         warmstart: Union[
             Literal["last", "last-successful"], WarmStartStrategy
         ] = "last-successful",
-        hessian_type: Literal["none", "approx", "full"] = "approx",
+        hessian_type: Literal["approx", "full"] = "approx",
         fail_on_td_target: bool = True,
         record_td_errors: bool = False,
         use_last_action_on_fail: bool = False,
@@ -176,7 +175,6 @@ class LstdQLearningAgent(
             name=name,
         )
         self.gradient_steps = gradient_steps
-        self.hessian_type = hessian_type
         self._sensitivity = self._init_sensitivity(hessian_type)
         self._fail_on_td_target = fail_on_td_target
         self.td_errors: Optional[list[float]] = [] if record_td_errors else None
@@ -186,7 +184,7 @@ class LstdQLearningAgent(
         gradient_steps = (
             self.gradient_steps if self.gradient_steps > 0 else len(self.experience)
         )
-        no_hessian = self.hessian_type == "none"
+        no_hessian = self.optimizer.order == 1
         statuses = ""
         ntheta = self._learnable_pars.size
         td_errors = self.td_errors
@@ -289,15 +287,13 @@ class LstdQLearningAgent(
             self.on_timestep_end(env, episode, timestep)
         return rewards
 
-    def _init_sensitivity(
-        self, hessian_type: Literal["none", "approx", "full"]
-    ) -> Union[
+    def _init_sensitivity(self, hessian_type: Literal["approx", "full"]) -> Union[
         Callable[[Solution], np.ndarray],
         Callable[[Solution], tuple[np.ndarray, np.ndarray]],
     ]:
         """Internal utility to compute the derivative of ``Q(s,a)`` w.r.t. the learnable
         parameters, a.k.a., ``theta``."""
-        ord = self.optimizer._order
+        ord = self.optimizer.order
         nlp = self._Q.nlp
         theta = cs.vvcat([nlp.parameters[p] for p in self._learnable_pars])
         x = nlp.x
@@ -308,8 +304,7 @@ class LstdQLearningAgent(
         snlp = NlpSensitivity(nlp, theta)
         gradient = snlp.jacobian("L-p")  # exact gradient, i.e., dQ/dtheta
 
-        if hessian_type == "none":
-            assert ord == 1, "Expected 1st-order optimizer with `hessian_type=none`."
+        if ord == 1:
 
             sensitivity = cs.Function(
                 "lag_sens",
@@ -324,8 +319,6 @@ class LstdQLearningAgent(
                 return np.asarray(sensitivity(sol.x, sol.p, sol.lam_g_and_h).elements())
 
         elif hessian_type == "approx":
-            assert ord == 2, "Expected 2nd-order optimizer with `hessian_type=approx`."
-
             hessian = snlp.hessian("L-pp")  # approximate hessian
 
             # check if the hessian is not all zeros. If that's the case, we fall back to
@@ -363,8 +356,6 @@ class LstdQLearningAgent(
                     return np.asarray(J.elements()), 0.0
 
         else:
-            assert ord == 2, "Expected 2nd-order optimizer with `hessian_type=full`."
-
             lam_lbx_and_ubx = cs.vertcat(nlp.lam_lbx, nlp.lam_ubx)
             Kp = snlp.jacobian("K-p")
             Ky = snlp.jacobian("K-y")

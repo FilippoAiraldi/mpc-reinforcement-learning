@@ -75,6 +75,18 @@ class GradientBasedOptimizer(BaseOptimizer, Generic[LrType]):
         self.bound_consistency = bound_consistency
 
     @property
+    def order(self) -> Literal[1, 2]:
+        """Gets the order of the optimizer: ``1`` for first-order, ``2`` for
+        second-order.
+
+        Returns
+        -------
+        1 or 2
+            The order of the optimizer.
+        """
+        return self._order
+
+    @property
     def hook(self) -> Optional[str]:
         """Gets the hook to which the scheduler is attached to, i.e., when to step the
         learning rate's scheduler to decay its value.
