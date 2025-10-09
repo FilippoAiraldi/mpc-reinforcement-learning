@@ -24,7 +24,7 @@ if sys.version_info < (3, 10):
         DeprecationWarning,
     )
 
-__version__ = "1.4.0"
+__version__ = "1.4.0.post1"
 
 __all__ = [
     "Agent",
