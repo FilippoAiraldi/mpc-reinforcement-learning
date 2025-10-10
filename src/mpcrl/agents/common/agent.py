@@ -237,6 +237,10 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
         """
         return self._fixed_pars
 
+    @fixed_parameters.setter
+    def fixed_parameters(self, value):
+        self._fixed_pars = value
+
     @property
     def exploration(self) -> ExplorationStrategy:
         r"""Gets the exploration strategy used within this agent to perturb the

@@ -1,3 +1,4 @@
+import copy
 import sys
 from collections.abc import Collection
 from typing import Callable, Generic, Literal, Optional, SupportsFloat, Union
@@ -189,12 +190,25 @@ class LstdQLearningAgent(
         ntheta = self._learnable_pars.size
         td_errors = self.td_errors
 
+        # store current fixed parameters of agent, as they are temporarily modified
+        # during the update loop to represent the state of the agent at the transition
+        fixed_parameters = copy.deepcopy(self.fixed_parameters)
+
         for step in range(gradient_steps):
             mean_gradient = np.zeros(ntheta)
             mean_hessian = None if no_hessian else np.zeros((ntheta, ntheta))
             count_success = 0
-            for i, (s, a, r, s_new, terminated) in enumerate(self.experience.sample()):
+            for i, (
+                s,
+                a,
+                r,
+                s_new,
+                terminated,
+                fixed_pars,
+                fixed_pars_new,
+            ) in enumerate(self.experience.sample()):
                 # compute Q value estimate - if failure, terminate early
+                self.fixed_parameters = fixed_pars
                 solQ = self.action_value(s, a)
                 if not solQ.success:
                     msg = f"Failure during update (trans. {i}; Q): {solQ.status}"
@@ -208,6 +222,7 @@ class LstdQLearningAgent(
                 if terminated:
                     td_error = r - solQ.f
                 else:
+                    self.fixed_parameters = fixed_pars_new
                     _, solV = self.state_value(s_new, True)
                     if not solV.success and self._fail_on_td_target:
                         msg = f"Failure during update (trans. {i}; V): {solV.status}"
@@ -238,6 +253,7 @@ class LstdQLearningAgent(
             else:
                 statuses += f"{step}: no gradients computed, skipping update\n"
 
+        self.fixed_parameters = fixed_parameters
         return statuses if statuses else None
 
     def train_one_episode(
@@ -263,6 +279,7 @@ class LstdQLearningAgent(
 
         while not (truncated or terminated):
             # compute the action to take
+            fixed_pars = copy.deepcopy(self.fixed_parameters)
             if behaviour_policy is None:
                 action, solV = self.state_value(state, False, action_space=action_space)
                 if not solV.success:
@@ -278,7 +295,17 @@ class LstdQLearningAgent(
             state_ = np.reshape(state, ns)
             action_ = np.reshape(action, na)
             new_state_ = np.reshape(new_state, ns)
-            self.store_experience((state_, action_, cost, new_state_, terminated))
+            self.store_experience(
+                (
+                    state_,
+                    action_,
+                    cost,
+                    new_state_,
+                    terminated,
+                    fixed_pars,
+                    copy.deepcopy(self.fixed_parameters),
+                )
+            )
 
             # increase counters
             state = new_state
