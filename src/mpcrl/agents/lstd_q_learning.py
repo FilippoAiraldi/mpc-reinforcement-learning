@@ -1,4 +1,3 @@
-import copy
 import sys
 from collections.abc import Collection
 from typing import Callable, Generic, Literal, Optional, SupportsFloat, Union
@@ -25,14 +24,40 @@ from .common.agent import ActType, ObsType, SymType
 from .common.rl_learning_agent import LrType, RlLearningAgent
 
 # the usual buffer of SARS tuples with terminated flags; see here why these are needed:
-# https://gymnasium.farama.org/tutorials/gymnasium_basics/handling_time_limits/
+# https://gymnasium.farama.org/tutorials/gymnasium_basics/handling_time_limits/. On top
+# of that, we also store the fixed parameters of the agent at the time of the transition
+# (to be able to recompute the action-value function at that time) and the fixed
+# parameters at the next state (to compute the TD target)
 ExpType: TypeAlias = tuple[
     npt.NDArray[np.floating],
     npt.NDArray[np.floating],
     SupportsFloat,
     npt.NDArray[np.floating],
     bool,
+    Union[
+        None,
+        dict[str, npt.NDArray[np.floating]],
+        Collection[dict[str, npt.NDArray[np.floating]]],
+    ],
+    Union[
+        None,
+        dict[str, npt.NDArray[np.floating]],
+        Collection[dict[str, npt.NDArray[np.floating]]],
+    ],
 ]
+
+
+def _copy_fixed_pars(
+    d: Union[None, dict[str, npt.ArrayLike], Collection[dict[str, npt.ArrayLike]]],
+) -> Union[
+    None, dict[str, npt.NDArray[np.floating]], list[dict[str, npt.NDArray[np.floating]]]
+]:
+    """Utility to copy fixed parameters"""
+    if d is None:
+        return None
+    if isinstance(d, dict):
+        return {k: np.array(v, copy=True) for k, v in d.items()}
+    return [{k: np.array(v, copy=True) for k, v in o.items()} for o in d]
 
 
 class LstdQLearningAgent(
@@ -167,7 +192,9 @@ class LstdQLearningAgent(
             discount_factor=discount_factor,
             learnable_parameters=learnable_parameters,
             optimizer=optimizer,
-            fixed_parameters=fixed_parameters,
+            # to reduce future overhead, convert ``fixed_pars`` to numpy arrays right
+            # away, and to a list if necessary
+            fixed_parameters=_copy_fixed_pars(fixed_parameters),
             exploration=exploration,
             experience=experience,
             warmstart=warmstart,
@@ -190,26 +217,14 @@ class LstdQLearningAgent(
         ntheta = self._learnable_pars.size
         td_errors = self.td_errors
 
-        # store current fixed parameters of agent, as they are temporarily modified
-        # during the update loop to represent the state of the agent at the transition
-        fixed_parameters = copy.deepcopy(self.fixed_parameters)
-
         for step in range(gradient_steps):
             mean_gradient = np.zeros(ntheta)
             mean_hessian = None if no_hessian else np.zeros((ntheta, ntheta))
             count_success = 0
-            for i, (
-                s,
-                a,
-                r,
-                s_new,
-                terminated,
-                fixed_pars,
-                fixed_pars_new,
-            ) in enumerate(self.experience.sample()):
+            sample = self.experience.sample()
+            for i, (s, a, r, s_new, terminated, fp, fp_new) in enumerate(sample):
                 # compute Q value estimate - if failure, terminate early
-                self.fixed_parameters = fixed_pars
-                solQ = self.action_value(s, a)
+                solQ = self.action_value(s, a, overwrite_fixed_pars=fp)
                 if not solQ.success:
                     msg = f"Failure during update (trans. {i}; Q): {solQ.status}"
                     self.on_mpc_failure(-1, None, msg, raises)
@@ -222,8 +237,7 @@ class LstdQLearningAgent(
                 if terminated:
                     td_error = r - solQ.f
                 else:
-                    self.fixed_parameters = fixed_pars_new
-                    _, solV = self.state_value(s_new, True)
+                    _, solV = self.state_value(s_new, True, overwrite_fixed_pars=fp_new)
                     if not solV.success and self._fail_on_td_target:
                         msg = f"Failure during update (trans. {i}; V): {solV.status}"
                         self.on_mpc_failure(-1, None, msg, raises)
@@ -253,7 +267,6 @@ class LstdQLearningAgent(
             else:
                 statuses += f"{step}: no gradients computed, skipping update\n"
 
-        self.fixed_parameters = fixed_parameters
         return statuses if statuses else None
 
     def train_one_episode(
@@ -278,8 +291,10 @@ class LstdQLearningAgent(
         # part of this method but of `update()`
 
         while not (truncated or terminated):
+            # make a copy of the current fixed parameters
+            fp_ = _copy_fixed_pars(self.fixed_parameters)
+
             # compute the action to take
-            fixed_pars = copy.deepcopy(self.fixed_parameters)
             if behaviour_policy is None:
                 action, solV = self.state_value(state, False, action_space=action_space)
                 if not solV.success:
@@ -295,16 +310,9 @@ class LstdQLearningAgent(
             state_ = np.reshape(state, ns)
             action_ = np.reshape(action, na)
             new_state_ = np.reshape(new_state, ns)
+            new_fp_ = _copy_fixed_pars(self.fixed_parameters)  # may have changed
             self.store_experience(
-                (
-                    state_,
-                    action_,
-                    cost,
-                    new_state_,
-                    terminated,
-                    fixed_pars,
-                    copy.deepcopy(self.fixed_parameters),
-                )
+                (state_, action_, cost, new_state_, terminated, fp_, new_fp_)
             )
 
             # increase counters
