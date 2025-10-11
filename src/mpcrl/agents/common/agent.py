@@ -274,6 +274,9 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
             None, dict[str, npt.ArrayLike], Iterable[dict[str, npt.ArrayLike]]
         ] = None,
         store_solution: bool = True,
+        overwrite_fixed_pars: Union[
+            None, dict[str, npt.ArrayLike], Collection[dict[str, npt.ArrayLike]]
+        ] = None,
     ) -> Solution[SymType]:
         r"""Solves the agent's specific MPC optimal control problem.
 
@@ -308,6 +311,9 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
             By default, the MPC solution is stored accordingly to the :attr:`warmstart`
             strategy. If set to ``False``, this flag allows to disable the behaviour for
             this particular solution.
+        overwrite_fixed_pars : dict of (str, array_like), or collection of, optional
+            If not ``None``, this argument is used instead of :attr:`fixed_parameters`
+            to retrieve the fixed parameters of the MPC.
 
         Returns
         -------
@@ -344,7 +350,7 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
             )
 
         # create pars and vals0
-        pars = self._get_parameters()
+        pars = self._get_parameters(overwrite_fixed_pars)
         if pars is None:
             pars = additional_pars
         elif isinstance(pars, dict):
@@ -617,11 +623,25 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
 
     def _get_parameters(
         self,
+        overwrite_fixed_pars: Union[
+            None, dict[str, npt.ArrayLike], Collection[dict[str, npt.ArrayLike]]
+        ] = None,
     ) -> Union[None, dict[str, npt.ArrayLike], Collection[dict[str, npt.ArrayLike]]]:
         """Internal utility to retrieve parameters of the MPC in order to solve it.
         :class:`Agent` has no learnable parameter, so only fixed parameters are
-        returned."""
-        return self._fixed_pars
+        returned.
+
+        Parameters
+        ----------
+        overwrite_fixed_pars : dict of (str, array_like), or collection of, optional
+            If not ``None``, this argument is used instead of :attr:`fixed_parameters`
+            to retrieve the fixed parameters of the MPC.
+        """
+        return (
+            self.fixed_parameters
+            if overwrite_fixed_pars is None
+            else overwrite_fixed_pars
+        )
 
     def __deepcopy__(self, memo: Optional[dict[int, list[Any]]] = None) -> "Agent":
         """Ensures that the copy has a new name."""
