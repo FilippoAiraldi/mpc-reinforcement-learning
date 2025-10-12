@@ -285,14 +285,28 @@ class LearningAgent(
 
     def _get_parameters(
         self,
+        overwrite_fixed_pars: Union[
+            None, dict[str, npt.ArrayLike], Collection[dict[str, npt.ArrayLike]]
+        ] = None,
     ) -> Union[None, dict[str, npt.ArrayLike], Collection[dict[str, npt.ArrayLike]]]:
         """Internal utility to retrieve parameters of the MPC in order to solve it.
-        :class:`LearningAgent` returns both fixed and learnable parameters."""
+        :class:`LearningAgent` returns both fixed and learnable parameters.
+
+        Parameters
+        ----------
+        overwrite_fixed_pars : dict of (str, array_like), or collection of, optional
+            If not ``None``, this argument is used instead of :attr:`fixed_parameters`
+            to retrieve the fixed parameters of the MPC.
+        """
         learnable_pars = self._learnable_pars.value_as_dict
-        fixed_pars = self._fixed_pars
+        fixed_pars = (
+            self.fixed_parameters
+            if overwrite_fixed_pars is None
+            else overwrite_fixed_pars
+        )
         if fixed_pars is None:
             return learnable_pars
         if isinstance(fixed_pars, dict):
             fixed_pars.update(learnable_pars)
             return fixed_pars
-        return tuple(_update_dicts(self._fixed_pars, learnable_pars))
+        return tuple(_update_dicts(fixed_pars, learnable_pars))
