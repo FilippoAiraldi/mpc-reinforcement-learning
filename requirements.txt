@@ -1,5 +1,5 @@
 typing_extensions>=4.5.0 ; python_version <= '3.9'
 numba>=0.57.1
-csnlp>=1.6.4
+csnlp>=1.6.7,!=1.7.0rc1
 scipy>=1.11.0
 gymnasium>=0.28.1

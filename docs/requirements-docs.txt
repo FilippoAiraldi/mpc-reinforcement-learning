@@ -1,11 +1,8 @@
-sphinx==7.3.7
-numpydoc==1.7.0
-sphinx_autodoc_typehints==2.2.2
-sphinx-gallery==0.16.0
-sphinxcontrib-bibtex==2.6.2
-pydata_sphinx_theme==0.15.4
+sphinx==8.2.3
+numpydoc==1.9.0
+sphinx-autodoc-typehints==3.5.1
+sphinx-gallery==0.19.0
+sphinxcontrib-bibtex==2.6.5
+pydata-sphinx-theme==0.16.1
 memory_profiler
 matplotlib
-botorch
---extra-index-url https://download.pytorch.org/whl/cpu
-torch
