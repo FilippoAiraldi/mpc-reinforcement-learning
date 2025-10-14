@@ -6,7 +6,7 @@ Reinforcement Learning with Model Predictive Control
 
 |PyPI version| |Source Code License| |Python 3.9|
 
-|Tests| |Docs| |Downloads| |Maintainability| |Test Coverage| |Code style: black|
+|Tests| |Docs| |Downloads| |Maintainability| |Code Coverage| |Ruff|
 
 ------------------
 Short introduction
@@ -108,12 +108,12 @@ References
 .. |Downloads| image:: https://static.pepy.tech/badge/mpcrl
    :target: https://www.pepy.tech/projects/mpcrl
    :alt: Downloads
-.. |Maintainability| image:: https://api.codeclimate.com/v1/badges/9a46f52603d29c684c48/maintainability
-   :target: https://codeclimate.com/github/FilippoAiraldi/mpc-reinforcement-learning/maintainability
+.. |Maintainability| image:: https://qlty.sh/gh/FilippoAiraldi/projects/mpc-reinforcement-learning/maintainability.svg
+   :target: https://qlty.sh/gh/FilippoAiraldi/projects/mpc-reinforcement-learning
    :alt: Maintainability
-.. |Test Coverage| image:: https://api.codeclimate.com/v1/badges/9a46f52603d29c684c48/test_coverage
-   :target: https://codeclimate.com/github/FilippoAiraldi/mpc-reinforcement-learning/test_coverage
+.. |Code Coverage| image:: https://qlty.sh/gh/FilippoAiraldi/projects/mpc-reinforcement-learning/coverage.svg
+   :target: https://qlty.sh/gh/FilippoAiraldi/projects/mpc-reinforcement-learning
    :alt: Test Coverage
-.. |Code style: black| image:: https://img.shields.io/badge/code%20style-black-000000.svg
-   :target: https://github.com/psf/black
-   :alt: blacks
+.. |Ruff| image:: https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json
+   :target: https://docs.astral.sh/ruff
+   :alt: ruff
