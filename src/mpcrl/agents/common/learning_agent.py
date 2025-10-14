@@ -267,19 +267,24 @@ class LearningAgent(
             )
         # hook updates (always necessary)
         update_hook = self._update_strategy.hook
-        func: Callable[..., None] = (
-            (lambda _, e, __: self._check_and_perform_update(e, None))
-            if update_hook == "on_episode_end"
-            else (lambda _, e, t: self._check_and_perform_update(e, t))
+        self._hook_callback(
+            repr(self._update_strategy), update_hook, self._check_and_perform_update
         )
-        self._hook_callback(repr(self._update_strategy), update_hook, func)
 
-    def _check_and_perform_update(self, episode: int, timestep: Optional[int]) -> None:
+    def _check_and_perform_update(
+        self,
+        _: Env[ObsType, ActType],
+        episode: int,
+        timestep_or_return: Union[int, float],
+    ) -> None:
         """Internal utility to check if an update is due and perform it."""
         if not self._is_training or not self._update_strategy.can_update():
             return
         update_msg = self.update()
         if update_msg is not None:
+            timestep = (
+                timestep_or_return if isinstance(timestep_or_return, int) else None
+            )
             self.on_update_failure(episode, timestep, update_msg, self._raises)
         self.on_update()
 

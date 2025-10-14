@@ -3,9 +3,11 @@ import os
 import pickle
 import sys
 import unittest
+from copy import deepcopy
 from operator import neg
 from warnings import filterwarnings
 
+from casadi import global_pickle_context, global_unpickle_context
 from csnlp.multistart import RandomStartPoint, RandomStartPoints
 
 for folder in (
@@ -90,11 +92,14 @@ class TestExamples(unittest.TestCase):
             log_frequencies={"on_timestep_end": 100},
         )
 
-        agent_copy = agent.copy()
+        agent_copy = deepcopy(agent)
         if use_copy:
             agent = agent_copy
+        with global_pickle_context():
+            pickled = pickle.dumps(agent)
+        with global_unpickle_context():
+            agent = pickle.loads(pickled)
         J = agent.train(env=env, episodes=1, seed=69).item()
-        agent = pickle.loads(pickle.dumps(agent))
 
         X = env.observations[0].squeeze().T
         U = env.actions[0].squeeze()
@@ -155,11 +160,14 @@ class TestExamples(unittest.TestCase):
             log_frequencies={"on_timestep_end": 200},
         )
 
-        agent_copy = agent.copy()
+        agent_copy = deepcopy(agent)
         if use_copy:
             agent = agent_copy
+        with global_pickle_context():
+            pickled = pickle.dumps(agent)
+        with global_unpickle_context():
+            agent = pickle.loads(pickled)
         J = agent.train(env=env, episodes=1, seed=69).item()
-        agent = pickle.loads(pickle.dumps(agent))
 
         X = env.observations[0].squeeze().T
         U = env.actions[0].squeeze()
@@ -228,12 +236,15 @@ class TestExamples(unittest.TestCase):
             warmstart=warmstart,
         )
         agent = RecordUpdates(agent)
-        agent_copy = agent.copy()
+        agent_copy = deepcopy(agent)
         if use_copy:
             agent = agent_copy
+        with global_pickle_context():
+            pickled = pickle.dumps(agent)
+        with global_unpickle_context():
+            agent = pickle.loads(pickled)
 
         J = agent.train(env=env, episodes=6, seed=69, raises=False)
-        agent = pickle.loads(pickle.dumps(agent))
 
         X = np.squeeze(env.get_wrapper_attr("observations"))
         U = np.squeeze(env.get_wrapper_attr("actions"), (2, 3))
@@ -287,12 +298,15 @@ class TestExamples(unittest.TestCase):
         )
         behaviour_policy = get_behaviour_policy()
 
-        agent_copy = agent.copy()
+        agent_copy = deepcopy(agent)
         if use_copy:
             agent = agent_copy
+        with global_pickle_context():
+            pickled = pickle.dumps(agent)
+        with global_unpickle_context():
+            agent = pickle.loads(pickled)
         agent.train(env=env, episodes=6, behaviour_policy=behaviour_policy, seed=69)
         J = np.asarray(agent.eval_returns)
-        agent = pickle.loads(pickle.dumps(agent))
 
         parnames = ["V0", "x_lb", "x_ub", "b", "f", "A", "B"]
         PARS = np.concatenate(

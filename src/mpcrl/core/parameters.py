@@ -11,6 +11,7 @@ properties and methods to manage them in bulk.
 See also :ref:`user_guide_learnable_parameters`."""
 
 from collections.abc import Iterable
+from copy import deepcopy
 from functools import cached_property
 from itertools import chain
 from numbers import Integral
@@ -18,13 +19,12 @@ from typing import Any, Optional, Union
 
 import numpy as np
 import numpy.typing as npt
-from csnlp.core.cache import invalidate_cache
-from csnlp.util.io import SupportsDeepcopyAndPickle
+from csnlp.core.cache import invalidate_cache, invalidate_caches_of
 
 from ..util.math import summarize_array
 
 
-class LearnableParameter(SupportsDeepcopyAndPickle):
+class LearnableParameter:
     """A parameter that is learnable, that is, it can be adjusted via RL or any other
     learning strategy. This class is useful for managing bounds and value of the
     learnable parameter.
@@ -105,7 +105,7 @@ class LearnableParameter(SupportsDeepcopyAndPickle):
         return f"<{self.__class__.__name__}(name={self.name},shape={self.shape})>"
 
 
-class LearnableParametersDict(dict[str, LearnableParameter], SupportsDeepcopyAndPickle):
+class LearnableParametersDict(dict[str, LearnableParameter]):
     """:class:`dict`-based collection of :class:`LearnableParameter` instances that
     simplifies the process of managing and updating these. The dict contains pairs of
     parameter's name and parameter's instance.
@@ -129,10 +129,9 @@ class LearnableParametersDict(dict[str, LearnableParameter], SupportsDeepcopyAnd
 
     def __init__(self, pars: Optional[Iterable[LearnableParameter]] = None) -> None:
         if pars is None:
-            dict.__init__(self)
+            super().__init__()
         else:
-            dict.__init__(self, map(lambda p: (p.name, p), pars))
-        SupportsDeepcopyAndPickle.__init__(self)
+            super().__init__(map(lambda p: (p.name, p), pars))
 
     @cached_property
     def size(self) -> int:
@@ -250,11 +249,12 @@ class LearnableParametersDict(dict[str, LearnableParameter], SupportsDeepcopyAnd
         LearnableParametersDict
             A copy of the dict of learnable parameters.
         """
-        return (
-            SupportsDeepcopyAndPickle.copy(self, invalidate_caches)
-            if deep
-            else self.__class__(self.values())
-        )
+        if not deep:
+            return self.__class__(self.values())
+        new = deepcopy(self)
+        if invalidate_caches:
+            invalidate_caches_of(new)
+        return new
 
     def stringify(
         self, summarize: bool = True, precision: int = 3, ddof: int = 0

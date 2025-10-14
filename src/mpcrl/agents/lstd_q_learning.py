@@ -1,5 +1,6 @@
 import sys
 from collections.abc import Collection
+from functools import partial
 from typing import Callable, Generic, Literal, Optional, SupportsFloat, Union
 
 import casadi as cs
@@ -349,9 +350,7 @@ class LstdQLearningAgent(
                 ["dQ"],
                 {"cse": True},
             )
-
-            def func(sol: Solution) -> np.ndarray:
-                return np.asarray(sensitivity(sol.x, sol.p, sol.lam_g_and_h).elements())
+            func = _sol_sensitivities
 
         elif hessian_type == "approx":
             hessian = snlp.hessian("L-pp")  # approximate hessian
@@ -367,14 +366,7 @@ class LstdQLearningAgent(
                     ["dQ", "ddQ"],
                     {"cse": True},
                 )
-                shape = sensitivity.size_out("ddQ")
-
-                def func(sol: Solution) -> tuple[np.ndarray, np.ndarray]:
-                    J, H = sensitivity(sol.x, sol.p, sol.lam_g_and_h)
-                    return (
-                        np.asarray(J.elements()),
-                        np.reshape(H.elements(), shape, "F"),
-                    )
+                func = _sol_sensitivities_with_approx_hessian
 
             else:
                 sensitivity = cs.Function(
@@ -385,10 +377,7 @@ class LstdQLearningAgent(
                     ["dQ"],
                     {"cse": True},
                 )
-
-                def func(sol: Solution) -> tuple[np.ndarray, np.ndarray]:
-                    J = sensitivity(sol.x, sol.p, sol.lam_g_and_h)
-                    return np.asarray(J.elements()), 0.0
+                func = _sol_sensitivities_with_zero_hessian
 
         else:
             lam_lbx_and_ubx = cs.vertcat(nlp.lam_lbx, nlp.lam_ubx)
@@ -409,16 +398,7 @@ class LstdQLearningAgent(
                     ["dQ", "ddQ"],
                     {"cse": True},
                 )
-                shape = sensitivity.size_out("ddQ")
-
-                def func(sol: Solution) -> tuple[np.ndarray, np.ndarray]:
-                    J, H = sensitivity(
-                        sol.x, sol.p, sol.lam_g_and_h, sol.lam_lbx_and_ubx
-                    )
-                    return (
-                        np.asarray(J.elements()),
-                        np.reshape(H.elements(), shape, "F"),
-                    )
+                func = _sol_sensitivities_with_full_hessian
 
             else:
                 sensitivity = cs.Function(
@@ -429,9 +409,37 @@ class LstdQLearningAgent(
                     ["dQ"],
                     {"cse": True},
                 )
+                func = _sol_sensitivities_with_zero_hessian
 
-                def func(sol: Solution) -> tuple[np.ndarray, np.ndarray]:
-                    J = sensitivity(sol.x, sol.p, sol.lam_g_and_h)
-                    return np.asarray(J.elements()), 0.0
+        return partial(func, sensitivity)
 
-        return func
+
+def _sol_sensitivities(sensitivity: cs.Function, sol: Solution) -> np.ndarray:
+    """Internal utility to compute sensitivities."""
+    return np.asarray(sensitivity(sol.x, sol.p, sol.lam_g_and_h).elements())
+
+
+def _sol_sensitivities_with_approx_hessian(
+    sensitivity: cs.Function, sol: Solution
+) -> tuple[np.ndarray, np.ndarray]:
+    """Internal utility to compute sensitivities including the approximate Hessian."""
+    J, H = sensitivity(sol.x, sol.p, sol.lam_g_and_h)
+    hessian_shape = sensitivity.size_out("ddQ")
+    return np.asarray(J.elements()), np.reshape(H.elements(), hessian_shape, "F")
+
+
+def _sol_sensitivities_with_full_hessian(
+    sensitivity: cs.Function, sol: Solution
+) -> tuple[np.ndarray, np.ndarray]:
+    """Internal utility to compute sensitivities including the full Hessian."""
+    J, H = sensitivity(sol.x, sol.p, sol.lam_g_and_h, sol.lam_lbx_and_ubx)
+    hessian_shape = sensitivity.size_out("ddQ")
+    return np.asarray(J.elements()), np.reshape(H.elements(), hessian_shape, "F")
+
+
+def _sol_sensitivities_with_zero_hessian(
+    sensitivity: cs.Function, sol: Solution
+) -> tuple[np.ndarray, float]:
+    """Internal utility to compute sensitivities but the Hessian is all zeros."""
+    J = sensitivity(sol.x, sol.p, sol.lam_g_and_h)
+    return np.asarray(J.elements()), 0.0
