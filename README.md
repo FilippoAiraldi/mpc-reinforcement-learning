@@ -20,7 +20,7 @@ agents with Model Predictive Control (MPC) [[2]](#2) as function approximation.
 [![Downloads](https://static.pepy.tech/badge/mpcrl)](https://www.pepy.tech/projects/mpcrl)
 [![Maintainability](https://qlty.sh/gh/FilippoAiraldi/projects/mpc-reinforcement-learning/maintainability.svg)](https://qlty.sh/gh/FilippoAiraldi/projects/mpc-reinforcement-learning)
 [![Code Coverage](https://qlty.sh/gh/FilippoAiraldi/projects/mpc-reinforcement-learning/coverage.svg)](https://qlty.sh/gh/FilippoAiraldi/projects/mpc-reinforcement-learning)
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://docs.astral.sh/ruff/)
 
 ---
 
