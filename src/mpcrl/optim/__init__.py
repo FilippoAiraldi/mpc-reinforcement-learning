@@ -5,13 +5,13 @@ the submodule also allows for gradient-free optimization techniques (to be combi
 :class:`mpcrl.GlobOptLearningAgent`). See also :ref:`user_guide_optim`."""
 
 __all__ = [
+    "GD",
+    "NM",
     "Adam",
     "GradientBasedOptimizer",
     "GradientDescent",
     "GradientFreeOptimizer",
-    "GD",
     "NewtonMethod",
-    "NM",
     "RMSprop",
 ]
 

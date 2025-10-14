@@ -247,9 +247,7 @@ class LearningAgent(
     ) -> LearnableParametersDict:
         """Reorders the learnable parameters of the MPC according to their creation
         order."""
-        reordered = [
-            dict_.pop(name) for name in self.V.parameters.keys() if name in dict_
-        ]
+        reordered = [dict_.pop(name) for name in self.V.parameters if name in dict_]
         assert not dict_, (
             "Not all learnable parameters could be reordered. "
             "Please check for spurious learnable parameters in `learnable_parameters`."
@@ -272,10 +270,7 @@ class LearningAgent(
         )
 
     def _check_and_perform_update(
-        self,
-        _: Env[ObsType, ActType],
-        episode: int,
-        timestep_or_return: Union[int, float],
+        self, _: Env[ObsType, ActType], episode: int, timestep_or_return: float
     ) -> None:
         """Internal utility to check if an update is due and perform it."""
         if not self._is_training or not self._update_strategy.can_update():

@@ -32,11 +32,10 @@ def _failure_msg(
     C = category.title()
     if timestep is None:
         return f"{C} failure of {name} at episode {episode}, status: {status}."
-    else:
-        return (
-            f"{C} failure of {name} at episode {episode}, time {timestep}, "
-            f"status: {status}."
-        )
+    return (
+        f"{C} failure of {name} at episode {episode}, time {timestep}, "
+        f"status: {status}."
+    )
 
 
 class CallbackMixin:

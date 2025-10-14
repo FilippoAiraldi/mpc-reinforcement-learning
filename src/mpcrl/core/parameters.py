@@ -131,7 +131,7 @@ class LearnableParametersDict(dict[str, LearnableParameter]):
         if pars is None:
             super().__init__()
         else:
-            super().__init__(map(lambda p: (p.name, p), pars))
+            super().__init__((p.name, p) for p in pars)
 
     @cached_property
     def size(self) -> int:
@@ -217,7 +217,7 @@ class LearnableParametersDict(dict[str, LearnableParameter]):
     def update(
         self, pars: Iterable[LearnableParameter], *args: LearnableParameter
     ) -> None:
-        return super().update(map(lambda p: (p.name, p), chain(pars, args)))
+        return super().update((p.name, p) for p in chain(pars, args))
 
     @__cache_decorator
     def setdefault(self, par: LearnableParameter) -> LearnableParameter:

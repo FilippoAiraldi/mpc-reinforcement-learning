@@ -130,8 +130,8 @@ class WarmStartStrategy:
 
         generator = chain.from_iterable(to_be_chained)
         if given_prev_sol:
-            generator = map(
-                lambda ic: _merge_init_conditions_dicts(ic, previous_sol), generator
+            generator = (
+                _merge_init_conditions_dicts(ic, previous_sol) for ic in generator
             )
         return generator
 

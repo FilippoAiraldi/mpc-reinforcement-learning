@@ -3,14 +3,14 @@ these functions support the creation of monomial basis functions for approximati
 value function, and the modifications of Hessian matrices to positive-definite ones."""
 
 from itertools import combinations as _combinations
-from typing import Optional
+from typing import Optional, Union
 from typing import TypeVar as _TypeVar
-from typing import Union
 
 import casadi as cs
 import numpy as np
 import numpy.typing as npt
 from csnlp.util.math import prod as _prod
+from scipy.linalg import get_lapack_funcs as _get_lapack_funcs
 from scipy.special import comb as _comb
 
 SymType = _TypeVar("SymType", cs.SX, cs.MX)
@@ -86,11 +86,17 @@ def cholesky_added_multiple_identity(
     a_min = np.diag(A).min()
     tau = 0 if a_min > 0 else -a_min + beta
     identity = np.eye(A.shape[0])
+    (potrf,) = _get_lapack_funcs(("potrf",), (A,))  # taken from scipy.linalg.cholesky
     for _ in range(maxiter):
-        try:
-            return np.linalg.cholesky(A + tau * identity)
-        except np.linalg.LinAlgError:
-            tau = max(1.05 * tau, beta)
+        L, info = potrf(A + tau * identity, lower=True, overwrite_a=False, clean=True)
+        if info == 0:
+            return L
+        if info < 0:
+            raise ValueError(
+                f"LAPACK reported an illegal value in {-info}-th argument on entry to "
+                '"POTRF".'
+            )
+        tau = max(1.05 * tau, beta)
     raise ValueError("Maximum iterations reached.")
 
 
@@ -184,7 +190,8 @@ def monomials_basis_function(n: int, mindegree: int, maxdegree: int) -> cs.Funct
     .. math::
 
         \Phi(s) = \Bigr[
-            m_{0,1}(s), \ldots, m_{0,c_0}(s), m_{1,1}(s), \ldots, m_{1,c_1}(s), \ldots, m_{M-m,1}(s), \ldots, m_{M-m,c_{M-m}}(s)
+            m_{0,1}(s), \ldots, m_{0,c_0}(s), m_{1,1}(s), \ldots, m_{1,c_1}(s), \ldots,
+            m_{M-m,1}(s), \ldots, m_{M-m,c_{M-m}}(s)
         \Bigl]^\top
 
     Parameters

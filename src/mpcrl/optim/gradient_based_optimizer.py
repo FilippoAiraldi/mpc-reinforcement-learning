@@ -100,7 +100,7 @@ class GradientBasedOptimizer(BaseOptimizer, Generic[LrType]):
         # return hook only if the learning rate scheduler requires to be stepped
         return None if isinstance(self.lr_scheduler, NoScheduling) else self._hook
 
-    def step(self, *_, **__) -> None:
+    def step(self, *_: object, **__: object) -> None:
         """Steps/decays the learning rate according to its scheduler."""
         self.lr_scheduler.step()
 

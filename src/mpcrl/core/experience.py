@@ -9,7 +9,7 @@ and sample, when performing an update, past experiences. See
 from collections import deque
 from collections.abc import Iterable, Iterator
 from itertools import chain
-from typing import Optional, TypeVar, Union
+from typing import Optional, TypeVar
 
 import numpy as np
 
@@ -56,8 +56,8 @@ class ExperienceReplay(deque[ExpType]):
         self,
         iterable: Iterable[ExpType] = (),
         maxlen: Optional[int] = None,
-        sample_size: Union[int, float] = 1,
-        include_latest: Union[int, float] = 0,
+        sample_size: float = 1,
+        include_latest: float = 0,
         seed: RngType = None,
     ) -> None:
         if isinstance(sample_size, float) and maxlen is None:

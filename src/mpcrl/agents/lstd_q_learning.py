@@ -323,7 +323,9 @@ class LstdQLearningAgent(
             self.on_timestep_end(env, episode, timestep)
         return rewards
 
-    def _init_sensitivity(self, hessian_type: Literal["approx", "full"]) -> Union[
+    def _init_sensitivity(
+        self, hessian_type: Literal["approx", "full"]
+    ) -> Union[
         Callable[[Solution], np.ndarray],
         Callable[[Solution], tuple[np.ndarray, np.ndarray]],
     ]:
@@ -341,7 +343,6 @@ class LstdQLearningAgent(
         gradient = snlp.jacobian("L-p")  # exact gradient, i.e., dQ/dtheta
 
         if ord == 1:
-
             sensitivity = cs.Function(
                 "lag_sens",
                 [x, p, lam_g_and_h],

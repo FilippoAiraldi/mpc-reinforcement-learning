@@ -22,6 +22,7 @@ if sys.version_info < (3, 10):
         "Support for Python 3.9 is deprecated and will not be tested in future "
         "releases. Consider upgrading to Python 3.10 or higher for better support.",
         DeprecationWarning,
+        2,
     )
 
 __version__ = "1.4.1rc1"

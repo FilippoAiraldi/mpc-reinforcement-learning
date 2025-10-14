@@ -158,12 +158,12 @@ class Agent(Named, AgentCallbackMixin, Generic[SymType]):
                     "points. Expected either 0 warmstart points (i.e., it is disabled),"
                     " or the same number as MPC's multistarts, or at most one less."
                 )
-            elif not mpc_.is_multi and ws_points > 0:
+            if not mpc_.is_multi and ws_points > 0:
                 raise ValueError(
                     "Got a warmstart strategy with more than 0 starting points, but "
                     "the given MPC does not have an underlying multistart NLP problem."
                 )
-            elif (
+            if (
                 not mpc_.is_multi
                 and fixed_parameters is not None
                 and not isinstance(fixed_parameters, dict)
@@ -191,7 +191,7 @@ class Agent(Named, AgentCallbackMixin, Generic[SymType]):
         agent is not wrapped at all, returns itself."""
         return self
 
-    def is_wrapped(self, *args: Any, **kwargs: Any) -> bool:
+    def is_wrapped(self, *_: Any, **__: Any) -> bool:
         """Gets whether the agent instance is wrapped or not by the wrapper type.
 
         Returns
@@ -335,7 +335,7 @@ class Agent(Named, AgentCallbackMixin, Generic[SymType]):
         if action is None:
             u0_vec = None
         elif isinstance(action, dict):
-            u0_vec = cs.vertcat(*(action[k] for k in mpc.actions.keys()))
+            u0_vec = cs.vertcat(*(action[k] for k in mpc.actions))
         else:
             u0_vec = action
 
@@ -385,7 +385,7 @@ class Agent(Named, AgentCallbackMixin, Generic[SymType]):
             None, dict[str, npt.ArrayLike], Iterable[dict[str, npt.ArrayLike]]
         ] = None,
         action_space: Optional[Box] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> tuple[cs.DM, Solution[SymType]]:
         r"""Computes the MPC-based state value function approximation
         :math:`V_\theta(s)`.
@@ -442,7 +442,7 @@ class Agent(Named, AgentCallbackMixin, Generic[SymType]):
 
         grad_pert = pert if exploration_mode == "gradient-based" else None
         sol = self._solve_mpc(V, state, perturbation=grad_pert, vals0=vals0, **kwargs)
-        action_opt = cs.vertcat(*(sol.vals[u][:, 0] for u in V.actions.keys()))
+        action_opt = cs.vertcat(*(sol.vals[u][:, 0] for u in V.actions))
 
         if sol.success:
             self._last_action = action_opt
@@ -467,7 +467,7 @@ class Agent(Named, AgentCallbackMixin, Generic[SymType]):
         vals0: Union[
             None, dict[str, npt.ArrayLike], Iterable[dict[str, npt.ArrayLike]]
         ] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> Solution[SymType]:
         r"""Computes the MPC-based action value function approximation
         :math:`Q_\theta(s,a)`.

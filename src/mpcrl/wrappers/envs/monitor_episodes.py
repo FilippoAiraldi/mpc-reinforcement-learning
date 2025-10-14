@@ -1,6 +1,6 @@
 from collections import deque
 from time import perf_counter
-from typing import Any, Deque, Optional, SupportsFloat, TypeVar
+from typing import Any, Optional, SupportsFloat, TypeVar
 
 import numpy as np
 import numpy.typing as npt
@@ -54,11 +54,11 @@ class MonitorEpisodes(
         utils.RecordConstructorArgs.__init__(self, deque_size=deque_size)
         Wrapper.__init__(self, env)
         # long-term storages
-        self.observations: Deque[npt.NDArray[ObsType]] = deque(maxlen=deque_size)
-        self.actions: Deque[npt.NDArray[ActType]] = deque(maxlen=deque_size)
-        self.rewards: Deque[npt.NDArray[np.floating]] = deque(maxlen=deque_size)
-        self.episode_lengths: Deque[int] = deque(maxlen=deque_size)
-        self.exec_times: Deque[float] = deque(maxlen=deque_size)
+        self.observations: deque[npt.NDArray[ObsType]] = deque(maxlen=deque_size)
+        self.actions: deque[npt.NDArray[ActType]] = deque(maxlen=deque_size)
+        self.rewards: deque[npt.NDArray[np.floating]] = deque(maxlen=deque_size)
+        self.episode_lengths: deque[int] = deque(maxlen=deque_size)
+        self.exec_times: deque[float] = deque(maxlen=deque_size)
         # current-episode-storages
         self.ep_observations: list[ObsType] = []
         self.ep_actions: list[ActType] = []

@@ -89,10 +89,10 @@ def get_mpc(horizon: int, multistart: bool):
 
 
 class DummyLearningAgent(LearningAgent):
-    def update(self, *args, **kwargs):
+    def update(self, *_, **__):
         return
 
-    def train_one_episode(self, *args, **kwargs):
+    def train_one_episode(self, *_, **__):
         return
 
 
