@@ -131,7 +131,7 @@ class LearnableParametersDict(dict[str, LearnableParameter], SupportsDeepcopyAnd
         if pars is None:
             dict.__init__(self)
         else:
-            dict.__init__(self, map(lambda p: (p.name, p), pars))
+            dict.__init__(self, ((p.name, p) for p in pars))
         SupportsDeepcopyAndPickle.__init__(self)
 
     @cached_property
@@ -218,7 +218,7 @@ class LearnableParametersDict(dict[str, LearnableParameter], SupportsDeepcopyAnd
     def update(
         self, pars: Iterable[LearnableParameter], *args: LearnableParameter
     ) -> None:
-        return super().update(map(lambda p: (p.name, p), chain(pars, args)))
+        return super().update((p.name, p) for p in chain(pars, args))
 
     @__cache_decorator
     def setdefault(self, par: LearnableParameter) -> LearnableParameter:

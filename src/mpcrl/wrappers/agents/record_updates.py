@@ -1,5 +1,8 @@
-import numpy as np
-import numpy.typing as npt
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import numpy as np
+    import numpy.typing as npt
 
 from ...agents.common.learning_agent import ExpType, LearningAgent
 from ...util.iters import bool_cycle
@@ -37,7 +40,7 @@ class RecordUpdates(LearningWrapper[SymType, ExpType]):
             p.name: [p.value] for p in agent.learnable_parameters.values()
         }
 
-    def _on_update(self, *_, **__) -> None:
+    def _on_update(self, *_: object, **__: object) -> None:
         if next(self._record_cycle):
             for par in self.agent.learnable_parameters.values():
                 self.updates_history[par.name].append(par.value)

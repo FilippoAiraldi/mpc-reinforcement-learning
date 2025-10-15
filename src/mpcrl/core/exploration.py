@@ -102,6 +102,7 @@ class ExplorationStrategy(ABC):
 
     def reset(self, _: RngType = None) -> None:
         """Resets the exploration status, in case it is non-deterministic."""
+        return
 
     def __str__(self) -> str:
         return self.__class__.__name__
@@ -137,7 +138,7 @@ class NoExploration(ExplorationStrategy):
     def can_explore(self) -> bool:
         return False
 
-    def step(self, *_, **__) -> None:
+    def step(self, *_: object, **__: object) -> None:
         """Does nothing, since no exploration is allowed."""
         return
 
@@ -206,7 +207,7 @@ class GreedyExploration(ExplorationStrategy):
     def can_explore(self) -> bool:
         return True
 
-    def step(self, *_, **__) -> None:
+    def step(self, *_: object, **__: object) -> None:
         """Steps (i.e., decays or increases) the exploration strength according to its
         scheduler."""
         self.strength_scheduler.step()
@@ -305,7 +306,7 @@ class EpsilonGreedyExploration(GreedyExploration):
     def can_explore(self) -> bool:
         return self.np_random.random() <= self.epsilon_scheduler.value
 
-    def step(self, *_, **__) -> None:
+    def step(self, *_: object, **__: object) -> None:
         """Steps (i.e., decays or increases) the exploration strength and probability
         according to their schedulers."""
         self.strength_scheduler.step()
@@ -405,7 +406,7 @@ class OrnsteinUhlenbeckExploration(ExplorationStrategy):
     def can_explore(self) -> bool:
         return True
 
-    def step(self, *_, **__) -> None:
+    def step(self, *_: object, **__: object) -> None:
         """Updates (i.e., decays or increases) the mean and standard deviation of the
         perturbation according to their schedulers."""
         self.mean_scheduler.step()
@@ -502,13 +503,14 @@ class StepWiseExploration(ExplorationStrategy):
         self._cached_can_explore = self.base_exploration.can_explore()
         return self._cached_can_explore
 
-    def step(self, *_, **__) -> None:
+    def step(self, *_: object, **__: object) -> None:
         if not self._stepwise_decay:
             return self.base_exploration.step()
         self._step_counter %= self.step_size
         if self._step_counter == 0:
             self.base_exploration.step()
         self._step_counter += 1
+        return None
 
     def perturbation(self, *args: Any, **kwargs: Any) -> npt.NDArray[np.floating]:
         if self._cached_perturbation is not None:

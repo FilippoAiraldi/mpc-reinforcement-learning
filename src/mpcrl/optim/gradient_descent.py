@@ -27,8 +27,10 @@ class GradientDescent(GradientBasedOptimizer[LrType]):
     .. math::
 
         \begin{aligned}
-            \min_{\Delta\theta} & \quad \frac{1}{2} \lVert \Delta\theta \rVert_2^2 + \alpha g^\top \Delta\theta \\
-            \text{s.t.} & \quad \theta_{\text{lower}} \leq \theta + \Delta\theta \leq \theta_{\text{upper}}
+            \min_{\Delta\theta} & \quad \frac{1}{2} \lVert \Delta\theta \rVert_2^2
+            + \alpha g^\top \Delta\theta \\
+            \text{s.t.} & \quad \theta_{\text{lower}} \leq \theta
+            + \Delta\theta \leq \theta_{\text{upper}}
         \end{aligned}
 
     followed by the update :math:`\theta \gets \theta + \Delta\theta`.

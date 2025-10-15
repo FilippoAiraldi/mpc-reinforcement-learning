@@ -177,14 +177,14 @@ class Log(Wrapper[SymType]):
         self.logger.info("validation of %s concluded with returns=%s.", env, S)
 
     def _on_episode_start(
-        self, env: Env[ObsType, ActType], episode: int, state: ObsType
+        self, _: Env[ObsType, ActType], episode: int, state: ObsType
     ) -> None:
         if next(self.log_frequencies["on_episode_start"]):
             S = np.array2string(state, precision=self.precision)
             self.logger.debug("episode %d started with state=%s.", episode, S)
 
     def _on_episode_end(
-        self, env: Env[ObsType, ActType], episode: int, rewards: float
+        self, _: Env[ObsType, ActType], episode: int, rewards: float
     ) -> None:
         if next(self.log_frequencies["on_episode_end"]):
             self.logger.info(
@@ -192,7 +192,7 @@ class Log(Wrapper[SymType]):
             )
 
     def _on_env_step(
-        self, env: Env[ObsType, ActType], episode: int, timestep: int
+        self, _: Env[ObsType, ActType], episode: int, timestep: int
     ) -> None:
         if next(self.log_frequencies["on_env_step"]):
             self.logger.debug(
@@ -200,7 +200,7 @@ class Log(Wrapper[SymType]):
             )
 
     def _on_timestep_end(
-        self, env: Env[ObsType, ActType], episode: int, timestep: int
+        self, _: Env[ObsType, ActType], episode: int, timestep: int
     ) -> None:
         if next(self.log_frequencies["on_timestep_end"]):
             self.logger.debug("episode %d stepped at time %d.", episode, timestep)

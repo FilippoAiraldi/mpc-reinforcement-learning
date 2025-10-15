@@ -209,9 +209,9 @@ class CstrEnv(gym.Env[npt.NDArray[np.floating], float]):
         self.observation_space.seed(seed)
         self.action_space.seed(seed)
         self._state = self.x0
-        assert self.observation_space.contains(
-            self._state
-        ), f"invalid reset state {self._state}"
+        assert self.observation_space.contains(self._state), (
+            f"invalid reset state {self._state}"
+        )
         return self._state.copy(), {}
 
     def step(
@@ -222,9 +222,9 @@ class CstrEnv(gym.Env[npt.NDArray[np.floating], float]):
         assert self.action_space.contains(action), f"invalid step action {action}"
         integration = self.dynamics(x0=self._state, p=action)
         self._state = np.asarray(integration["xf"].elements())
-        assert self.observation_space.contains(
-            self._state
-        ), f"invalid step next state {self._state}"
+        assert self.observation_space.contains(self._state), (
+            f"invalid step next state {self._state}"
+        )
         return self._state.copy(), float(integration["qf"]), False, False, {}
 
 
@@ -440,9 +440,9 @@ class BoTorchOptimizer(GradientFreeOptimizer):
 
         # append the new datum to the training data
         if iteration < self._initial_random:
-            assert (
-                values == self._train_inputs[iteration]
-            ).all(), "`tell` called with a different value than the one given by `ask`."
+            assert (values == self._train_inputs[iteration]).all(), (
+                "`tell` called with a different value than the one given by `ask`."
+            )
             self._train_inputs[iteration] = values
         else:
             self._train_inputs = np.append(

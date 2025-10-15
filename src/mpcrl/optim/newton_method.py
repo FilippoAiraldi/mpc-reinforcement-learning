@@ -28,12 +28,17 @@ class NewtonMethod(GradientBasedOptimizer[LrType]):
     .. math::
 
         \begin{aligned}
-            \min_{\Delta\theta} & \quad \frac{1}{2} \Delta\theta^\top H \Delta\theta + \alpha g^\top \Delta\theta \\
-            \text{s.t.} & \quad \theta_{\text{lower}} \leq \theta + \Delta\theta \leq \theta_{\text{upper}}
+            \min_{\Delta\theta} & \quad \frac{1}{2} \Delta\theta^\top H \Delta\theta
+            + \alpha g^\top \Delta\theta \\
+            \text{s.t.} & \quad \theta_{\text{lower}} \leq \theta
+            + \Delta\theta \leq \theta_{\text{upper}}
         \end{aligned}
 
     if ``cho_before_update=False``; otherwise, the objective is
-    :math:`\frac{1}{2} \lVert \Delta\theta \rVert_2^2 + \alpha (H^{-1} g)^\top \Delta\theta`.
+
+    .. math::
+
+        \frac{1}{2} \lVert \Delta\theta \rVert_2^2 + \alpha (H^{-1} g)^\top \Delta\theta
 
     Parameters
     ----------
