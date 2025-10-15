@@ -1,5 +1,6 @@
 import sys
 from collections.abc import Collection, Iterable, Iterator
+from copy import deepcopy
 from itertools import chain
 from typing import Any, Generic, Literal, Optional, TypeVar, Union
 
@@ -8,7 +9,6 @@ import numpy as np
 import numpy.typing as npt
 from csnlp import Solution, wrappers
 from csnlp.core.cache import invalidate_caches_of
-from csnlp.util.io import SupportsDeepcopyAndPickle
 from csnlp.wrappers import Mpc
 from gymnasium import Env
 from gymnasium.spaces import Box
@@ -36,7 +36,7 @@ def _update_dicts(sinks: Iterable[dict], source: dict) -> Iterator[dict]:
         yield sink
 
 
-class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymType]):
+class Agent(Named, AgentCallbackMixin, Generic[SymType]):
     r"""Simple MPC-based agent with a fixed (i.e., non-learnable) MPC controller.
 
     In this agent, the MPC controller parametrized in :math:`\theta` is used as policy
@@ -173,7 +173,6 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
                     "have an underlying multistart NLP problem."
                 )
         Named.__init__(self, name)
-        SupportsDeepcopyAndPickle.__init__(self)
         AgentCallbackMixin.__init__(self)
         self._fixed_pars = fixed_parameters
         if exploration is None:
@@ -581,11 +580,21 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
     ) -> tuple[Mpc[SymType], Mpc[SymType]]:
         """Internal utility to setup the function approximators for the value function
         ``V(s)`` and the quality function ``Q(s,a)``."""
-        # create V and Q function approximations
-        V, Q = mpc if isinstance(mpc, tuple) else (mpc, mpc.copy())
+
+        def _invalidate_nlp_caches(nlp: Mpc[SymType]) -> None:
+            nlp_ = nlp
+            while nlp_ is not nlp_.unwrapped:
+                invalidate_caches_of(nlp_)
+                nlp_ = nlp_.nlp
+            invalidate_caches_of(nlp_.unwrapped)
+
+        # create V and Q function approximations - invalidate caches to avoid
+        # miscomputations
+        V, Q = mpc if isinstance(mpc, tuple) else (mpc, deepcopy(mpc))
+        _invalidate_nlp_caches(V)
+        _invalidate_nlp_caches(Q)
         V.unwrapped.name += "_V"
         Q.unwrapped.name += "_Q"
-
         na = V.na
         if na <= 0:
             raise ValueError(f"Expected Mpc with na>0; got na={na} instead.")
@@ -609,12 +618,8 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
             V.nlp.minimize(f + cs.dot(perturbation, u0))
 
         # invalidate caches for V and Q since some modifications have been done
-        for nlp in (V, Q):
-            nlp_ = nlp
-            while nlp_ is not nlp_.unwrapped:
-                invalidate_caches_of(nlp_)
-                nlp_ = nlp_.nlp
-            invalidate_caches_of(nlp_.unwrapped)
+        _invalidate_nlp_caches(V)
+        _invalidate_nlp_caches(Q)
         return V, Q
 
     def _post_setup_V_and_Q(self) -> None:
@@ -643,9 +648,9 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
             else overwrite_fixed_pars
         )
 
-    def __deepcopy__(self, memo: Optional[dict[int, list[Any]]] = None) -> "Agent":
+    def __deepcopy__(self, memo: dict[int, Any]) -> "Agent":
         """Ensures that the copy has a new name."""
-        y = super().__deepcopy__(memo)
-        if hasattr(y, "name"):
-            y.name += "_copy"
-        return y
+        other = AgentCallbackMixin.__deepcopy__(self, memo)
+        if hasattr(other, "name") and isinstance(other.name, str):
+            other.name += "_copy"
+        return other
