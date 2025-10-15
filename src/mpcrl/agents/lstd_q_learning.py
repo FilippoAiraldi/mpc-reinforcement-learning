@@ -327,6 +327,7 @@ class LstdQLearningAgent(
         self, hessian_type: Literal["approx", "full"]
     ) -> Union[
         Callable[[Solution], np.ndarray],
+        Callable[[Solution], tuple[np.ndarray, float]],
         Callable[[Solution], tuple[np.ndarray, np.ndarray]],
     ]:
         """Internal utility to compute the derivative of ``Q(s,a)`` w.r.t. the learnable
@@ -351,7 +352,6 @@ class LstdQLearningAgent(
                 ["dQ"],
                 {"cse": True},
             )
-            func = _sol_sensitivities
 
         elif hessian_type == "approx":
             hessian = snlp.hessian("L-pp")  # approximate hessian
@@ -367,7 +367,6 @@ class LstdQLearningAgent(
                     ["dQ", "ddQ"],
                     {"cse": True},
                 )
-                func = _sol_sensitivities_with_approx_hessian
 
             else:
                 sensitivity = cs.Function(
@@ -378,7 +377,6 @@ class LstdQLearningAgent(
                     ["dQ"],
                     {"cse": True},
                 )
-                func = _sol_sensitivities_with_zero_hessian
 
         else:
             lam_lbx_and_ubx = cs.vertcat(nlp.lam_lbx, nlp.lam_ubx)
@@ -399,7 +397,6 @@ class LstdQLearningAgent(
                     ["dQ", "ddQ"],
                     {"cse": True},
                 )
-                func = _sol_sensitivities_with_full_hessian
 
             else:
                 sensitivity = cs.Function(
@@ -410,37 +407,28 @@ class LstdQLearningAgent(
                     ["dQ"],
                     {"cse": True},
                 )
-                func = _sol_sensitivities_with_zero_hessian
 
-        return partial(func, sensitivity)
+        # convenience partial to avoid local lambdas
+        return_zero_hessian = sensitivity.n_out() == 1 and ord > 1
+        return partial(_sol_sensitivities, sensitivity, return_zero_hessian)
 
 
-def _sol_sensitivities(sensitivity: cs.Function, sol: Solution) -> np.ndarray:
+def _sol_sensitivities(
+    sens: cs.Function, return_zero_hessian: bool, s: Solution
+) -> Union[np.ndarray, tuple[np.ndarray, float], tuple[np.ndarray, np.ndarray]]:
     """Internal utility to compute sensitivities."""
-    return np.asarray(sensitivity(sol.x, sol.p, sol.lam_g_and_h).elements())
+    out = (
+        sens(s.x, s.p, s.lam_g_and_h)
+        if sens.n_in() == 3
+        else sens(s.x, s.p, s.lam_g_and_h, s.lam_lbx_and_ubx)
+    )
 
+    if sens.n_out() == 1:
+        J = np.asarray(out.elements())
+        if return_zero_hessian:
+            return J, 0.0
+        return J
 
-def _sol_sensitivities_with_approx_hessian(
-    sensitivity: cs.Function, sol: Solution
-) -> tuple[np.ndarray, np.ndarray]:
-    """Internal utility to compute sensitivities including the approximate Hessian."""
-    J, H = sensitivity(sol.x, sol.p, sol.lam_g_and_h)
-    hessian_shape = sensitivity.size_out("ddQ")
+    J, H = out
+    hessian_shape = sens.size_out("ddQ")
     return np.asarray(J.elements()), np.reshape(H.elements(), hessian_shape, "F")
-
-
-def _sol_sensitivities_with_full_hessian(
-    sensitivity: cs.Function, sol: Solution
-) -> tuple[np.ndarray, np.ndarray]:
-    """Internal utility to compute sensitivities including the full Hessian."""
-    J, H = sensitivity(sol.x, sol.p, sol.lam_g_and_h, sol.lam_lbx_and_ubx)
-    hessian_shape = sensitivity.size_out("ddQ")
-    return np.asarray(J.elements()), np.reshape(H.elements(), hessian_shape, "F")
-
-
-def _sol_sensitivities_with_zero_hessian(
-    sensitivity: cs.Function, sol: Solution
-) -> tuple[np.ndarray, float]:
-    """Internal utility to compute sensitivities but the Hessian is all zeros."""
-    J = sensitivity(sol.x, sol.p, sol.lam_g_and_h)
-    return np.asarray(J.elements()), 0.0
