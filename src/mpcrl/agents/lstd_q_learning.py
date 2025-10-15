@@ -1,5 +1,6 @@
 import sys
 from collections.abc import Collection
+from functools import partial
 from typing import Callable, Generic, Literal, Optional, SupportsFloat, Union
 
 import casadi as cs
@@ -324,6 +325,7 @@ class LstdQLearningAgent(
 
     def _init_sensitivity(self, hessian_type: Literal["approx", "full"]) -> Union[
         Callable[[Solution], np.ndarray],
+        Callable[[Solution], tuple[np.ndarray, float]],
         Callable[[Solution], tuple[np.ndarray, np.ndarray]],
     ]:
         """Internal utility to compute the derivative of ``Q(s,a)`` w.r.t. the learnable
@@ -340,7 +342,6 @@ class LstdQLearningAgent(
         gradient = snlp.jacobian("L-p")  # exact gradient, i.e., dQ/dtheta
 
         if ord == 1:
-
             sensitivity = cs.Function(
                 "lag_sens",
                 [x, p, lam_g_and_h],
@@ -349,9 +350,6 @@ class LstdQLearningAgent(
                 ["dQ"],
                 {"cse": True},
             )
-
-            def func(sol: Solution) -> np.ndarray:
-                return np.asarray(sensitivity(sol.x, sol.p, sol.lam_g_and_h).elements())
 
         elif hessian_type == "approx":
             hessian = snlp.hessian("L-pp")  # approximate hessian
@@ -367,14 +365,6 @@ class LstdQLearningAgent(
                     ["dQ", "ddQ"],
                     {"cse": True},
                 )
-                shape = sensitivity.size_out("ddQ")
-
-                def func(sol: Solution) -> tuple[np.ndarray, np.ndarray]:
-                    J, H = sensitivity(sol.x, sol.p, sol.lam_g_and_h)
-                    return (
-                        np.asarray(J.elements()),
-                        np.reshape(H.elements(), shape, "F"),
-                    )
 
             else:
                 sensitivity = cs.Function(
@@ -385,10 +375,6 @@ class LstdQLearningAgent(
                     ["dQ"],
                     {"cse": True},
                 )
-
-                def func(sol: Solution) -> tuple[np.ndarray, np.ndarray]:
-                    J = sensitivity(sol.x, sol.p, sol.lam_g_and_h)
-                    return np.asarray(J.elements()), 0.0
 
         else:
             lam_lbx_and_ubx = cs.vertcat(nlp.lam_lbx, nlp.lam_ubx)
@@ -409,16 +395,6 @@ class LstdQLearningAgent(
                     ["dQ", "ddQ"],
                     {"cse": True},
                 )
-                shape = sensitivity.size_out("ddQ")
-
-                def func(sol: Solution) -> tuple[np.ndarray, np.ndarray]:
-                    J, H = sensitivity(
-                        sol.x, sol.p, sol.lam_g_and_h, sol.lam_lbx_and_ubx
-                    )
-                    return (
-                        np.asarray(J.elements()),
-                        np.reshape(H.elements(), shape, "F"),
-                    )
 
             else:
                 sensitivity = cs.Function(
@@ -430,8 +406,27 @@ class LstdQLearningAgent(
                     {"cse": True},
                 )
 
-                def func(sol: Solution) -> tuple[np.ndarray, np.ndarray]:
-                    J = sensitivity(sol.x, sol.p, sol.lam_g_and_h)
-                    return np.asarray(J.elements()), 0.0
+        # convenience partial to avoid local lambdas
+        return_zero_hessian = sensitivity.n_out() == 1 and ord > 1
+        return partial(_sol_sensitivities, sensitivity, return_zero_hessian)
 
-        return func
+
+def _sol_sensitivities(
+    sens: cs.Function, return_zero_hessian: bool, s: Solution
+) -> Union[np.ndarray, tuple[np.ndarray, float], tuple[np.ndarray, np.ndarray]]:
+    """Internal utility to compute sensitivities."""
+    out = (
+        sens(s.x, s.p, s.lam_g_and_h)
+        if sens.n_in() == 3
+        else sens(s.x, s.p, s.lam_g_and_h, s.lam_lbx_and_ubx)
+    )
+
+    if sens.n_out() == 1:
+        J = np.asarray(out.elements())
+        if return_zero_hessian:
+            return J, 0.0
+        return J
+
+    J, H = out
+    hessian_shape = sens.size_out("ddQ")
+    return np.asarray(J.elements()), np.reshape(H.elements(), hessian_shape, "F")

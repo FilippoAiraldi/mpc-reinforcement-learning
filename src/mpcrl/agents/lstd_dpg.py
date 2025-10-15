@@ -1,5 +1,6 @@
 import sys
 from collections.abc import Collection, Iterator
+from functools import partial
 from typing import Callable, Generic, Literal, Optional, SupportsFloat, Union
 
 import casadi as cs
@@ -341,14 +342,7 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
 
         # wrap to conveniently return arrays. Casadi does not support tensors with
         # >2 dims, so dpidtheta gets squished in the 3rd dim and needs reshaping
-        def func(sol_values: cs.DM, N: int) -> np.ndarray:
-            return (
-                np.ascontiguousarray(sensitivity(sol_values.T).elements())
-                .reshape(ntheta, na, N, order="F")
-                .transpose((2, 0, 1))
-            )
-
-        return func
+        return partial(_sol_sensitivities, sensitivity, na, ntheta)
 
     def _consolidate_rollout_into_memory(self) -> None:
         """Internal utility to compact current rollout into a single item in memory."""
@@ -454,3 +448,14 @@ def _estimate_gradient_update(
     # compute only policy gradient estimate
     dJdtheta_ = [(o[3] @ o[3].transpose((0, 2, 1))).sum(0) @ w for o in sample_]
     return np.mean(dJdtheta_, 0), None
+
+
+def _sol_sensitivities(
+    sens: cs.Function, na: int, ntheta: int, sol_values: cs.DM, N: int
+) -> np.ndarray:
+    """Internal utility to compute sensitivities."""
+    return (
+        np.ascontiguousarray(sens(sol_values.T).elements())
+        .reshape(ntheta, na, N, order="F")
+        .transpose((2, 0, 1))
+    )
