@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from collections.abc import Collection, Iterable
-from typing import Any, Callable, Generic, Optional, TypeVar, Union
+from typing import Any, Generic, Optional, TypeVar, Union
 
 import numpy as np
 import numpy.typing as npt
@@ -309,9 +309,7 @@ class LearningAgent(
     ) -> LearnableParametersDict:
         """Reorders the learnable parameters of the MPC according to their creation
         order."""
-        reordered = [
-            dict_.pop(name) for name in self.V.parameters.keys() if name in dict_
-        ]
+        reordered = [dict_.pop(name) for name in self.V.parameters if name in dict_]
         assert not dict_, (
             "Not all learnable parameters could be reordered. "
             "Please check for spurious learnable parameters in `learnable_parameters`."
@@ -329,32 +327,48 @@ class LearningAgent(
             )
         # hook updates (always necessary)
         update_hook = self._update_strategy.hook
-        func: Callable[..., None] = (
-            (lambda _, e, __: self._check_and_perform_update(e, None))
-            if update_hook == "on_episode_end"
-            else (lambda _, e, t: self._check_and_perform_update(e, t))
+        self._hook_callback(
+            repr(self._update_strategy), update_hook, self._check_and_perform_update
         )
-        self._hook_callback(repr(self._update_strategy), update_hook, func)
 
-    def _check_and_perform_update(self, episode: int, timestep: Optional[int]) -> None:
+    def _check_and_perform_update(
+        self, _: Env[ObsType, ActType], episode: int, timestep_or_return: float
+    ) -> None:
         """Internal utility to check if an update is due and perform it."""
         if not self._is_training or not self._update_strategy.can_update():
             return
         update_msg = self.update()
         if update_msg is not None:
+            timestep = (
+                timestep_or_return if isinstance(timestep_or_return, int) else None
+            )
             self.on_update_failure(episode, timestep, update_msg, self._raises)
         self.on_update()
 
     def _get_parameters(
         self,
+        overwrite_fixed_pars: Union[
+            None, dict[str, npt.ArrayLike], Collection[dict[str, npt.ArrayLike]]
+        ] = None,
     ) -> Union[None, dict[str, npt.ArrayLike], Collection[dict[str, npt.ArrayLike]]]:
         """Internal utility to retrieve parameters of the MPC in order to solve it.
-        :class:`LearningAgent` returns both fixed and learnable parameters."""
+        :class:`LearningAgent` returns both fixed and learnable parameters.
+
+        Parameters
+        ----------
+        overwrite_fixed_pars : dict of (str, array_like), or collection of, optional
+            If not ``None``, this argument is used instead of :attr:`fixed_parameters`
+            to retrieve the fixed parameters of the MPC.
+        """
         learnable_pars = self._learnable_pars.value_as_dict
-        fixed_pars = self._fixed_pars
+        fixed_pars = (
+            self.fixed_parameters
+            if overwrite_fixed_pars is None
+            else overwrite_fixed_pars
+        )
         if fixed_pars is None:
             return learnable_pars
         if isinstance(fixed_pars, dict):
             fixed_pars.update(learnable_pars)
             return fixed_pars
-        return tuple(_update_dicts(self._fixed_pars, learnable_pars))
+        return tuple(_update_dicts(fixed_pars, learnable_pars))

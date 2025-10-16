@@ -3,9 +3,11 @@ import os
 import pickle
 import sys
 import unittest
+from copy import deepcopy
 from operator import neg
 from warnings import filterwarnings
 
+from casadi import global_pickle_context, global_unpickle_context
 from csnlp.multistart import RandomStartPoint, RandomStartPoints
 
 for folder in (
@@ -78,8 +80,8 @@ class TestExamples(unittest.TestCase):
                     mpc=mpc,
                     learnable_parameters=learnable_pars,
                     discount_factor=mpc.discount_factor,
-                    optimizer=NewtonMethod(
-                        learning_rate=5e-2,
+                    optimizer=GradientDescent(
+                        learning_rate=1e-4,
                         max_percentage_update=1e3,  # does nothing; allows to test qp
                     ),
                     hessian_type="approx",
@@ -90,11 +92,14 @@ class TestExamples(unittest.TestCase):
             log_frequencies={"on_timestep_end": 100},
         )
 
-        agent_copy = agent.copy()
+        agent_copy = deepcopy(agent)
         if use_copy:
             agent = agent_copy
+        with global_pickle_context():
+            pickled = pickle.dumps(agent)
+        with global_unpickle_context():
+            agent = pickle.loads(pickled)
         J = agent.train(env=env, episodes=1, seed=69).item()
-        agent = pickle.loads(pickle.dumps(agent))
 
         X = env.observations[0].squeeze().T
         U = env.actions[0].squeeze()
@@ -155,11 +160,14 @@ class TestExamples(unittest.TestCase):
             log_frequencies={"on_timestep_end": 200},
         )
 
-        agent_copy = agent.copy()
+        agent_copy = deepcopy(agent)
         if use_copy:
             agent = agent_copy
+        with global_pickle_context():
+            pickled = pickle.dumps(agent)
+        with global_unpickle_context():
+            agent = pickle.loads(pickled)
         J = agent.train(env=env, episodes=1, seed=69).item()
-        agent = pickle.loads(pickle.dumps(agent))
 
         X = env.observations[0].squeeze().T
         U = env.actions[0].squeeze()
@@ -228,12 +236,15 @@ class TestExamples(unittest.TestCase):
             warmstart=warmstart,
         )
         agent = RecordUpdates(agent)
-        agent_copy = agent.copy()
+        agent_copy = deepcopy(agent)
         if use_copy:
             agent = agent_copy
+        with global_pickle_context():
+            pickled = pickle.dumps(agent)
+        with global_unpickle_context():
+            agent = pickle.loads(pickled)
 
         J = agent.train(env=env, episodes=6, seed=69, raises=False)
-        agent = pickle.loads(pickle.dumps(agent))
 
         X = np.squeeze(env.get_wrapper_attr("observations"))
         U = np.squeeze(env.get_wrapper_attr("actions"), (2, 3))
@@ -266,7 +277,10 @@ class TestExamples(unittest.TestCase):
                         learnable_parameters=learnable_pars,
                         discount_factor=mpc.discount_factor,
                         update_strategy=1,
-                        optimizer=NewtonMethod(learning_rate=5e-2),
+                        optimizer=NewtonMethod(
+                            learning_rate=5e-2,
+                            max_percentage_update=1e3,  # does nothing; allows to test
+                        ),
                         hessian_type="approx",
                         record_td_errors=True,
                         remove_bounds_on_initial_action=True,
@@ -283,14 +297,17 @@ class TestExamples(unittest.TestCase):
         )
         generate_rollout = get_rollout_generator(rollout_seed=69)
 
-        agent_copy = agent.copy()
+        agent_copy = deepcopy(agent)
         if use_copy:
             agent = agent_copy
+        with global_pickle_context():
+            pickled = pickle.dumps(agent)
+        with global_unpickle_context():
+            agent = pickle.loads(pickled)
         agent.train_offpolicy(
             episode_rollouts=(generate_rollout(n) for n in range(6)), seed=seed
         )
         J = np.asarray(agent.eval_returns)
-        agent = pickle.loads(pickle.dumps(agent))
 
         parnames = ["V0", "x_lb", "x_ub", "b", "f", "A", "B"]
         PARS = np.concatenate(

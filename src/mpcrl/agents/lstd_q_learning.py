@@ -1,5 +1,6 @@
 import sys
 from collections.abc import Collection, Iterable
+from functools import partial
 from typing import Callable, Generic, Literal, Optional, SupportsFloat, Union
 
 import casadi as cs
@@ -95,13 +96,12 @@ class LstdQLearningAgent(
         MPC's NLP instance. This is useful to generate multiple initial conditions for
         highly non-convex, nonlinear problems. This feature can only be used with an
         MPC that has an underlying multistart NLP problem (see :mod:`csnlp.multistart`).
-    hessian_type : {"none", "approx", "full"}, optional
-        The type of hessian to use in this (potentially) second-order algorithm.
-        If ``"none"``, no second order information is used. If ``"approx"``, an easier
-        approximation of it is used; otherwise, the full hessian is computed, but
-        this is usually much more expensive. This option must be in accordance with the
-        choice of ``optimizer``, that is, if the optimizer does not use second order
-        information, then this option must be set to ``none``.
+    hessian_type : {"approx", "full"}, optional
+        The type of hessian to use in this (potentially) second-order algorithm. If the
+        provided ``optimizer`` is first-order only, then this option is ignored.
+        Otherwise, if ``"approx"``, a computationally lighter approximation of full
+        Hessian is used; otherwise, the full hessian is computed, but this is usually
+        much more expensive.
     record_td_errors: bool, optional
         If ``True``, the TD errors are recorded in the field :attr:`td_errors`, which
         otherwise is ``None``. By default, does not record them.
@@ -139,7 +139,7 @@ class LstdQLearningAgent(
         warmstart: Union[
             Literal["last", "last-successful"], WarmStartStrategy
         ] = "last-successful",
-        hessian_type: Literal["none", "approx", "full"] = "approx",
+        hessian_type: Literal["approx", "full"] = "approx",
         record_td_errors: bool = False,
         use_last_action_on_fail: bool = False,
         remove_bounds_on_initial_action: bool = False,
@@ -159,7 +159,6 @@ class LstdQLearningAgent(
             remove_bounds_on_initial_action=remove_bounds_on_initial_action,
             name=name,
         )
-        self.hessian_type = hessian_type
         self._sensitivity = self._init_sensitivity(hessian_type)
         self.td_errors: Optional[list[float]] = [] if record_td_errors else None
 
@@ -239,13 +238,15 @@ class LstdQLearningAgent(
             self.on_timestep_end("off-policy", episode, timestep)
 
     def _init_sensitivity(
-        self, hessian_type: Literal["none", "approx", "full"]
+        self, hessian_type: Literal["approx", "full"]
     ) -> Union[
-        Callable[[cs.DM], np.ndarray], Callable[[cs.DM], tuple[np.ndarray, np.ndarray]]
+        Callable[[Solution], np.ndarray],
+        Callable[[Solution], tuple[np.ndarray, float]],
+        Callable[[Solution], tuple[np.ndarray, np.ndarray]],
     ]:
         """Internal utility to compute the derivative of ``Q(s,a)`` w.r.t. the learnable
         parameters, a.k.a., ``theta``."""
-        ord = self.optimizer._order
+        ord = self.optimizer.order
         nlp = self._Q.nlp
         theta = cs.vvcat([nlp.parameters[p] for p in self._learnable_pars])
         x = nlp.x
@@ -256,9 +257,7 @@ class LstdQLearningAgent(
         snlp = NlpSensitivity(nlp, theta)
         gradient = snlp.jacobian("L-p")  # exact gradient, i.e., dQ/dtheta
 
-        if hessian_type == "none":
-            assert ord == 1, "Expected 1st-order optimizer with `hessian_type=none`."
-
+        if ord == 1:
             sensitivity = cs.Function(
                 "lag_sens",
                 [x, p, lam_g_and_h],
@@ -268,12 +267,7 @@ class LstdQLearningAgent(
                 {"cse": True},
             )
 
-            def func(sol: Solution) -> np.ndarray:
-                return np.asarray(sensitivity(sol.x, sol.p, sol.lam_g_and_h).elements())
-
         elif hessian_type == "approx":
-            assert ord == 2, "Expected 2nd-order optimizer with `hessian_type=approx`."
-
             hessian = snlp.hessian("L-pp")  # approximate hessian
 
             # check if the hessian is not all zeros. If that's the case, we fall back to
@@ -287,14 +281,6 @@ class LstdQLearningAgent(
                     ["dQ", "ddQ"],
                     {"cse": True},
                 )
-                shape = sensitivity.size_out("ddQ")
-
-                def func(sol: Solution) -> tuple[np.ndarray, np.ndarray]:
-                    J, H = sensitivity(sol.x, sol.p, sol.lam_g_and_h)
-                    return (
-                        np.asarray(J.elements()),
-                        np.reshape(H.elements(), shape, "F"),
-                    )
 
             else:
                 sensitivity = cs.Function(
@@ -306,13 +292,7 @@ class LstdQLearningAgent(
                     {"cse": True},
                 )
 
-                def func(sol: Solution) -> tuple[np.ndarray, np.ndarray]:
-                    J = sensitivity(sol.x, sol.p, sol.lam_g_and_h)
-                    return np.asarray(J.elements()), 0.0
-
         else:
-            assert ord == 2, "Expected 2nd-order optimizer with `hessian_type=full`."
-
             lam_lbx_and_ubx = cs.vertcat(nlp.lam_lbx, nlp.lam_ubx)
             Kp = snlp.jacobian("K-p")
             Ky = snlp.jacobian("K-y")
@@ -331,16 +311,6 @@ class LstdQLearningAgent(
                     ["dQ", "ddQ"],
                     {"cse": True},
                 )
-                shape = sensitivity.size_out("ddQ")
-
-                def func(sol: Solution) -> tuple[np.ndarray, np.ndarray]:
-                    J, H = sensitivity(
-                        sol.x, sol.p, sol.lam_g_and_h, sol.lam_lbx_and_ubx
-                    )
-                    return (
-                        np.asarray(J.elements()),
-                        np.reshape(H.elements(), shape, "F"),
-                    )
 
             else:
                 sensitivity = cs.Function(
@@ -352,11 +322,9 @@ class LstdQLearningAgent(
                     {"cse": True},
                 )
 
-                def func(sol: Solution) -> tuple[np.ndarray, np.ndarray]:
-                    J = sensitivity(sol.x, sol.p, sol.lam_g_and_h)
-                    return np.asarray(J.elements()), 0.0
-
-        return func
+        # convenience partial to avoid local lambdas
+        return_zero_hessian = sensitivity.n_out() == 1 and ord > 1
+        return partial(_sol_sensitivities, sensitivity, return_zero_hessian)
 
     def _try_store_experience(
         self, cost: SupportsFloat, solQ: Solution[SymType], solV: Solution[SymType]
@@ -367,12 +335,13 @@ class LstdQLearningAgent(
         success = solQ.success and solV.success
         if success:
             td_error = cost + self.discount_factor * solV.f - solQ.f
-            if self.hessian_type == "none":
-                dQ = self._sensitivity(solQ)
+            sensitivities = self._sensitivity(solQ)
+            if len(sensitivities) == 1:
+                dQ = sensitivities
                 gradient = -td_error * dQ
                 self.store_experience(gradient)
             else:
-                dQ, ddQ = self._sensitivity(solQ)
+                dQ, ddQ = sensitivities
                 gradient = -td_error * dQ
                 hessian = np.multiply.outer(dQ, dQ) - td_error * ddQ
                 self.store_experience((gradient, hessian))
@@ -382,3 +351,24 @@ class LstdQLearningAgent(
         if self.td_errors is not None:
             self.td_errors.append(td_error)
         return success
+
+
+def _sol_sensitivities(
+    sens: cs.Function, return_zero_hessian: bool, s: Solution
+) -> Union[np.ndarray, tuple[np.ndarray, float], tuple[np.ndarray, np.ndarray]]:
+    """Internal utility to compute sensitivities."""
+    out = (
+        sens(s.x, s.p, s.lam_g_and_h)
+        if sens.n_in() == 3
+        else sens(s.x, s.p, s.lam_g_and_h, s.lam_lbx_and_ubx)
+    )
+
+    if sens.n_out() == 1:
+        J = np.asarray(out.elements())
+        if return_zero_hessian:
+            return J, 0.0
+        return J
+
+    J, H = out
+    hessian_shape = sens.size_out("ddQ")
+    return np.asarray(J.elements()), np.reshape(H.elements(), hessian_shape, "F")

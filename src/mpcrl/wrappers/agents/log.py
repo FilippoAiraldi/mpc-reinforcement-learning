@@ -1,9 +1,8 @@
 import logging
 from collections.abc import Iterable, Iterator
 from inspect import getmembers, isfunction
-from itertools import chain
 from operator import itemgetter
-from typing import Callable, Optional, TypeVar
+from typing import Optional, TypeVar
 
 import numpy as np
 import numpy.typing as npt
@@ -37,15 +36,6 @@ _LEARNING_AGENT_CALLBACKS = set.difference(
     _AGENT_CALLBACKS,
 )
 del _pred
-
-
-def _generate_method_caller(m: Callable) -> Callable:
-    """Returns a method that calls the given method `m`."""
-
-    def method_caller(*args, **kwargs):
-        return m(*args, **kwargs)
-
-    return method_caller
 
 
 class Log(Wrapper[SymType]):
@@ -140,12 +130,34 @@ class Log(Wrapper[SymType]):
     def _establish_callback_hooks(self) -> None:
         super()._establish_callback_hooks()
         # hook only the callbacks for which a frequency was given + the mandatory ones
+        cbs = _MANDATORY_CALLBACKS.difference(self.exclude_mandatory).union(
+            self.log_frequencies
+        )
         repr_self = repr(self)
-        optional_cbs = self.log_frequencies.keys()
-        mandatory_cbs = _MANDATORY_CALLBACKS.difference(self.exclude_mandatory)
-        for name in chain(optional_cbs, mandatory_cbs):
-            method = getattr(self, f"_{name}")
-            self._hook_callback(repr_self, name, _generate_method_caller(method))
+        if "on_mpc_failure" in cbs:
+            self._hook_callback(repr_self, "on_mpc_failure", self._on_mpc_failure)
+        if "on_validation_start" in cbs:
+            self._hook_callback(
+                repr_self, "on_validation_start", self._on_validation_start
+            )
+        if "on_validation_end" in cbs:
+            self._hook_callback(repr_self, "on_validation_end", self._on_validation_end)
+        if "on_episode_start" in cbs:
+            self._hook_callback(repr_self, "on_episode_start", self._on_episode_start)
+        if "on_episode_end" in cbs:
+            self._hook_callback(repr_self, "on_episode_end", self._on_episode_end)
+        if "on_env_step" in cbs:
+            self._hook_callback(repr_self, "on_env_step", self._on_env_step)
+        if "on_timestep_end" in cbs:
+            self._hook_callback(repr_self, "on_timestep_end", self._on_timestep_end)
+        if "on_update_failure" in cbs:
+            self._hook_callback(repr_self, "on_update_failure", self._on_update_failure)
+        if "on_training_start" in cbs:
+            self._hook_callback(repr_self, "on_training_start", self._on_training_start)
+        if "on_training_end" in cbs:
+            self._hook_callback(repr_self, "on_training_end", self._on_training_end)
+        if "on_update" in cbs:
+            self._hook_callback(repr_self, "on_update", self._on_update)
 
     # NOTE: callbacks for Agent
 
@@ -165,14 +177,14 @@ class Log(Wrapper[SymType]):
         self.logger.info("validation of %s concluded with returns=%s.", env, S)
 
     def _on_episode_start(
-        self, env: Env[ObsType, ActType], episode: int, state: ObsType
+        self, _: Env[ObsType, ActType], episode: int, state: ObsType
     ) -> None:
         if next(self.log_frequencies["on_episode_start"]):
             S = np.array2string(state, precision=self.precision)
             self.logger.debug("episode %d started with state=%s.", episode, S)
 
     def _on_episode_end(
-        self, env: Env[ObsType, ActType], episode: int, rewards: float
+        self, _: Env[ObsType, ActType], episode: int, rewards: float
     ) -> None:
         if next(self.log_frequencies["on_episode_end"]):
             self.logger.info(
@@ -180,7 +192,7 @@ class Log(Wrapper[SymType]):
             )
 
     def _on_env_step(
-        self, env: Env[ObsType, ActType], episode: int, timestep: int
+        self, _: Env[ObsType, ActType], episode: int, timestep: int
     ) -> None:
         if next(self.log_frequencies["on_env_step"]):
             self.logger.debug(
@@ -188,7 +200,7 @@ class Log(Wrapper[SymType]):
             )
 
     def _on_timestep_end(
-        self, env: Env[ObsType, ActType], episode: int, timestep: int
+        self, _: Env[ObsType, ActType], episode: int, timestep: int
     ) -> None:
         if next(self.log_frequencies["on_timestep_end"]):
             self.logger.debug("episode %d stepped at time %d.", episode, timestep)

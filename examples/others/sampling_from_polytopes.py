@@ -45,8 +45,8 @@ for ndim in (2, 3, 7):
     # We can check the validity of the samples by verifying that they lie within the
     # polytope or on its surface. Remember that a convex polytope can be defined as a
     # collection of inequalities, i.e., a point :math:`x` is inside the polytope if
-    # :math:`A x + b \leq 0`, where :math:`A` is a matrix and :math:`b` is a vector, or lies
-    # on its surface if :math:`a_i^\top x + b_i = 0` for one of facets :math:`i`.
+    # :math:`A x + b \leq 0`, where :math:`A` is a matrix and :math:`b` is a vector, or
+    # lies on its surface if :math:`a_i^\top x + b_i = 0` for one of facets :math:`i`.
 
     A = sampler._qhull.equations[:, :-1]
     b = sampler._qhull.equations[:, -1, None]
@@ -68,9 +68,9 @@ for ndim in (2, 3, 7):
     # %%
     # Plotting the results
     # --------------------
-    # Finally, we can plot the vertices and the samples to visualize the polytope and the
-    # samples drawn from it. They should appear uniformly distributed within the polytope.
-    # If not, try increasing the number of samples.
+    # Finally, we can plot the vertices and the samples to visualize the polytope and
+    # the samples drawn from it. They should appear uniformly distributed within the
+    # polytope. If not, try increasing the number of samples.
 
     if ndim == 2:
         fig, ax = plt.subplots(1, 1, constrained_layout=True)

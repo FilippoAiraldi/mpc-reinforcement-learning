@@ -20,7 +20,7 @@ agents with Model Predictive Control (MPC) [[2]](#2) as function approximation.
 [![Downloads](https://static.pepy.tech/badge/mpcrl)](https://www.pepy.tech/projects/mpcrl)
 [![Maintainability](https://qlty.sh/gh/FilippoAiraldi/projects/mpc-reinforcement-learning/maintainability.svg)](https://qlty.sh/gh/FilippoAiraldi/projects/mpc-reinforcement-learning)
 [![Code Coverage](https://qlty.sh/gh/FilippoAiraldi/projects/mpc-reinforcement-learning/coverage.svg)](https://qlty.sh/gh/FilippoAiraldi/projects/mpc-reinforcement-learning)
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://docs.astral.sh/ruff/)
 
 ---
 
@@ -306,7 +306,7 @@ this repository.
 > [Delft Center for Systems and Control](https://www.tudelft.nl/en/me/about/departments/delft-center-for-systems-and-control/)
 in [Delft University of Technology](https://www.tudelft.nl/en/)
 
-Copyright (c) 2024 Filippo Airaldi.
+Copyright (c) 2025 Filippo Airaldi.
 
 Copyright notice: Technische Universiteit Delft hereby disclaims all copyright interest
 in the program “mpcrl” (Reinforcement Learning with Model Predictive Control) written by

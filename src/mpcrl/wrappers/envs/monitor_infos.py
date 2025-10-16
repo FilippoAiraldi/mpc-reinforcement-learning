@@ -1,7 +1,7 @@
 from collections import deque
 from collections.abc import Iterable
-from logging import warn
-from typing import Any, Deque, Optional, SupportsFloat, TypeVar
+from typing import Any, Optional, SupportsFloat, TypeVar
+from warnings import warn
 
 from gymnasium import Env, Wrapper, utils
 
@@ -60,8 +60,8 @@ class MonitorInfos(
         utils.RecordConstructorArgs.__init__(self, deque_size=deque_size)
         Wrapper.__init__(self, env)
         # long-term storages
-        self.reset_infos: Deque[dict[str, Any]] = deque(maxlen=deque_size)
-        self.step_infos: Deque[list[dict[str, Any]]] = deque(maxlen=deque_size)
+        self.reset_infos: deque[dict[str, Any]] = deque(maxlen=deque_size)
+        self.step_infos: deque[list[dict[str, Any]]] = deque(maxlen=deque_size)
         # current-episode storages
         self.ep_step_infos: list[dict[str, Any]] = []
 
@@ -123,6 +123,7 @@ class MonitorInfos(
                 "Internal buffer of step infos not empty, meaning that the last "
                 "episode did not terminate properly.",
                 RuntimeWarning,
+                stacklevel=2,
             )
         return _compact_dicts(
             (_compact_dicts(d, fill_value) for d in self.step_infos), fill_value

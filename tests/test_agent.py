@@ -1,5 +1,6 @@
 import pickle
 import unittest
+from copy import deepcopy
 from functools import lru_cache
 from itertools import product
 from unittest.mock import MagicMock, Mock, call
@@ -88,10 +89,10 @@ def get_mpc(horizon: int, multistart: bool):
 
 
 class DummyLearningAgent(LearningAgent):
-    def update(self, *args, **kwargs):
+    def update(self, *_, **__):
         return
 
-    def train_one_episode(self, *args, **kwargs):
+    def train_one_episode(self, *_, **__):
         return
 
 
@@ -163,19 +164,22 @@ class TestAgent(unittest.TestCase):
         exploration = E.EpsilonGreedyExploration(
             epsilon=epsilon_scheduler, strength=strength_scheduler, seed=42
         )
-        agent1 = Agent(mpc=get_mpc(3, self.multistart_nlp))
-        agent1._exploration = exploration  # a bit of cheating
+        agent = Agent(mpc=get_mpc(3, self.multistart_nlp))
+        agent._exploration = exploration  # a bit of cheating
 
         if copy:
-            agent2 = agent1.copy()
+            other = deepcopy(agent)
         else:
-            agent2: Agent = pickle.loads(pickle.dumps(agent1))
+            with cs.global_pickle_context():
+                pickled = pickle.dumps(agent)
+            with cs.global_unpickle_context():
+                other: Agent = pickle.loads(pickled)
 
-        self.assertIsNot(agent1, agent2)
-        self.assertIsNot(agent1.Q, agent2.Q)
-        self.assertIsNot(agent1.V, agent2.V)
-        self.assertIs(agent1.exploration, exploration)
-        exp1, exp2 = agent1.exploration, agent2.exploration
+        self.assertIsNot(agent, other)
+        self.assertIsNot(agent.Q, other.Q)
+        self.assertIsNot(agent.V, other.V)
+        self.assertIs(agent.exploration, exploration)
+        exp1, exp2 = agent.exploration, other.exploration
         self.assertIsNot(exp1, exp2)
         self.assertIsNot(exp1, exp2)
         for scheduler in ["epsilon_scheduler", "strength_scheduler"]:

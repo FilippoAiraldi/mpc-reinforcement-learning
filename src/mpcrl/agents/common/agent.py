@@ -1,5 +1,6 @@
 import sys
 from collections.abc import Collection, Iterable, Iterator
+from copy import deepcopy
 from itertools import chain
 from typing import Any, Generic, Literal, Optional, TypeVar, Union
 
@@ -8,7 +9,6 @@ import numpy as np
 import numpy.typing as npt
 from csnlp import Solution, wrappers
 from csnlp.core.cache import invalidate_caches_of
-from csnlp.util.io import SupportsDeepcopyAndPickle
 from csnlp.wrappers import Mpc
 from gymnasium import Env
 from gymnasium.spaces import Box
@@ -36,7 +36,7 @@ def _update_dicts(sinks: Iterable[dict], source: dict) -> Iterator[dict]:
         yield sink
 
 
-class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymType]):
+class Agent(Named, AgentCallbackMixin, Generic[SymType]):
     r"""Simple MPC-based agent with a fixed (i.e., non-learnable) MPC controller.
 
     In this agent, the MPC controller parametrized in :math:`\theta` is used as policy
@@ -158,12 +158,12 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
                     "points. Expected either 0 warmstart points (i.e., it is disabled),"
                     " or the same number as MPC's multistarts, or at most one less."
                 )
-            elif not mpc_.is_multi and ws_points > 0:
+            if not mpc_.is_multi and ws_points > 0:
                 raise ValueError(
                     "Got a warmstart strategy with more than 0 starting points, but "
                     "the given MPC does not have an underlying multistart NLP problem."
                 )
-            elif (
+            if (
                 not mpc_.is_multi
                 and fixed_parameters is not None
                 and not isinstance(fixed_parameters, dict)
@@ -173,7 +173,6 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
                     "have an underlying multistart NLP problem."
                 )
         Named.__init__(self, name)
-        SupportsDeepcopyAndPickle.__init__(self)
         AgentCallbackMixin.__init__(self)
         self._fixed_pars = fixed_parameters
         if exploration is None:
@@ -192,7 +191,7 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
         agent is not wrapped at all, returns itself."""
         return self
 
-    def is_wrapped(self, *args: Any, **kwargs: Any) -> bool:
+    def is_wrapped(self, *_: Any, **__: Any) -> bool:
         """Gets whether the agent instance is wrapped or not by the wrapper type.
 
         Returns
@@ -274,6 +273,9 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
             None, dict[str, npt.ArrayLike], Iterable[dict[str, npt.ArrayLike]]
         ] = None,
         store_solution: bool = True,
+        overwrite_fixed_pars: Union[
+            None, dict[str, npt.ArrayLike], Collection[dict[str, npt.ArrayLike]]
+        ] = None,
     ) -> Solution[SymType]:
         r"""Solves the agent's specific MPC optimal control problem.
 
@@ -308,6 +310,9 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
             By default, the MPC solution is stored accordingly to the :attr:`warmstart`
             strategy. If set to ``False``, this flag allows to disable the behaviour for
             this particular solution.
+        overwrite_fixed_pars : dict of (str, array_like), or collection of, optional
+            If not ``None``, this argument is used instead of :attr:`fixed_parameters`
+            to retrieve the fixed parameters of the MPC.
 
         Returns
         -------
@@ -330,7 +335,7 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
         if action is None:
             u0_vec = None
         elif isinstance(action, dict):
-            u0_vec = cs.vertcat(*(action[k] for k in mpc.actions.keys()))
+            u0_vec = cs.vertcat(*(action[k] for k in mpc.actions))
         else:
             u0_vec = action
 
@@ -344,7 +349,7 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
             )
 
         # create pars and vals0
-        pars = self._get_parameters()
+        pars = self._get_parameters(overwrite_fixed_pars)
         if pars is None:
             pars = additional_pars
         elif isinstance(pars, dict):
@@ -380,7 +385,7 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
             None, dict[str, npt.ArrayLike], Iterable[dict[str, npt.ArrayLike]]
         ] = None,
         action_space: Optional[Box] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> tuple[cs.DM, Solution[SymType]]:
         r"""Computes the MPC-based state value function approximation
         :math:`V_\theta(s)`.
@@ -437,7 +442,7 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
 
         grad_pert = pert if exploration_mode == "gradient-based" else None
         sol = self._solve_mpc(V, state, perturbation=grad_pert, vals0=vals0, **kwargs)
-        action_opt = cs.vertcat(*(sol.vals[u][:, 0] for u in V.actions.keys()))
+        action_opt = cs.vertcat(*(sol.vals[u][:, 0] for u in V.actions))
 
         if sol.success:
             self._last_action = action_opt
@@ -462,7 +467,7 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
         vals0: Union[
             None, dict[str, npt.ArrayLike], Iterable[dict[str, npt.ArrayLike]]
         ] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> Solution[SymType]:
         r"""Computes the MPC-based action value function approximation
         :math:`Q_\theta(s,a)`.
@@ -575,11 +580,21 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
     ) -> tuple[Mpc[SymType], Mpc[SymType]]:
         """Internal utility to setup the function approximators for the value function
         ``V(s)`` and the quality function ``Q(s,a)``."""
-        # create V and Q function approximations
-        V, Q = mpc if isinstance(mpc, tuple) else (mpc, mpc.copy())
+
+        def _invalidate_nlp_caches(nlp: Mpc[SymType]) -> None:
+            nlp_ = nlp
+            while nlp_ is not nlp_.unwrapped:
+                invalidate_caches_of(nlp_)
+                nlp_ = nlp_.nlp
+            invalidate_caches_of(nlp_.unwrapped)
+
+        # create V and Q function approximations - invalidate caches to avoid
+        # miscomputations
+        V, Q = mpc if isinstance(mpc, tuple) else (mpc, deepcopy(mpc))
+        _invalidate_nlp_caches(V)
+        _invalidate_nlp_caches(Q)
         V.unwrapped.name += "_V"
         Q.unwrapped.name += "_Q"
-
         na = V.na
         if na <= 0:
             raise ValueError(f"Expected Mpc with na>0; got na={na} instead.")
@@ -603,12 +618,8 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
             V.nlp.minimize(f + cs.dot(perturbation, u0))
 
         # invalidate caches for V and Q since some modifications have been done
-        for nlp in (V, Q):
-            nlp_ = nlp
-            while nlp_ is not nlp_.unwrapped:
-                invalidate_caches_of(nlp_)
-                nlp_ = nlp_.nlp
-            invalidate_caches_of(nlp_.unwrapped)
+        _invalidate_nlp_caches(V)
+        _invalidate_nlp_caches(Q)
         return V, Q
 
     def _post_setup_V_and_Q(self) -> None:
@@ -617,15 +628,29 @@ class Agent(Named, SupportsDeepcopyAndPickle, AgentCallbackMixin, Generic[SymTyp
 
     def _get_parameters(
         self,
+        overwrite_fixed_pars: Union[
+            None, dict[str, npt.ArrayLike], Collection[dict[str, npt.ArrayLike]]
+        ] = None,
     ) -> Union[None, dict[str, npt.ArrayLike], Collection[dict[str, npt.ArrayLike]]]:
         """Internal utility to retrieve parameters of the MPC in order to solve it.
         :class:`Agent` has no learnable parameter, so only fixed parameters are
-        returned."""
-        return self._fixed_pars
+        returned.
 
-    def __deepcopy__(self, memo: Optional[dict[int, list[Any]]] = None) -> "Agent":
+        Parameters
+        ----------
+        overwrite_fixed_pars : dict of (str, array_like), or collection of, optional
+            If not ``None``, this argument is used instead of :attr:`fixed_parameters`
+            to retrieve the fixed parameters of the MPC.
+        """
+        return (
+            self.fixed_parameters
+            if overwrite_fixed_pars is None
+            else overwrite_fixed_pars
+        )
+
+    def __deepcopy__(self, memo: dict[int, Any]) -> "Agent":
         """Ensures that the copy has a new name."""
-        y = super().__deepcopy__(memo)
-        if hasattr(y, "name"):
-            y.name += "_copy"
-        return y
+        other = AgentCallbackMixin.__deepcopy__(self, memo)
+        if hasattr(other, "name") and isinstance(other.name, str):
+            other.name += "_copy"
+        return other

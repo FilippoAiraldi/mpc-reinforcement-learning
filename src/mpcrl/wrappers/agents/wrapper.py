@@ -1,13 +1,11 @@
 from typing import Any, Callable, Generic, Union
 
-from csnlp.util.io import SupportsDeepcopyAndPickle
-
 from ...agents.common.agent import Agent, SymType
 from ...agents.common.learning_agent import ExpType, LearningAgent
 from ...core.callbacks import CallbackMixin
 
 
-class Wrapper(SupportsDeepcopyAndPickle, CallbackMixin, Generic[SymType]):
+class Wrapper(CallbackMixin, Generic[SymType]):
     """Wraps an instance of :class:`mpcrl.Agent` to allow a modular transformation of
     its behaviour. This class is the base class for all wrappers. The subclass could
     override some methods to change the behavior of the original agent without touching
@@ -20,7 +18,6 @@ class Wrapper(SupportsDeepcopyAndPickle, CallbackMixin, Generic[SymType]):
     """
 
     def __init__(self, agent: Agent[SymType]) -> None:
-        SupportsDeepcopyAndPickle.__init__(self)
         CallbackMixin.__init__(self)
         del self._hooks  # keep only one dict of hooks, i.e., the agent's one
         self.agent = agent

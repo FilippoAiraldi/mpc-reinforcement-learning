@@ -8,6 +8,7 @@ or the exploration chances, or when and with which frequency to invoke an update
 MPC parametrization. Here we list the classes that enable this system, but for an
 introduction to the callbacks and how to use them, see :ref:`user_guide_callbacks`."""
 
+from copy import deepcopy
 from typing import Any, Callable, Literal, Optional, TypeVar, Union
 
 import numpy as np
@@ -31,11 +32,10 @@ def _failure_msg(
     C = category.title()
     if timestep is None:
         return f"{C} failure of {name} at episode {episode}, status: {status}."
-    else:
-        return (
-            f"{C} failure of {name} at episode {episode}, time {timestep}, "
-            f"status: {status}."
-        )
+    return (
+        f"{C} failure of {name} at episode {episode}, time {timestep}, "
+        f"status: {status}."
+    )
 
 
 class CallbackMixin:
@@ -57,6 +57,15 @@ class CallbackMixin:
     def __init__(self) -> None:
         self._hooks: dict[str, dict[str, Callable[..., None]]] = {}
 
+    def __getstate__(self) -> dict[str, Any]:
+        state = self.__dict__.copy()
+        # remove hooks (otherwise, new copies will still be calling the old object)
+        if "_hooks" in state:
+            state["_hooks"] = {}
+        if "_hooked_callbacks" in state:
+            state["_hooked_callbacks"] = {}
+        return state
+
     def __setstate__(
         self,
         state: Union[
@@ -69,13 +78,29 @@ class CallbackMixin:
             slotstate = None
         if state is not None:
             # remove hooks (otherwise, new copies will still be calling the old object)
-            state["_hooks"] = {}
+            if "_hooks" in state:
+                state["_hooks"] = {}
+            if "_hooked_callbacks" in state:
+                state["_hooked_callbacks"] = {}
             self.__dict__.update(state)
         if slotstate is not None:
             for key, value in slotstate.items():
                 setattr(self, key, value)
         # re-establish hooks
         self._establish_callback_hooks()
+
+    def __deepcopy__(self, memo: dict[int, Any]) -> "CallbackMixin":
+        cls = self.__class__
+        other = cls.__new__(cls)
+        memo[id(self)] = other
+        for key, value in self.__dict__.items():
+            if key == "_hooks" or key == "_hooked_callbacks":
+                setattr(other, key, {})
+            else:
+                setattr(other, key, deepcopy(value, memo))
+        # re-establish hooks
+        other._establish_callback_hooks()
+        return other
 
     def _run_hooks(self, method_name: str, *args: Any) -> None:
         """Runs the internal hooks attached to the given method."""

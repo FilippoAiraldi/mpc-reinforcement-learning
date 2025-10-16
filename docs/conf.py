@@ -13,7 +13,7 @@ import mpcrl
 
 
 project = mpcrl.__name__
-copyright = "2024, Filippo Airaldi"
+copyright = "2025, Filippo Airaldi"
 author = "Filippo Airaldi"
 version = release = mpcrl.__version__
 github_repo = "mpc-reinforcement-learning"
@@ -50,7 +50,7 @@ intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
     "csnlp": (f"https://casadi-nlp.readthedocs.io/en/{version_match}/", None),
     "numpy": ("https://numpy.org/doc/stable/", None),
-    "numba": ("https://numba.readthedocs.io/en/latest/", None),
+    "numba": ("https://numba.readthedocs.io/en/stable/", None),
     "scipy": ("https://docs.scipy.org/doc/scipy/", None),
     "matplotlib": ("https://matplotlib.org/stable/", None),
     "joblib": ("https://joblib.readthedocs.io/en/stable/", None),
@@ -59,8 +59,6 @@ intersphinx_mapping = {
     "stable-baselines3": ("https://stable-baselines3.readthedocs.io/en/master/", None),
     "typing_extensions": ("https://typing-extensions.readthedocs.io/en/stable/", None),
 }
-
-"https://typing-extensions.readthedocs.io/en/latest/"
 
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = "sphinx"

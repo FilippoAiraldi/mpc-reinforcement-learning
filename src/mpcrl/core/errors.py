@@ -38,8 +38,7 @@ def raise_or_warn_on_mpc_failure(msg: str, raises: bool) -> None:
     """
     if raises:
         raise MpcSolverError(msg)
-    else:
-        _warn(msg, MpcSolverWarning)
+    _warn(msg, MpcSolverWarning, 2)
 
 
 def raise_or_warn_on_update_failure(msg: str, raises: bool) -> None:
@@ -60,5 +59,4 @@ def raise_or_warn_on_update_failure(msg: str, raises: bool) -> None:
     """
     if raises:
         raise UpdateError(msg)
-    else:
-        _warn(msg, UpdateWarning)
+    _warn(msg, UpdateWarning, 2)

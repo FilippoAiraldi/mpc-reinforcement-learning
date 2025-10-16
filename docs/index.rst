@@ -6,7 +6,7 @@ Reinforcement Learning with Model Predictive Control
 
 |PyPI version| |Source Code License| |Python 3.9|
 
-|Tests| |Docs| |Downloads| |Maintainability| |Test Coverage| |Code style: black|
+|Tests| |Docs| |Downloads| |Maintainability| |Code Coverage| |Ruff|
 
 ------------------
 Short introduction
@@ -62,7 +62,7 @@ Author
 `Delft Center for Systems and Control <https://www.tudelft.nl/en/me/about/departments/delft-center-for-systems-and-control/>`_
 in `Delft University of Technology <https://www.tudelft.nl/en/>`_.
 
-Copyright (c) 2024 Filippo Airaldi.
+Copyright (c) 2025 Filippo Airaldi.
 
 Copyright notice: Technische Universiteit Delft hereby disclaims all copyright interest
 in the program “mpcrl” (Reinforcement Learning with Model Predictive Control) written by
@@ -108,12 +108,12 @@ References
 .. |Downloads| image:: https://static.pepy.tech/badge/mpcrl
    :target: https://www.pepy.tech/projects/mpcrl
    :alt: Downloads
-.. |Maintainability| image:: https://api.codeclimate.com/v1/badges/9a46f52603d29c684c48/maintainability
-   :target: https://codeclimate.com/github/FilippoAiraldi/mpc-reinforcement-learning/maintainability
+.. |Maintainability| image:: https://qlty.sh/gh/FilippoAiraldi/projects/mpc-reinforcement-learning/maintainability.svg
+   :target: https://qlty.sh/gh/FilippoAiraldi/projects/mpc-reinforcement-learning
    :alt: Maintainability
-.. |Test Coverage| image:: https://api.codeclimate.com/v1/badges/9a46f52603d29c684c48/test_coverage
-   :target: https://codeclimate.com/github/FilippoAiraldi/mpc-reinforcement-learning/test_coverage
+.. |Code Coverage| image:: https://qlty.sh/gh/FilippoAiraldi/projects/mpc-reinforcement-learning/coverage.svg
+   :target: https://qlty.sh/gh/FilippoAiraldi/projects/mpc-reinforcement-learning
    :alt: Test Coverage
-.. |Code style: black| image:: https://img.shields.io/badge/code%20style-black-000000.svg
-   :target: https://github.com/psf/black
-   :alt: blacks
+.. |Ruff| image:: https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json
+   :target: https://docs.astral.sh/ruff
+   :alt: ruff

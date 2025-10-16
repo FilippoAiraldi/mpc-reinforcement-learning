@@ -4,7 +4,6 @@ from collections.abc import Iterator
 from copy import deepcopy
 from itertools import product
 from random import shuffle
-from typing import Union
 from unittest.mock import Mock
 
 import numpy as np
@@ -90,12 +89,12 @@ class TestExperienceReplay(unittest.TestCase):
             ExperienceReplay[tuple[np.ndarray, float]](maxlen=None, sample_size=0.0)
 
     @parameterized.expand([(0,), (float(0),)])
-    def test_sample__with_zero_samples__returns_no_samples(self, n: Union[int, float]):
+    def test_sample__with_zero_samples__returns_no_samples(self, n: float):
         mem = ExperienceReplay[tuple[np.ndarray, float]](maxlen=100, sample_size=n)
         self.assertListEqual(list(mem.sample()), [])
 
     @parameterized.expand([(10,), (0.1,)])
-    def test_sample__returns_right_sample_size(self, n: Union[int, float]):
+    def test_sample__returns_right_sample_size(self, n: float):
         N = 100
         Nsample = 10
         mem = ExperienceReplay[int](maxlen=N, sample_size=n)
@@ -106,9 +105,7 @@ class TestExperienceReplay(unittest.TestCase):
             self.assertIn(item, mem)
 
     @parameterized.expand([(20, 10), (20, 0.5), (0.2, 10), (0.2, 0.5)])
-    def test_sample__latest_n__includes_latest_n_items(
-        self, n: Union[int, float], last_n: Union[int, float]
-    ):
+    def test_sample__latest_n__includes_latest_n_items(self, n: float, last_n: float):
         N = 100
         Nsample = 20
         Nlast = 10
@@ -204,8 +201,7 @@ class TestSchedulers(unittest.TestCase):
         mk4 = lambda: S.LogLinearScheduler(*rd(2), ri(10, 100))
         schedulers = []
         for mk in (mk1, mk2, mk3, mk4):
-            for _ in range(ri(1, 5)):
-                schedulers.append(mk())
+            schedulers.extend(mk() for _ in range(ri(1, 5)))
         shuffle(schedulers)
 
         # extract the expected values
@@ -420,7 +416,7 @@ class TestExploration(unittest.TestCase):
 
 
 class TestParameters(unittest.TestCase):
-    @parameterized.expand(map(lambda i: (i,), range(3)))
+    @parameterized.expand([(i,) for i in range(3)])
     def test_learnable_parameter_init__raises__with_unbroadcastable_args(self, i: int):
         args = [5, 0, 10]
         args[i] = np.random.rand(2, 2, 2)
@@ -462,10 +458,18 @@ class TestParameters(unittest.TestCase):
             pars[p.name] = p
 
     @parameterized.expand(
-        map(
-            lambda m: (m,),
-            ["setitem", "update", "setdefault", "delitem", "pop", "popitem", "clear"],
-        )
+        [
+            (m,)
+            for m in [
+                "setitem",
+                "update",
+                "setdefault",
+                "delitem",
+                "pop",
+                "popitem",
+                "clear",
+            ]
+        ],
     )
     def test_parameters_dict__caches_get_cleared_properly(self, method: str):
         array_equal = np.testing.assert_array_equal
