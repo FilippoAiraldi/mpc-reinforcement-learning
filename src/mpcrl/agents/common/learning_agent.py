@@ -58,9 +58,9 @@ class LearningAgent(
 
     Notes
     -----
-    This class makes no assumptions on the learning methodology used to update the MPC's
-    learnable parameters. This could be either gradient-based or gradient-free, but the
-    logic implemented in this class should largely remain untouched.
+    If a second-order gradient-based ``optimizer`` is provided, then the Fisher
+    information matrix is used to perform a second-order natural policy gradient update.
+    Otherwise, a first-order update is performed.
     """
 
     def __init__(
