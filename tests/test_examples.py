@@ -80,8 +80,8 @@ class TestExamples(unittest.TestCase):
                     mpc=mpc,
                     learnable_parameters=learnable_pars,
                     discount_factor=mpc.discount_factor,
-                    optimizer=GradientDescent(
-                        learning_rate=1e-4,
+                    optimizer=NewtonMethod(
+                        learning_rate=5e-2,
                         max_percentage_update=1e3,  # does nothing; allows to test qp
                     ),
                     hessian_type="approx",
