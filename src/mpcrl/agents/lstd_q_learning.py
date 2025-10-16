@@ -166,7 +166,7 @@ class LstdQLearningAgent(
         if len(self.experience) <= 0:
             return "Experience buffer empty."
         sample = self.experience.sample()
-        if self.hessian_type == "none":
+        if self.optimizer.order == 1:
             gradient = np.mean(list(sample), 0)
             return self.optimizer.update(gradient)
         gradients, hessians = zip(*sample)
@@ -336,7 +336,7 @@ class LstdQLearningAgent(
         if success:
             td_error = cost + self.discount_factor * solV.f - solQ.f
             sensitivities = self._sensitivity(solQ)
-            if len(sensitivities) == 1:
+            if self.optimizer.order == 1:
                 dQ = sensitivities
                 gradient = -td_error * dQ
                 self.store_experience(gradient)
