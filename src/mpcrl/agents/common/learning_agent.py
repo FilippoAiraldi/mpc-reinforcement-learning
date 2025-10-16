@@ -61,7 +61,7 @@ class LearningAgent(
     -----
     This class makes no assumptions on the learning methodology used to update the MPC's
     learnable parameters. This could be either gradient-based or gradient-free, but the
-    logic implemented in this class should be largely remain untouched.
+    logic implemented in this class should largely remain untouched.
     """
 
     def __init__(
