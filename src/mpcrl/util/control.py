@@ -403,13 +403,17 @@ def iccbf(
     y = cs.SX.sym("y", u.shape[0], 1)
     dual_norm_func = cs.Function("dual_norm", (y,), (_dual_norm(y, norm),))
 
-    # continue from here as usual
+    
+    alphas = list(alphas)
+    *alphas_inner, alpha_last = alphas
+
     f, g = dynamics_f_and_g(x)
     phi = h(x)
-    for alpha in alphas:
+    for alpha in alphas_inner:
         Lf_phi = _lie_derivative(phi, x, f)
         Lg_phi = _lie_derivative(phi, x, g)
-        Lg_phi_u_sup = bound * dual_norm_func(Lg_phi)
-        alpha_phi = alpha(phi)
-        phi = Lf_phi - Lg_phi_u_sup + alpha_phi
-    return Lf_phi + Lg_phi * u + alpha_phi  # skip infimum in last iteration
+        phi = Lf_phi - bound * dual_norm_func(Lg_phi) + alpha(phi)
+
+    Lf_phi = _lie_derivative(phi, x, f)
+    Lg_phi = _lie_derivative(phi, x, g)
+    return Lf_phi + Lg_phi * u + alpha_last(phi)
