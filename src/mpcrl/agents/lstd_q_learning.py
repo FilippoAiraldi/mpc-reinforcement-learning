@@ -170,8 +170,8 @@ class LstdQLearningAgent(
             gradient = np.mean(list(sample), 0)
             return self.optimizer.update(gradient)
         gradients, hessians = zip(*sample)
-        gradient = np.mean(np.stack(gradients), 0)
-        hessian = np.mean(np.stack(hessians), 0)
+        gradient = np.mean(gradients, 0)
+        hessian = np.mean(hessians, 0)
         return self.optimizer.update(gradient, hessian)
 
     def train_one_episode(

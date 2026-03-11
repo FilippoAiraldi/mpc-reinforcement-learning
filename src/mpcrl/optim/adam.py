@@ -116,8 +116,7 @@ class Adam(GradientBasedOptimizer[LrType]):
         self._exp_avg = np.zeros(n, dtype=float)
         self._exp_avg_sq = np.zeros(n, dtype=float)
         self._max_exp_avg_sq = np.zeros(n, dtype=float) if self.amsgrad else None
-        self._beta1_t = 1.0  # tracks beta1**step
-        self._beta2_t = 1.0  # tracks beta2**step
+        self._step = 0
 
     def _first_order_update(
         self, gradient: npt.NDArray[np.floating]
@@ -132,11 +131,9 @@ class Adam(GradientBasedOptimizer[LrType]):
                 theta = theta * (1 - weight_decay * lr)
             else:
                 gradient = gradient + weight_decay * theta
-        self._beta1_t *= self.beta1
-        self._beta2_t *= self.beta2
+        self._step += 1
         dtheta, self._exp_avg, self._exp_avg_sq, self._max_exp_avg_sq = _adam(
-            self._beta1_t,  
-            self._beta2_t,  
+            self._step,
             gradient,
             self._exp_avg,
             self._exp_avg_sq,
@@ -159,8 +156,7 @@ class Adam(GradientBasedOptimizer[LrType]):
 
 
 def _adam(
-    beta1_t: float,  # replaces step
-    beta2_t: float,  # replaces step
+    step: int,
     g: np.ndarray,
     exp_avg: np.ndarray,
     exp_avg_sq: np.ndarray,
@@ -170,15 +166,18 @@ def _adam(
     eps: float,
     max_exp_avg_sq: Optional[np.ndarray],
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, Optional[np.ndarray]]:
+    """Computes the update's change according to Adam algorithm."""
     exp_avg = beta1 * exp_avg + (1 - beta1) * g
     exp_avg_sq = beta2 * exp_avg_sq + (1 - beta2) * np.square(g)
 
-    step_size = lr / (1 - beta1_t)                   
-    bias_correction2_sqrt = np.sqrt(1 - beta2_t)     
+    bias_correction1 = 1 - beta1**step
+    bias_correction2 = 1 - beta2**step
+    step_size = lr / bias_correction1
+    bias_correction2_sqrt = np.sqrt(bias_correction2)
 
     if max_exp_avg_sq is None:
         denom = np.sqrt(exp_avg_sq) / bias_correction2_sqrt + eps
-    else:
+    else:  # i.e., AMSGrad
         max_exp_avg_sq = np.maximum(max_exp_avg_sq, exp_avg_sq)
         denom = np.sqrt(max_exp_avg_sq) / bias_correction2_sqrt + eps
     dtheta = -step_size * (exp_avg / denom)
