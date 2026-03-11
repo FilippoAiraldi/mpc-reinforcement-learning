@@ -268,7 +268,7 @@ class LstdQLearningAgent(
             else:
                 statuses += f"{step}: no gradients computed, skipping update\n"
 
-        return statuses if statuses else None
+        return statuses or None
 
     def train_one_episode(
         self,
