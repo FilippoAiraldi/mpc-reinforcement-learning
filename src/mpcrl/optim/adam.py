@@ -135,8 +135,8 @@ class Adam(GradientBasedOptimizer[LrType]):
         self._beta1_t *= self.beta1
         self._beta2_t *= self.beta2
         dtheta, self._exp_avg, self._exp_avg_sq, self._max_exp_avg_sq = _adam(
-            self._beta1_t,  
-            self._beta2_t,  
+            self._beta1_t,
+            self._beta2_t,
             gradient,
             self._exp_avg,
             self._exp_avg_sq,
@@ -173,8 +173,8 @@ def _adam(
     exp_avg = beta1 * exp_avg + (1 - beta1) * g
     exp_avg_sq = beta2 * exp_avg_sq + (1 - beta2) * np.square(g)
 
-    step_size = lr / (1 - beta1_t)                   
-    bias_correction2_sqrt = np.sqrt(1 - beta2_t)     
+    step_size = lr / (1 - beta1_t)
+    bias_correction2_sqrt = np.sqrt(1 - beta2_t)
 
     if max_exp_avg_sq is None:
         denom = np.sqrt(exp_avg_sq) / bias_correction2_sqrt + eps

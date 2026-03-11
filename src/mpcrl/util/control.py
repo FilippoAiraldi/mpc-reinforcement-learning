@@ -403,7 +403,6 @@ def iccbf(
     y = cs.SX.sym("y", u.shape[0], 1)
     dual_norm_func = cs.Function("dual_norm", (y,), (_dual_norm(y, norm),))
 
-    
     alphas = list(alphas)
     *alphas_inner, alpha_last = alphas
 
