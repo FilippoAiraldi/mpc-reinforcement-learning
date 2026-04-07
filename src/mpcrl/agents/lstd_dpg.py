@@ -368,6 +368,7 @@ def _consolidate_rollout(
     L = np.empty(N)
     sol_vals = np.empty((N, rollout[0][-1].size))
     for i in nb.prange(N):
+        i = np.int64(i)
         s, e, cost, _, sol_val = rollout[i]
         S[i] = s.reshape(-1)
         E[i, :, 0] = e
