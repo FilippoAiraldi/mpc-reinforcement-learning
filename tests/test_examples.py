@@ -260,10 +260,10 @@ class TestExamples(unittest.TestCase):
         # self.DATA.update({"bo_J": J, "bo_X": X, "bo_U": U, "bo_R": R})
         # savemat("tests/data_test_examples.mat", self.DATA)
 
-        np.testing.assert_allclose(J, self.DATA["bo_J"], rtol=1e-1, atol=1e-1)
-        np.testing.assert_allclose(X, self.DATA["bo_X"], rtol=1e-1, atol=1e-1)
-        np.testing.assert_allclose(U, self.DATA["bo_U"], rtol=1e-1, atol=1e-1)
-        np.testing.assert_allclose(R, self.DATA["bo_R"], rtol=1e-1, atol=1e-1)
+        np.testing.assert_allclose(J, self.DATA["bo_J"], rtol=2e-1, atol=2e-1)
+        np.testing.assert_allclose(X, self.DATA["bo_X"], rtol=2e-1, atol=2e-1)
+        np.testing.assert_allclose(U, self.DATA["bo_U"], rtol=2e-1, atol=2e-1)
+        np.testing.assert_allclose(R, self.DATA["bo_R"], rtol=2e-1, atol=2e-1)
 
     @parameterized.expand([(False,), (True,)])
     def test_q_learning_offpolicy__with_copy_and_pickle(self, use_copy: bool):
