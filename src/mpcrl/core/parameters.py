@@ -15,7 +15,7 @@ from copy import deepcopy
 from functools import cached_property
 from itertools import chain
 from numbers import Integral
-from typing import Any, Optional, Union
+from typing import Any
 
 import numpy as np
 import numpy.typing as npt
@@ -52,7 +52,7 @@ class LearnableParameter:
     def __init__(
         self,
         name: str,
-        shape: Union[int, tuple[int, ...]],
+        shape: int | tuple[int, ...],
         value: npt.ArrayLike,
         lb: npt.ArrayLike = -np.inf,
         ub: npt.ArrayLike = +np.inf,
@@ -127,7 +127,7 @@ class LearnableParametersDict(dict[str, LearnableParameter]):
     underlying dict is modified.
     """
 
-    def __init__(self, pars: Optional[Iterable[LearnableParameter]] = None) -> None:
+    def __init__(self, pars: Iterable[LearnableParameter] | None = None) -> None:
         if pars is None:
             super().__init__()
         else:
@@ -173,7 +173,7 @@ class LearnableParametersDict(dict[str, LearnableParameter]):
     @invalidate_cache(value, value_as_dict)
     def update_values(
         self,
-        new_values: Union[npt.ArrayLike, dict[str, npt.ArrayLike]],
+        new_values: npt.ArrayLike | dict[str, npt.ArrayLike],
         **is_close_kwargs: Any,
     ) -> None:
         """Updates the value of each parameter
@@ -203,7 +203,7 @@ class LearnableParametersDict(dict[str, LearnableParameter]):
         else:
             cumsizes = np.cumsum([p.size for p in self.values()])[:-1]
             values_ = np.array_split(new_values, cumsizes)
-            for par, val in zip(self.values(), values_):
+            for par, val in zip(self.values(), values_, strict=True):
                 par._update_value(val.reshape(par.shape, order="F"), **is_close_kwargs)
 
     __cache_decorator = invalidate_cache(size, lb, ub, value, value_as_dict)

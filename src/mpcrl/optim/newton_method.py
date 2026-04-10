@@ -1,4 +1,4 @@
-from typing import Any, Literal, Optional, Union
+from typing import Any, Literal
 
 import numpy as np
 import numpy.typing as npt
@@ -106,11 +106,11 @@ class NewtonMethod(GradientBasedOptimizer[LrType]):
 
     def __init__(
         self,
-        learning_rate: Union[LrType, Scheduler[LrType]],
+        learning_rate: LrType | Scheduler[LrType],
         weight_decay: float = 0.0,
         cho_before_update: bool = False,
         cho_maxiter: int = 1000,
-        cho_solve_kwargs: Optional[dict[str, Any]] = None,
+        cho_solve_kwargs: dict[str, Any] | None = None,
         hook: Literal["on_update", "on_episode_end", "on_timestep_end"] = "on_update",
         max_percentage_update: float = float("+inf"),
         bound_consistency: bool = False,
@@ -127,7 +127,7 @@ class NewtonMethod(GradientBasedOptimizer[LrType]):
 
     def _second_order_update(
         self, gradient: npt.NDArray[np.floating], hessian: npt.NDArray[np.floating]
-    ) -> tuple[npt.NDArray[np.floating], Optional[str]]:
+    ) -> tuple[npt.NDArray[np.floating], str | None]:
         theta = self.learnable_parameters.value
         lr = self.lr_scheduler.value
         w = self.weight_decay

@@ -17,7 +17,7 @@ documentation of that module for more basic information. See also
 from collections.abc import Generator
 from functools import cached_property
 from itertools import chain
-from typing import Literal, Optional
+from typing import Literal
 
 import numpy as np
 from csnlp.multistart import RandomStartPoints, StructuredStartPoints
@@ -69,8 +69,8 @@ class WarmStartStrategy:
     def __init__(
         self,
         warmstart: Literal["last", "last-successful"] = "last-successful",
-        structured_points: Optional[StructuredStartPoints] = None,
-        random_points: Optional[RandomStartPoints] = None,
+        structured_points: StructuredStartPoints | None = None,
+        random_points: RandomStartPoints | None = None,
         update_biases_for_random_points: bool = True,
         seed: RngType = None,
     ) -> None:
@@ -94,7 +94,7 @@ class WarmStartStrategy:
             self.random_points.np_random = np.random.default_rng(seed)
 
     def generate(
-        self, previous_sol: Optional[dict[str, npt.ArrayLike]] = None
+        self, previous_sol: dict[str, npt.ArrayLike] | None = None
     ) -> Generator[dict[str, npt.ArrayLike], None, None]:
         """Generates some initial conditions/guesses for the primal optimization
         variables of the MPC's NLP problem.

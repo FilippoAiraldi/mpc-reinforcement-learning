@@ -8,8 +8,9 @@ or the exploration chances, or when and with which frequency to invoke an update
 MPC parametrization. Here we list the classes that enable this system, but for an
 introduction to the callbacks and how to use them, see :ref:`user_guide_callbacks`."""
 
+from collections.abc import Callable
 from copy import deepcopy
-from typing import Any, Callable, Literal, Optional, TypeVar, Union
+from typing import Any, Literal, TypeVar
 
 import numpy as np
 import numpy.typing as npt
@@ -25,7 +26,7 @@ def _failure_msg(
     category: Literal["mpc", "update"],
     name: str,
     episode: int,
-    timestep: Optional[int],
+    timestep: int | None,
     status: str,
 ) -> str:
     """Internal utility for composing message for mpc/update failure."""
@@ -68,9 +69,7 @@ class CallbackMixin:
 
     def __setstate__(
         self,
-        state: Union[
-            None, dict[str, Any], tuple[Optional[dict[str, Any]], dict[str, Any]]
-        ],
+        state: None | dict[str, Any] | tuple[dict[str, Any] | None, dict[str, Any]],
     ) -> None:
         if isinstance(state, tuple) and len(state) == 2:
             state, slotstate = state
@@ -161,7 +160,7 @@ class AgentCallbackMixin(CallbackMixin):
     """
 
     def on_mpc_failure(
-        self, episode: int, timestep: Optional[int], status: str, raises: bool
+        self, episode: int, timestep: int | None, status: str, raises: bool
     ) -> None:
         """Callback in case of failure of the MPC solver.
 
@@ -297,7 +296,7 @@ class LearningAgentCallbackMixin(AgentCallbackMixin):
     """
 
     def on_update_failure(
-        self, episode: int, timestep: Optional[int], errormsg: str, raises: bool
+        self, episode: int, timestep: int | None, errormsg: str, raises: bool
     ) -> None:
         """Callback in case of update failure.
 

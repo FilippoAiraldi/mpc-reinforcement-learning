@@ -41,7 +41,7 @@ References
 from collections.abc import Iterable
 from logging import DEBUG
 from operator import neg
-from typing import Any, Optional
+from typing import Any
 
 import casadi as cs
 import gymnasium as gym
@@ -201,8 +201,8 @@ class CstrEnv(gym.Env[npt.NDArray[np.floating], float]):
     def reset(
         self,
         *,
-        seed: Optional[int] = None,
-        options: Optional[dict[str, Any]] = None,
+        seed: int | None = None,
+        options: dict[str, Any] | None = None,
     ) -> tuple[npt.NDArray[np.floating], dict[str, Any]]:
         """Resets the state of the CSTR env."""
         super().reset(seed=seed, options=options)
@@ -244,7 +244,7 @@ class NoisyFilterObservation(ObservationWrapper):
         self,
         env: Env[npt.NDArray[np.floating], float],
         measurable_states: Iterable[int],
-        measurement_noise_std: Optional[npt.ArrayLike] = None,
+        measurement_noise_std: npt.ArrayLike | None = None,
     ) -> None:
         """Instantiates the wrapper.
 
@@ -375,7 +375,7 @@ class BoTorchOptimizer(GradientFreeOptimizer):
     prefers_dict = False  # ask-and-tell methods should receive arrays, not dicts
 
     def __init__(
-        self, initial_random: int = 5, seed: Optional[int] = None, **kwargs: Any
+        self, initial_random: int = 5, seed: int | None = None, **kwargs: Any
     ) -> None:
         """Initializes the optimizer.
 

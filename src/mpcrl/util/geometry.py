@@ -1,7 +1,5 @@
 """A submodule with utility functions for geometry operations."""
 
-from typing import Optional, Union
-
 import numpy as np
 import numpy.typing as npt
 from scipy.spatial import ConvexHull as _ConvexHull
@@ -46,7 +44,7 @@ class ConvexPolytopeUniformSampler:
         incremental: bool = False,
         disable_triangulation: bool = False,
         disable_convex_hull: bool = False,
-        seed: Optional[np.random.Generator] = None,
+        seed: np.random.Generator | None = None,
     ) -> None:
         self.seed(seed)
         self._tri_enabled = not disable_triangulation
@@ -106,7 +104,7 @@ class ConvexPolytopeUniformSampler:
             self._triangulation.close()
 
     def sample_from_interior(
-        self, size: Union[int, tuple[int, ...]] = ()
+        self, size: int | tuple[int, ...] = ()
     ) -> npt.NDArray[np.floating]:
         """Sample uniformly from the interior of the polytope defined by the given
         vertices.
@@ -136,7 +134,7 @@ class ConvexPolytopeUniformSampler:
         return np.matmul(weights[..., None, :], selected_simplices).squeeze(-2)
 
     def sample_from_surface(
-        self, size: Union[int, tuple[int, ...]] = ()
+        self, size: int | tuple[int, ...] = ()
     ) -> npt.NDArray[np.floating]:
         """Sample uniformly from the surface of the polytope defined by the given
         vertices.

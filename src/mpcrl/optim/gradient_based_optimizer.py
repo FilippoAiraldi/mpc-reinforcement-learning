@@ -1,4 +1,4 @@
-from typing import Generic, Literal, Optional, TypeVar, Union
+from typing import Generic, Literal, TypeVar
 
 import casadi as cs
 import numpy as np
@@ -61,7 +61,7 @@ class GradientBasedOptimizer(BaseOptimizer, Generic[LrType]):
 
     def __init__(
         self,
-        learning_rate: Union[LrType, Scheduler[LrType]],
+        learning_rate: LrType | Scheduler[LrType],
         hook: Literal["on_update", "on_episode_end", "on_timestep_end"] = "on_update",
         max_percentage_update: float = float("+inf"),
         bound_consistency: bool = False,
@@ -87,7 +87,7 @@ class GradientBasedOptimizer(BaseOptimizer, Generic[LrType]):
         return self._order
 
     @property
-    def hook(self) -> Optional[str]:
+    def hook(self) -> str | None:
         """Gets the hook to which the scheduler is attached to, i.e., when to step the
         learning rate's scheduler to decay its value.
 
@@ -104,7 +104,7 @@ class GradientBasedOptimizer(BaseOptimizer, Generic[LrType]):
         """Steps/decays the learning rate according to its scheduler."""
         self.lr_scheduler.step()
 
-    def _init_update_solver(self) -> Optional[cs.Function]:
+    def _init_update_solver(self) -> cs.Function | None:
         """Internal utility to initialize, if the learnable parameters are constrained,
         a constrained update solver (which, by default, is a QP). If the parameter space
         is not constraint, no solver is required to perform the update."""
@@ -134,8 +134,8 @@ class GradientBasedOptimizer(BaseOptimizer, Generic[LrType]):
     def update(
         self,
         gradient: npt.NDArray[np.floating],
-        hessian: Optional[npt.NDArray[np.floating]] = None,
-    ) -> Optional[str]:
+        hessian: npt.NDArray[np.floating] | None = None,
+    ) -> str | None:
         """Computes the gradient-based update of the learnable parameters dictated by
         the current RL algorithm.
 
@@ -167,7 +167,7 @@ class GradientBasedOptimizer(BaseOptimizer, Generic[LrType]):
 
     def _first_order_update(
         self, gradient: npt.NDArray[np.floating]
-    ) -> tuple[npt.NDArray[np.floating], Optional[str]]:
+    ) -> tuple[npt.NDArray[np.floating], str | None]:
         """Internally runs a first order update."""
         raise NotImplementedError(
             f"`{self.__class__.__name__}` optimizer does not implement "
@@ -176,7 +176,7 @@ class GradientBasedOptimizer(BaseOptimizer, Generic[LrType]):
 
     def _second_order_update(
         self, gradient: npt.NDArray[np.floating], hessian: npt.NDArray[np.floating]
-    ) -> tuple[npt.NDArray[np.floating], Optional[str]]:
+    ) -> tuple[npt.NDArray[np.floating], str | None]:
         """Internally runs a second order update."""
         raise NotImplementedError(
             f"`{self.__class__.__name__}` optimizer does not implement "

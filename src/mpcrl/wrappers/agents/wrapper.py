@@ -1,4 +1,5 @@
-from typing import Any, Callable, Generic, Union
+from collections.abc import Callable
+from typing import Any, Generic, Union
 
 from ...agents.common.agent import Agent, SymType
 from ...agents.common.learning_agent import ExpType, LearningAgent
@@ -25,7 +26,7 @@ class Wrapper(CallbackMixin, Generic[SymType]):
         self._establish_callback_hooks()
 
     @property
-    def unwrapped(self) -> Union[Agent[SymType], LearningAgent[SymType, ExpType]]:
+    def unwrapped(self) -> Agent[SymType] | LearningAgent[SymType, ExpType]:
         """Returns the original agent wrapped by this wrapper."""
         return self.agent.unwrapped
 

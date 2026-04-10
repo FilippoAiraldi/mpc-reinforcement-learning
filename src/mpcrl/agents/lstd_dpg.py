@@ -1,7 +1,6 @@
-import sys
-from collections.abc import Collection, Iterator
+from collections.abc import Callable, Collection, Iterator
 from functools import partial
-from typing import Callable, Generic, Literal, Optional, SupportsFloat, Union
+from typing import Generic, Literal, SupportsFloat, TypeAlias
 
 import casadi as cs
 import numba as nb
@@ -9,11 +8,6 @@ import numpy as np
 import numpy.typing as npt
 from csnlp.wrappers import Mpc, NlpSensitivity
 from gymnasium import Env
-
-if sys.version_info >= (3, 10):
-    from typing import TypeAlias
-else:
-    from typing_extensions import TypeAlias
 
 from ..core.experience import ExperienceReplay
 from ..core.exploration import ExplorationStrategy, NoExploration
@@ -159,26 +153,25 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
     def __init__(
         self,
         mpc: Mpc[SymType] | tuple[Mpc[SymType], Mpc[SymType]],
-        update_strategy: Union[int, UpdateStrategy],
+        update_strategy: int | UpdateStrategy,
         discount_factor: float,
         optimizer: GradientBasedOptimizer,
         learnable_parameters: LearnableParametersDict,
         exploration: ExplorationStrategy,
-        fixed_parameters: Union[
-            None, dict[str, npt.ArrayLike], Collection[dict[str, npt.ArrayLike]]
-        ] = None,
-        experience: Union[None, int, ExperienceReplay[ExpType]] = None,
-        warmstart: Union[
-            Literal["last", "last-successful"], WarmStartStrategy
-        ] = "last-successful",
+        fixed_parameters: None
+        | dict[str, npt.ArrayLike]
+        | Collection[dict[str, npt.ArrayLike]] = None,
+        experience: None | int | ExperienceReplay[ExpType] = None,
+        warmstart: Literal["last", "last-successful"]
+        | WarmStartStrategy = "last-successful",
         rollout_length: int = -1,
         record_policy_performance: bool = False,
         record_policy_gradient: bool = False,
-        state_features: Optional[cs.Function] = None,
+        state_features: cs.Function | None = None,
         linsolver: Literal["csparse", "mldivide"] = "csparse",
         ridge_regression_regularization: float = 1e-6,
         use_last_action_on_fail: bool = False,
-        name: Optional[str] = None,
+        name: str | None = None,
     ) -> None:
         if exploration is None or isinstance(exploration, NoExploration):
             raise ValueError("DPG requires exploration, but none was provided.")
@@ -215,14 +208,14 @@ class LstdDpgAgent(RlLearningAgent[SymType, ExpType, LrType], Generic[SymType, L
                 npt.NDArray[np.floating],
             ]
         ] = nb.typed.List()
-        self.policy_performances: Optional[list[float]] = (
+        self.policy_performances: list[float] | None = (
             [] if record_policy_performance else None
         )
-        self.policy_gradients: Optional[list[npt.NDArray[np.floating]]] = (
+        self.policy_gradients: list[npt.NDArray[np.floating]] | None = (
             [] if record_policy_gradient else None
         )
 
-    def update(self) -> Optional[str]:
+    def update(self) -> str | None:
         if len(self.experience) <= 0:
             return "Experience buffer empty."
         sample = self.experience.sample()
@@ -367,8 +360,8 @@ def _consolidate_rollout(
     E = np.empty((N, na, 1))  # additional dim required for Psi
     L = np.empty(N)
     sol_vals = np.empty((N, rollout[0][-1].size))
-    for i in nb.prange(N):
-        i = np.int64(i)
+    for idx in nb.prange(N):
+        i = np.int64(idx)
         s, e, cost, _, sol_val = rollout[i]
         S[i] = s.reshape(-1)
         E[i, :, 0] = e
@@ -417,7 +410,7 @@ def _estimate_gradient_update(
     discount_factor: float,
     regularization: float,
     return_fisher_hessian: bool,
-) -> tuple[np.ndarray, Optional[np.ndarray]]:
+) -> tuple[np.ndarray, np.ndarray | None]:
     """Internal utility to estimate the gradient of the policy and possibly the Fisher
     information matrix as well."""
     # compute average v and w

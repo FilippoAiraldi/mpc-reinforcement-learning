@@ -1,4 +1,4 @@
-from typing import Literal, Optional, Union
+from typing import Literal
 
 import casadi as cs
 import numpy as np
@@ -92,7 +92,7 @@ class Adam(GradientBasedOptimizer[LrType]):
 
     def __init__(
         self,
-        learning_rate: Union[LrType, Scheduler[LrType]],
+        learning_rate: LrType | Scheduler[LrType],
         betas: tuple[float, float] = (0.9, 0.999),
         eps: float = 1e-8,
         weight_decay: float = 0.0,
@@ -120,7 +120,7 @@ class Adam(GradientBasedOptimizer[LrType]):
 
     def _first_order_update(
         self, gradient: npt.NDArray[np.floating]
-    ) -> tuple[npt.NDArray[np.floating], Optional[str]]:
+    ) -> tuple[npt.NDArray[np.floating], str | None]:
         theta = self.learnable_parameters.value
 
         # compute candidate update
@@ -164,8 +164,8 @@ def _adam(
     beta1: float,
     beta2: float,
     eps: float,
-    max_exp_avg_sq: Optional[np.ndarray],
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, Optional[np.ndarray]]:
+    max_exp_avg_sq: np.ndarray | None,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray | None]:
     """Computes the update's change according to Adam algorithm."""
     exp_avg = beta1 * exp_avg + (1 - beta1) * g
     exp_avg_sq = beta2 * exp_avg_sq + (1 - beta2) * np.square(g)

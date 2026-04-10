@@ -1,5 +1,5 @@
 from abc import ABC
-from typing import Any, Optional
+from typing import Any
 
 from gymnasium import Env
 
@@ -84,7 +84,7 @@ class GlobOptLearningAgent(LearningAgent[SymType, None], ABC):
         self.optimizer.tell(values, rewards)
         return rewards
 
-    def update(self) -> Optional[str]:
+    def update(self) -> str | None:
         # simply ask the optimizer for a new set of parameters, and then update the
         # current parameters with this new set
         theta_new, status = self.optimizer.ask()

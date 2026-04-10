@@ -6,8 +6,8 @@ Functions.
 Some inspiration was drawn from `MPCtools <https://bitbucket.org/rawlings-group/mpc-tools-casadi/src/master/mpctools/util.py>`_.
 """
 
+from collections.abc import Callable
 from collections.abc import Iterable as _Iterable
-from typing import Callable, Optional
 
 import casadi as cs
 import numpy as np
@@ -25,7 +25,7 @@ def lqr(
     B: npt.NDArray[np.floating],
     Q: npt.NDArray[np.floating],
     R: npt.NDArray[np.floating],
-    M: Optional[npt.NDArray[np.floating]] = None,
+    M: npt.NDArray[np.floating] | None = None,
 ) -> tuple[npt.NDArray[np.floating], npt.NDArray[np.floating]]:
     r"""Computes the solution to the continuous-time LQR problem.
 
@@ -79,7 +79,7 @@ def dlqr(
     B: npt.NDArray[np.floating],
     Q: npt.NDArray[np.floating],
     R: npt.NDArray[np.floating],
-    M: Optional[npt.NDArray[np.floating]] = None,
+    M: npt.NDArray[np.floating] | None = None,
 ) -> tuple[npt.NDArray[np.floating], npt.NDArray[np.floating]]:
     r"""Computes the solution to the discrete-time LQR problem.
 

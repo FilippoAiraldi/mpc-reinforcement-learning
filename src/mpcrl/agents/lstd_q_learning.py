@@ -1,7 +1,6 @@
-import sys
-from collections.abc import Collection, Iterable
+from collections.abc import Callable, Collection, Iterable
 from functools import partial
-from typing import Callable, Generic, Literal, Optional, SupportsFloat, Union
+from typing import Generic, Literal, SupportsFloat, TypeAlias
 
 import casadi as cs
 import numpy as np
@@ -9,11 +8,6 @@ import numpy.typing as npt
 from csnlp import Solution
 from csnlp.wrappers import Mpc, NlpSensitivity
 from gymnasium import Env
-
-if sys.version_info >= (3, 10):
-    from typing import TypeAlias
-else:
-    from typing_extensions import TypeAlias
 
 from ..core.experience import ExperienceReplay
 from ..core.exploration import ExplorationStrategy
@@ -127,23 +121,22 @@ class LstdQLearningAgent(
     def __init__(
         self,
         mpc: Mpc[SymType] | tuple[Mpc[SymType], Mpc[SymType]],
-        update_strategy: Union[int, UpdateStrategy],
+        update_strategy: int | UpdateStrategy,
         discount_factor: float,
         optimizer: GradientBasedOptimizer,
         learnable_parameters: LearnableParametersDict,
-        fixed_parameters: Union[
-            None, dict[str, npt.ArrayLike], Collection[dict[str, npt.ArrayLike]]
-        ] = None,
-        exploration: Optional[ExplorationStrategy] = None,
-        experience: Union[None, int, ExperienceReplay[ExpType]] = None,
-        warmstart: Union[
-            Literal["last", "last-successful"], WarmStartStrategy
-        ] = "last-successful",
+        fixed_parameters: None
+        | dict[str, npt.ArrayLike]
+        | Collection[dict[str, npt.ArrayLike]] = None,
+        exploration: ExplorationStrategy | None = None,
+        experience: None | int | ExperienceReplay[ExpType] = None,
+        warmstart: Literal["last", "last-successful"]
+        | WarmStartStrategy = "last-successful",
         hessian_type: Literal["approx", "full"] = "approx",
         record_td_errors: bool = False,
         use_last_action_on_fail: bool = False,
         remove_bounds_on_initial_action: bool = False,
-        name: Optional[str] = None,
+        name: str | None = None,
     ) -> None:
         super().__init__(
             mpc=mpc,
@@ -160,16 +153,16 @@ class LstdQLearningAgent(
             name=name,
         )
         self._sensitivity = self._init_sensitivity(hessian_type)
-        self.td_errors: Optional[list[float]] = [] if record_td_errors else None
+        self.td_errors: list[float] | None = [] if record_td_errors else None
 
-    def update(self) -> Optional[str]:
+    def update(self) -> str | None:
         if len(self.experience) <= 0:
             return "Experience buffer empty."
         sample = self.experience.sample()
         if self.optimizer.order == 1:
             gradient = np.mean(list(sample), 0)
             return self.optimizer.update(gradient)
-        gradients, hessians = zip(*sample)
+        gradients, hessians = zip(*sample, strict=True)
         gradient = np.mean(gradients, 0)
         hessian = np.mean(hessians, 0)
         return self.optimizer.update(gradient, hessian)
@@ -239,11 +232,11 @@ class LstdQLearningAgent(
 
     def _init_sensitivity(
         self, hessian_type: Literal["approx", "full"]
-    ) -> Union[
-        Callable[[Solution], np.ndarray],
-        Callable[[Solution], tuple[np.ndarray, float]],
-        Callable[[Solution], tuple[np.ndarray, np.ndarray]],
-    ]:
+    ) -> (
+        Callable[[Solution], np.ndarray]
+        | Callable[[Solution], tuple[np.ndarray, float]]
+        | Callable[[Solution], tuple[np.ndarray, np.ndarray]]
+    ):
         """Internal utility to compute the derivative of ``Q(s,a)`` w.r.t. the learnable
         parameters, a.k.a., ``theta``."""
         ord = self.optimizer.order
@@ -355,7 +348,7 @@ class LstdQLearningAgent(
 
 def _sol_sensitivities(
     sens: cs.Function, return_zero_hessian: bool, s: Solution
-) -> Union[np.ndarray, tuple[np.ndarray, float], tuple[np.ndarray, np.ndarray]]:
+) -> np.ndarray | tuple[np.ndarray, float] | tuple[np.ndarray, np.ndarray]:
     """Internal utility to compute sensitivities."""
     out = (
         sens(s.x, s.p, s.lam_g_and_h)
