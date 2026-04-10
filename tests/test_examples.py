@@ -18,6 +18,8 @@ for folder in (
 ):
     sys.path.append(os.path.join(os.getcwd(), f"examples/{folder}"))
 
+import random
+
 import numpy as np
 import torch
 from acc_with_iccbf import (
@@ -201,7 +203,11 @@ class TestExamples(unittest.TestCase):
 
     @parameterized.expand([(False,), (True,)])
     def test_bayesopt__with_copy_and_pickle(self, use_copy: bool):
+        random.seed(0)
+        np.random.seed(0)
         torch.manual_seed(0)
+        torch.use_deterministic_algorithms(True)
+
         env = MonitorEpisodes(TimeLimit(CstrEnv(4e3), max_episode_steps=10))
         env = TransformReward(env, neg)
         env = NoisyFilterObservation(env, [1, 2])
@@ -245,10 +251,10 @@ class TestExamples(unittest.TestCase):
             agent = pickle.loads(pickled)
 
         J = agent.train(env=env, episodes=6, seed=69, raises=False)
-
         X = np.squeeze(env.get_wrapper_attr("observations"))
         U = np.squeeze(env.get_wrapper_attr("actions"), (2, 3))
         R = np.squeeze(env.get_wrapper_attr("rewards"))
+        print("BayesOpt J:", J, "X:", X, "U:", U, "R:", R, sep="\n")
 
         # from scipy.io import savemat
         # self.DATA.update({"bo_J": J, "bo_X": X, "bo_U": U, "bo_R": R})
