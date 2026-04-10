@@ -2,25 +2,19 @@
 generators. In particular, these have been conceived with the goal of being as
 compatible with the :mod:`gymnasium` framework as possible."""
 
-import sys
 from collections.abc import Sequence as _Sequence
-from typing import Union
+from typing import TypeAlias
 
 import numpy as np
 
-if sys.version_info >= (3, 10):
-    from typing import TypeAlias
-else:
-    from typing_extensions import TypeAlias
-
-RngType: TypeAlias = Union[
-    None,
-    int,
-    _Sequence[int],
-    np.random.SeedSequence,
-    np.random.BitGenerator,
-    np.random.Generator,
-]
+RngType: TypeAlias = (
+    None
+    | int
+    | _Sequence[int]
+    | np.random.SeedSequence
+    | np.random.BitGenerator
+    | np.random.Generator
+)
 
 
 MAX_SEED = np.iinfo(np.uint32).max + 1

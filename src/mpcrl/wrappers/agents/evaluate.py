@@ -1,4 +1,4 @@
-from typing import Any, Literal, Optional, TypeVar
+from typing import Any, Literal, TypeVar
 
 import numpy as np
 import numpy.typing as npt
@@ -63,7 +63,7 @@ class Evaluate(LearningWrapper[SymType, ExpType]):
         deterministic: bool = True,
         seed: RngType = None,
         raises: bool = True,
-        env_reset_options: Optional[dict[str, Any]] = None,
+        env_reset_options: dict[str, Any] | None = None,
         fix_seed: bool = False,
     ) -> None:
         self.eval_env = eval_env

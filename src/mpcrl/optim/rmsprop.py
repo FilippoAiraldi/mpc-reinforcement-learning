@@ -1,4 +1,4 @@
-from typing import Literal, Optional, Union
+from typing import Literal
 
 import casadi as cs
 import numpy as np
@@ -91,7 +91,7 @@ class RMSprop(GradientBasedOptimizer[LrType]):
 
     def __init__(
         self,
-        learning_rate: Union[LrType, Scheduler[LrType]],
+        learning_rate: LrType | Scheduler[LrType],
         alpha: float = 0.99,
         eps: float = 1e-8,
         weight_decay: float = 0.0,
@@ -118,7 +118,7 @@ class RMSprop(GradientBasedOptimizer[LrType]):
 
     def _first_order_update(
         self, gradient: npt.NDArray[np.floating]
-    ) -> tuple[npt.NDArray[np.floating], Optional[str]]:
+    ) -> tuple[npt.NDArray[np.floating], str | None]:
         theta = self.learnable_parameters.value
 
         # compute candidate update
@@ -156,10 +156,10 @@ def _rmsprop(
     alpha: float,
     eps: float,
     centered: bool,
-    grad_avg: Optional[np.ndarray],
+    grad_avg: np.ndarray | None,
     momentum: float,
-    momentum_buffer: Optional[np.ndarray],
-) -> tuple[np.ndarray, np.ndarray, Optional[np.ndarray], Optional[np.ndarray]]:
+    momentum_buffer: np.ndarray | None,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray | None, np.ndarray | None]:
     """Computes the update's change according to Adam algorithm."""
     square_avg = alpha * square_avg + (1 - alpha) * np.square(grad)
 

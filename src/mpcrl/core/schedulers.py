@@ -9,7 +9,6 @@ from itertools import repeat as _rep
 from operator import mul as _mul
 from typing import Generic as _Generic
 from typing import TypeVar as _TypeVar
-from typing import Union
 
 import numpy as np
 import numpy.typing as npt
@@ -198,7 +197,7 @@ class Chain(Scheduler[ScType]):
 
     def __init__(
         self,
-        schedulers: _Iterable[Union[Scheduler[ScType], tuple[Scheduler[ScType], int]]],
+        schedulers: _Iterable[Scheduler[ScType] | tuple[Scheduler[ScType], int]],
     ) -> None:
         self.schedulers = iter(schedulers)
         self._next_scheduler()

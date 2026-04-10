@@ -4,7 +4,7 @@ agents are trained in parallel."""
 
 from collections.abc import Iterator as _Iterator
 from itertools import count as _count
-from typing import ClassVar, Optional
+from typing import ClassVar
 
 
 class Named:
@@ -21,7 +21,7 @@ class Named:
 
     __ids: ClassVar[dict[type, _Iterator[int]]] = {}
 
-    def __init__(self, name: Optional[str] = None) -> None:
+    def __init__(self, name: str | None = None) -> None:
         cls = self.__class__
         if cls in self.__ids:
             _id = self.__ids[cls]

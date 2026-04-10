@@ -37,14 +37,8 @@ References
        and Control (CDC) (pp. 6113-6118). IEEE.
 """
 
-import sys
-
-if sys.version_info >= (3, 10):
-    from typing import TypeAlias
-else:
-    from typing_extensions import TypeAlias
-
-from typing import Any, Callable, Optional
+from collections.abc import Callable
+from typing import Any, TypeAlias
 
 import casadi as cs
 import gymnasium as gym
@@ -109,7 +103,7 @@ class AccEnv(gym.Env[ObsType, ActType]):
         self.dynamics_components = cs.Function("dyn", (x,), (f, g), ("x",), ("f", "g"))
 
     def reset(
-        self, *, seed: Optional[int] = None, options: Optional[dict[str, Any]] = None
+        self, *, seed: int | None = None, options: dict[str, Any] | None = None
     ) -> tuple[ObsType, dict[str, Any]]:
         super().reset(seed=seed, options=options)
         self.x = np.asarray([100, 20])

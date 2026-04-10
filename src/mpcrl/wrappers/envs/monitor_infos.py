@@ -1,6 +1,6 @@
 from collections import deque
 from collections.abc import Iterable
-from typing import Any, Optional, SupportsFloat, TypeVar
+from typing import Any, SupportsFloat, TypeVar
 from warnings import warn
 
 from gymnasium import Env, Wrapper, utils
@@ -55,7 +55,7 @@ class MonitorInfos(
     """
 
     def __init__(
-        self, env: Env[ObsType, ActType], deque_size: Optional[int] = None
+        self, env: Env[ObsType, ActType], deque_size: int | None = None
     ) -> None:
         utils.RecordConstructorArgs.__init__(self, deque_size=deque_size)
         Wrapper.__init__(self, env)
@@ -66,7 +66,7 @@ class MonitorInfos(
         self.ep_step_infos: list[dict[str, Any]] = []
 
     def reset(
-        self, *, seed: Optional[int] = None, options: Optional[dict[str, Any]] = None
+        self, *, seed: int | None = None, options: dict[str, Any] | None = None
     ) -> tuple[ObsType, dict[str, Any]]:
         observation, info = super().reset(seed=seed, options=options)
         self.ep_step_infos.clear()

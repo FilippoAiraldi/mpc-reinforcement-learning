@@ -1,8 +1,7 @@
-import sys
 from collections.abc import Collection, Iterable, Iterator
 from copy import deepcopy
 from itertools import chain
-from typing import Any, Generic, Literal, Optional, TypeVar, Union
+from typing import Any, Generic, Literal, TypeAlias, TypeVar
 
 import casadi as cs
 import numpy as np
@@ -13,11 +12,6 @@ from csnlp.wrappers import Mpc
 from gymnasium import Env
 from gymnasium.spaces import Box
 
-if sys.version_info >= (3, 10):
-    from typing import TypeAlias
-else:
-    from typing_extensions import TypeAlias
-
 from ...core.callbacks import AgentCallbackMixin
 from ...core.exploration import ExplorationStrategy, NoExploration
 from ...core.warmstart import WarmStartStrategy
@@ -25,8 +19,8 @@ from ...util.named import Named
 from ...util.seeding import RngType, mk_seed
 
 SymType = TypeVar("SymType", cs.SX, cs.MX)
-ActType: TypeAlias = Union[npt.ArrayLike, dict[str, npt.ArrayLike]]
-ObsType: TypeAlias = Union[npt.ArrayLike, dict[str, npt.ArrayLike]]
+ActType: TypeAlias = npt.ArrayLike | dict[str, npt.ArrayLike]
+ObsType: TypeAlias = npt.ArrayLike | dict[str, npt.ArrayLike]
 
 
 def _update_dicts(sinks: Iterable[dict], source: dict) -> Iterator[dict]:
@@ -131,16 +125,15 @@ class Agent(Named, AgentCallbackMixin, Generic[SymType]):
     def __init__(
         self,
         mpc: Mpc[SymType] | tuple[Mpc[SymType], Mpc[SymType]],
-        fixed_parameters: Union[
-            None, dict[str, npt.ArrayLike], Collection[dict[str, npt.ArrayLike]]
-        ] = None,
-        exploration: Optional[ExplorationStrategy] = None,
-        warmstart: Union[
-            Literal["last", "last-successful"], WarmStartStrategy
-        ] = "last-successful",
+        fixed_parameters: None
+        | dict[str, npt.ArrayLike]
+        | Collection[dict[str, npt.ArrayLike]] = None,
+        exploration: ExplorationStrategy | None = None,
+        warmstart: Literal["last", "last-successful"]
+        | WarmStartStrategy = "last-successful",
         use_last_action_on_fail: bool = False,
         remove_bounds_on_initial_action: bool = False,
-        name: Optional[str] = None,
+        name: str | None = None,
     ) -> None:
         if isinstance(warmstart, str):
             warmstart = WarmStartStrategy(warmstart)
@@ -180,8 +173,8 @@ class Agent(Named, AgentCallbackMixin, Generic[SymType]):
         self._exploration = exploration
         self._warmstart = warmstart
         self._last_action_on_fail = use_last_action_on_fail
-        self._last_solution: Optional[Solution[SymType]] = None
-        self._last_action: Optional[cs.DM] = None
+        self._last_solution: Solution[SymType] | None = None
+        self._last_action: cs.DM | None = None
         self._V, self._Q = self._setup_V_and_Q(mpc, remove_bounds_on_initial_action)
         self._post_setup_V_and_Q()
 
@@ -216,7 +209,7 @@ class Agent(Named, AgentCallbackMixin, Generic[SymType]):
     @property
     def fixed_parameters(
         self,
-    ) -> Union[None, dict[str, npt.ArrayLike], Collection[dict[str, npt.ArrayLike]]]:
+    ) -> None | dict[str, npt.ArrayLike] | Collection[dict[str, npt.ArrayLike]]:
         """Gets the fixed parameters of the MPC controller, i.e., the non-learnable
         ones.
 
@@ -266,16 +259,16 @@ class Agent(Named, AgentCallbackMixin, Generic[SymType]):
     def _solve_mpc(
         self,
         mpc: Mpc[SymType],
-        state: Union[npt.ArrayLike, dict[str, npt.ArrayLike]],
-        action: Union[None, npt.ArrayLike, dict[str, npt.ArrayLike]] = None,
-        perturbation: Optional[npt.ArrayLike] = None,
-        vals0: Union[
-            None, dict[str, npt.ArrayLike], Iterable[dict[str, npt.ArrayLike]]
-        ] = None,
+        state: npt.ArrayLike | dict[str, npt.ArrayLike],
+        action: None | npt.ArrayLike | dict[str, npt.ArrayLike] = None,
+        perturbation: npt.ArrayLike | None = None,
+        vals0: None
+        | dict[str, npt.ArrayLike]
+        | Iterable[dict[str, npt.ArrayLike]] = None,
         store_solution: bool = True,
-        overwrite_fixed_pars: Union[
-            None, dict[str, npt.ArrayLike], Collection[dict[str, npt.ArrayLike]]
-        ] = None,
+        overwrite_fixed_pars: None
+        | dict[str, npt.ArrayLike]
+        | Collection[dict[str, npt.ArrayLike]] = None,
     ) -> Solution[SymType]:
         r"""Solves the agent's specific MPC optimal control problem.
 
@@ -329,7 +322,7 @@ class Agent(Named, AgentCallbackMixin, Generic[SymType]):
             else:
                 cumsizes = np.cumsum([s.shape[0] for s in mpcstates.values()][:-1])
                 states = np.array_split(np.asarray(state), cumsizes)
-            x0_dict = dict(zip(mpcstates.keys(), states))
+            x0_dict = dict(zip(mpcstates.keys(), states, strict=True))
 
         # convert action dict to vector if not None
         if action is None:
@@ -379,12 +372,12 @@ class Agent(Named, AgentCallbackMixin, Generic[SymType]):
 
     def state_value(
         self,
-        state: Union[npt.ArrayLike, dict[str, npt.ArrayLike]],
+        state: npt.ArrayLike | dict[str, npt.ArrayLike],
         deterministic: bool = False,
-        vals0: Union[
-            None, dict[str, npt.ArrayLike], Iterable[dict[str, npt.ArrayLike]]
-        ] = None,
-        action_space: Optional[Box] = None,
+        vals0: None
+        | dict[str, npt.ArrayLike]
+        | Iterable[dict[str, npt.ArrayLike]] = None,
+        action_space: Box | None = None,
         **kwargs: Any,
     ) -> tuple[cs.DM, Solution[SymType]]:
         r"""Computes the MPC-based state value function approximation
@@ -462,11 +455,11 @@ class Agent(Named, AgentCallbackMixin, Generic[SymType]):
 
     def action_value(
         self,
-        state: Union[npt.ArrayLike, dict[str, npt.ArrayLike]],
-        action: Union[npt.ArrayLike, dict[str, npt.ArrayLike]],
-        vals0: Union[
-            None, dict[str, npt.ArrayLike], Iterable[dict[str, npt.ArrayLike]]
-        ] = None,
+        state: npt.ArrayLike | dict[str, npt.ArrayLike],
+        action: npt.ArrayLike | dict[str, npt.ArrayLike],
+        vals0: None
+        | dict[str, npt.ArrayLike]
+        | Iterable[dict[str, npt.ArrayLike]] = None,
         **kwargs: Any,
     ) -> Solution[SymType]:
         r"""Computes the MPC-based action value function approximation
@@ -508,7 +501,7 @@ class Agent(Named, AgentCallbackMixin, Generic[SymType]):
         deterministic: bool = True,
         seed: RngType = None,
         raises: bool = True,
-        env_reset_options: Optional[dict[str, Any]] = None,
+        env_reset_options: dict[str, Any] | None = None,
     ) -> npt.NDArray[np.floating]:
         r"""Evaluates the agent in a given environment.
 
@@ -628,10 +621,10 @@ class Agent(Named, AgentCallbackMixin, Generic[SymType]):
 
     def _get_parameters(
         self,
-        overwrite_fixed_pars: Union[
-            None, dict[str, npt.ArrayLike], Collection[dict[str, npt.ArrayLike]]
-        ] = None,
-    ) -> Union[None, dict[str, npt.ArrayLike], Collection[dict[str, npt.ArrayLike]]]:
+        overwrite_fixed_pars: None
+        | dict[str, npt.ArrayLike]
+        | Collection[dict[str, npt.ArrayLike]] = None,
+    ) -> None | dict[str, npt.ArrayLike] | Collection[dict[str, npt.ArrayLike]]:
         """Internal utility to retrieve parameters of the MPC in order to solve it.
         :class:`Agent` has no learnable parameter, so only fixed parameters are
         returned.

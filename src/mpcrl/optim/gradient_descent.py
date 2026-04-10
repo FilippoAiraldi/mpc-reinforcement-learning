@@ -1,4 +1,4 @@
-from typing import Literal, Optional, Union
+from typing import Literal
 
 import casadi as cs
 import numpy as np
@@ -95,7 +95,7 @@ class GradientDescent(GradientBasedOptimizer[LrType]):
 
     def __init__(
         self,
-        learning_rate: Union[LrType, Scheduler[LrType]],
+        learning_rate: LrType | Scheduler[LrType],
         weight_decay: float = 0.0,
         momentum: float = 0.0,
         dampening: float = 0.0,
@@ -113,7 +113,7 @@ class GradientDescent(GradientBasedOptimizer[LrType]):
 
     def _first_order_update(
         self, gradient: npt.NDArray[np.floating]
-    ) -> tuple[npt.NDArray[np.floating], Optional[str]]:
+    ) -> tuple[npt.NDArray[np.floating], str | None]:
         theta = self.learnable_parameters.value
 
         # compute candidate update
@@ -142,13 +142,13 @@ class GradientDescent(GradientBasedOptimizer[LrType]):
 def _gd(
     theta: np.ndarray,
     g: np.ndarray,
-    momentum_buffer: Optional[np.ndarray],
+    momentum_buffer: np.ndarray | None,
     weight_decay: float,
     momentum: float,
     lr: LrType,
     dampening: float,
     nesterov: bool,
-) -> tuple[np.ndarray, Optional[np.ndarray]]:
+) -> tuple[np.ndarray, np.ndarray | None]:
     """Computes the update's change according to the gradient descent algorithm."""
     if weight_decay > 0.0:
         g += weight_decay * theta

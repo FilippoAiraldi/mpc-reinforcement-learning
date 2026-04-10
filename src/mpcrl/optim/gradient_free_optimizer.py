@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from typing import Optional, Union
 
 import numpy as np
 import numpy.typing as npt
@@ -26,8 +25,8 @@ class GradientFreeOptimizer(BaseOptimizer, ABC):
     def ask(
         self,
     ) -> tuple[
-        Union[dict[str, npt.ArrayLike], npt.ArrayLike],
-        Optional[str],
+        dict[str, npt.ArrayLike] | npt.ArrayLike,
+        str | None,
     ]:
         """Asks the learning agent for a new set of parameters to evaluate.
 
@@ -46,8 +45,8 @@ class GradientFreeOptimizer(BaseOptimizer, ABC):
     @abstractmethod
     def tell(
         self,
-        values: Union[dict[str, npt.NDArray[np.floating]], npt.NDArray[np.floating]],
-        objective: Union[float, npt.NDArray[np.floating]],
+        values: dict[str, npt.NDArray[np.floating]] | npt.NDArray[np.floating],
+        objective: float | npt.NDArray[np.floating],
     ) -> None:
         """Tells the learning agent the values of the objective function for the set of
         parameters it asked for.

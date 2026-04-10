@@ -9,14 +9,12 @@ authors = [
 ]
 description = "Reinforcement Learning with Model Predictive Control"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 license = "MIT"
 license-files = ["LICENSE"]
 classifiers = [
     "Programming Language :: Python",
     "Programming Language :: Python :: 3 :: Only",
-	"Programming Language :: Python :: 3.9",
-	"Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
 	"Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -26,11 +24,10 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dependencies = [
-    "typing_extensions >= 4.5.0 ; python_version <= '3.9'",
+    "csnlp >= 1.6.8",
+    "scipy >= 1.11.1",
+    "gymnasium >= 0.29.0",
     "numba >= 0.57.1",
-    "csnlp >= 1.6.8,!=1.7.0rc1",
-    "scipy >= 1.11.0",
-    "gymnasium >= 0.28.1",
 ]
 keywords = [
     "reinforcement-learning",
@@ -44,9 +41,16 @@ dynamic = ["version"]
 "Homepage" = "https://github.com/FilippoAiraldi/mpc-reinforcement-learning"
 "Bug Tracker" = "https://github.com/FilippoAiraldi/mpc-reinforcement-learning/issues"
 
+[project.optional-dependencies]
+test = [
+  "coverage[toml] >= 7.13.5",
+  "parameterized >= 0.9.0",
+  "torch >= 2.9.1",
+  "botorch >= 0.17.2",
+]
+
 [tool.setuptools.dynamic]
 version = {attr = "mpcrl.__version__"}
-
 
 [tool.ruff.lint]  # https://docs.astral.sh/ruff/rules
 extend-select = [
@@ -82,7 +86,7 @@ allowed-confusables = ["σ"]
 "src/mpcrl/__init__.py" = ["E501"]
 
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.11"
 plugins = ["numpy.typing.mypy_plugin"]
 exclude = ["tests"]
 
@@ -100,8 +104,9 @@ ignore_missing_imports = true
 [tool.coverage.run]
 branch = true
 omit = [
-    "tests/*",
+    "docs/*",
     "examples/*",
+    "tests/*",
     "*/csnlp/*",
 ]
 

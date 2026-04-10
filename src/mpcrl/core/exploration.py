@@ -23,7 +23,7 @@ whichever mode is selected, all the modifications and perturbations are taken ca
 automatically by the agent and the exploration strategy."""
 
 from abc import ABC, abstractmethod
-from typing import Any, Literal, Optional, Union
+from typing import Any, Literal
 
 import numpy as np
 import numpy.typing as npt
@@ -67,7 +67,7 @@ class ExplorationStrategy(ABC):
     @property
     def hook(
         self,
-    ) -> Optional[Literal["on_update", "on_episode_end", "on_timestep_end"]]:
+    ) -> Literal["on_update", "on_episode_end", "on_timestep_end"] | None:
         """Gets which callback the exploration is hooked on, i.e., when to step the
         exploration's schedulers (if any) to, e.g., decay the chances of exploring or
         the perturbation strength (see :meth:`step` also). Can be ``None`` in case no
@@ -183,7 +183,7 @@ class GreedyExploration(ExplorationStrategy):
 
     def __init__(
         self,
-        strength: Union[Scheduler[npt.NDArray[np.floating]], npt.NDArray[np.floating]],
+        strength: Scheduler[npt.NDArray[np.floating]] | npt.NDArray[np.floating],
         hook: Literal["on_update", "on_episode_end", "on_timestep_end"] = "on_update",
         mode: Literal["gradient-based", "additive"] = "gradient-based",
         seed: RngType = None,
@@ -197,7 +197,7 @@ class GreedyExploration(ExplorationStrategy):
     @property
     def hook(
         self,
-    ) -> Optional[Literal["on_update", "on_episode_end", "on_timestep_end"]]:
+    ) -> Literal["on_update", "on_episode_end", "on_timestep_end"] | None:
         # return hook only if the strength scheduler requires to be stepped
         return None if isinstance(self.strength_scheduler, NoScheduling) else self._hook
 
@@ -280,8 +280,8 @@ class EpsilonGreedyExploration(GreedyExploration):
 
     def __init__(
         self,
-        epsilon: Union[Scheduler[float], float],
-        strength: Union[Scheduler[npt.NDArray[np.floating]], npt.NDArray[np.floating]],
+        epsilon: Scheduler[float] | float,
+        strength: Scheduler[npt.NDArray[np.floating]] | npt.NDArray[np.floating],
         hook: Literal["on_update", "on_episode_end", "on_timestep_end"] = "on_update",
         mode: Literal["gradient-based", "additive"] = "gradient-based",
         seed: RngType = None,
@@ -294,7 +294,7 @@ class EpsilonGreedyExploration(GreedyExploration):
     @property
     def hook(
         self,
-    ) -> Optional[Literal["on_update", "on_episode_end", "on_timestep_end"]]:
+    ) -> Literal["on_update", "on_episode_end", "on_timestep_end"] | None:
         # return hook only if the strength or epsilon scheduler requires to be stepped
         return (
             None
@@ -360,11 +360,11 @@ class OrnsteinUhlenbeckExploration(ExplorationStrategy):
 
     def __init__(
         self,
-        mean: Union[Scheduler[npt.NDArray[np.floating]], npt.NDArray[np.floating]],
-        sigma: Union[Scheduler[npt.NDArray[np.floating]], npt.NDArray[np.floating]],
+        mean: Scheduler[npt.NDArray[np.floating]] | npt.NDArray[np.floating],
+        sigma: Scheduler[npt.NDArray[np.floating]] | npt.NDArray[np.floating],
         theta: float = 0.15,
         dt: float = 1.0,
-        initial_noise: Optional[npt.ArrayLike] = None,
+        initial_noise: npt.ArrayLike | None = None,
         hook: Literal["on_update", "on_episode_end", "on_timestep_end"] = "on_update",
         mode: Literal["gradient-based", "additive"] = "gradient-based",
         seed: RngType = None,
@@ -386,7 +386,7 @@ class OrnsteinUhlenbeckExploration(ExplorationStrategy):
     @property
     def hook(
         self,
-    ) -> Optional[Literal["on_update", "on_episode_end", "on_timestep_end"]]:
+    ) -> Literal["on_update", "on_episode_end", "on_timestep_end"] | None:
         # return hook only if the mean or sigma scheduler requires to be stepped
         return (
             None
@@ -413,7 +413,7 @@ class OrnsteinUhlenbeckExploration(ExplorationStrategy):
         self.sigma_scheduler.step()
 
     def perturbation(
-        self, *_: Any, size: Union[int, tuple[int, ...]], **__: Any
+        self, *_: Any, size: int | tuple[int, ...], **__: Any
     ) -> npt.NDArray[np.floating]:
         sigma = self.sigma_scheduler.value
         noise = (
@@ -480,7 +480,7 @@ class StepWiseExploration(ExplorationStrategy):
     @property
     def hook(
         self,
-    ) -> Optional[Literal["on_update", "on_episode_end", "on_timestep_end"]]:
+    ) -> Literal["on_update", "on_episode_end", "on_timestep_end"] | None:
         """Returns the hook of the base exploration strategy, if any."""
         return self.base_exploration.hook
 

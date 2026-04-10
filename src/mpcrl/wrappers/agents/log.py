@@ -2,7 +2,7 @@ import logging
 from collections.abc import Iterable, Iterator
 from inspect import getmembers, isfunction
 from operator import itemgetter
-from typing import Optional, TypeVar
+from typing import TypeVar
 
 import numpy as np
 import numpy.typing as npt
@@ -84,13 +84,13 @@ class Log(Wrapper[SymType]):
     def __init__(
         self,
         agent: Agent[SymType],
-        log_name: Optional[str] = None,
+        log_name: str | None = None,
         level: int = logging.INFO,
         to_file: bool = False,
         mode: str = "a",
         precision: int = 3,
-        log_frequencies: Optional[dict[str, int]] = None,
-        exclude_mandatory: Optional[Iterable[str]] = None,
+        log_frequencies: dict[str, int] | None = None,
+        exclude_mandatory: Iterable[str] | None = None,
     ) -> None:
         name = log_name if log_name is not None else agent.name
         self.logger = logging.getLogger(name)
@@ -162,7 +162,7 @@ class Log(Wrapper[SymType]):
     # NOTE: callbacks for Agent
 
     def _on_mpc_failure(
-        self, episode: int, timestep: Optional[int], status: str, raises: bool
+        self, episode: int, timestep: int | None, status: str, raises: bool
     ) -> None:
         m = self.logger.error if raises else self.logger.warning
         m(_failure_msg("mpc", self.agent.name, episode, timestep, status))
@@ -208,7 +208,7 @@ class Log(Wrapper[SymType]):
     # NOTE: callbacks for LearningAgent
 
     def _on_update_failure(
-        self, episode: int, timestep: Optional[int], errormsg: str, raises: bool
+        self, episode: int, timestep: int | None, errormsg: str, raises: bool
     ) -> None:
         (self.logger.error if raises else self.logger.warning)(
             "_failure_msg('update', %s, %d, %s, %s)",

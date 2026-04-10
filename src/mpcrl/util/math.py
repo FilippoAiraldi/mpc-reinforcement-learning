@@ -3,7 +3,6 @@ these functions support the creation of monomial basis functions for approximati
 value function, and the modifications of Hessian matrices to positive-definite ones."""
 
 from itertools import combinations as _combinations
-from typing import Optional, Union
 from typing import TypeVar as _TypeVar
 
 import casadi as cs
@@ -21,7 +20,7 @@ def summarize_array(
     a: npt.NDArray[np.floating],
     precision: int = 3,
     ddof: int = 0,
-    axis: Optional[int] = None,
+    axis: int | None = None,
 ) -> str:
     """Summarizes the stats of a given array, i.e., the shape, the minimum and maximum,
     and the mean and standard deviation.
@@ -100,7 +99,7 @@ def cholesky_added_multiple_identity(
     raise ValueError("Maximum iterations reached.")
 
 
-def nchoosek(n: Union[int, npt.ArrayLike], k: int) -> Union[int, np.ndarray]:
+def nchoosek(n: int | npt.ArrayLike, k: int) -> int | np.ndarray:
     """Emulates
     `MATLAB's nchoosek <https://www.mathworks.com/help/matlab/ref/nchoosek.html>`_, and
     returns the binomial coefficient, i.e.,  the number of combinations of ``n`` items

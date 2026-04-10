@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from collections.abc import Collection, Iterable
-from typing import Any, Generic, Optional, TypeVar, Union
+from typing import Any, Generic, TypeVar
 
 import numpy as np
 import numpy.typing as npt
@@ -66,9 +66,9 @@ class LearningAgent(
 
     def __init__(
         self,
-        update_strategy: Union[int, UpdateStrategy],
+        update_strategy: int | UpdateStrategy,
         learnable_parameters: LearnableParametersDict,
-        experience: Union[None, int, ExperienceReplay[ExpType]] = None,
+        experience: None | int | ExperienceReplay[ExpType] = None,
         **kwargs: Any,
     ) -> None:
         Agent.__init__(self, **kwargs)
@@ -126,7 +126,7 @@ class LearningAgent(
         episodes: int,
         seed: RngType = None,
         raises: bool = True,
-        env_reset_options: Optional[dict[str, Any]] = None,
+        env_reset_options: dict[str, Any] | None = None,
     ) -> npt.NDArray[np.floating]:
         """On-policy training of the agent on an environment.
 
@@ -293,7 +293,7 @@ class LearningAgent(
         )
 
     @abstractmethod
-    def update(self) -> Optional[str]:
+    def update(self) -> str | None:
         r"""Updates the learnable parameters (usually referred to as :math:`\theta`) of
         the MPC according to the agent's learning algorithm.
 
@@ -347,10 +347,10 @@ class LearningAgent(
 
     def _get_parameters(
         self,
-        overwrite_fixed_pars: Union[
-            None, dict[str, npt.ArrayLike], Collection[dict[str, npt.ArrayLike]]
-        ] = None,
-    ) -> Union[None, dict[str, npt.ArrayLike], Collection[dict[str, npt.ArrayLike]]]:
+        overwrite_fixed_pars: None
+        | dict[str, npt.ArrayLike]
+        | Collection[dict[str, npt.ArrayLike]] = None,
+    ) -> None | dict[str, npt.ArrayLike] | Collection[dict[str, npt.ArrayLike]]:
         """Internal utility to retrieve parameters of the MPC in order to solve it.
         :class:`LearningAgent` returns both fixed and learnable parameters.
 

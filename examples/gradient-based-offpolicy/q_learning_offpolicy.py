@@ -67,7 +67,7 @@ controller.
 import logging
 from collections.abc import Callable, Iterable
 from itertools import pairwise
-from typing import Any, Optional
+from typing import Any
 
 import casadi as cs
 import gymnasium as gym
@@ -110,8 +110,8 @@ class LtiSystem(gym.Env[npt.NDArray[np.floating], float]):
     def reset(
         self,
         *,
-        seed: Optional[int] = None,
-        options: Optional[dict[str, Any]] = None,
+        seed: int | None = None,
+        options: dict[str, Any] | None = None,
     ) -> tuple[npt.NDArray[np.floating], dict[str, Any]]:
         """Resets the state of the LTI system."""
         super().reset(seed=seed, options=options)
