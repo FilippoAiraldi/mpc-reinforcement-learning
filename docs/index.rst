@@ -4,7 +4,7 @@ Reinforcement Learning with Model Predictive Control
 
 .. automodule:: mpcrl
 
-|PyPI version| |Source Code License| |Python 3.9|
+|PyPI version| |Source Code License| |Python 3.11|
 
 |Tests| |Docs| |Downloads| |Maintainability| |Code Coverage| |Ruff|
 
@@ -97,8 +97,8 @@ References
 .. |Source Code License| image:: https://img.shields.io/badge/license-MIT-blueviolet
    :target: https://github.com/FilippoAiraldi/mpc-reinforcement-learning/blob/main/LICENSE
    :alt: MIT License
-.. |Python 3.9| image:: https://img.shields.io/badge/python-%3E=3.9-green.svg
-   :alt: Python 3.9
+.. |Python 3.11| image:: https://img.shields.io/badge/python-%3E=3.11-green.svg
+   :alt: Python 3.11
 .. |Tests| image:: https://github.com/FilippoAiraldi/mpc-reinforcement-learning/actions/workflows/tests.yml/badge.svg
    :target: https://github.com/FilippoAiraldi/mpc-reinforcement-learning/actions/workflows/tests.yml
    :alt: Tests

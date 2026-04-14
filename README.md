@@ -13,7 +13,7 @@ agents with Model Predictive Control (MPC) [[2]](#2) as function approximation.
 
 [![PyPI version](https://badge.fury.io/py/mpcrl.svg)](https://badge.fury.io/py/mpcrl)
 [![Source Code License](https://img.shields.io/badge/license-MIT-blueviolet)](https://github.com/FilippoAiraldi/mpc-reinforcement-learning/blob/main/LICENSE)
-![Python 3.9](https://img.shields.io/badge/python->=3.9-green.svg)
+![Python 3.11](https://img.shields.io/badge/python->=3.11-green.svg)
 
 [![Tests](https://github.com/FilippoAiraldi/mpc-reinforcement-learning/actions/workflows/tests.yml/badge.svg)](https://github.com/FilippoAiraldi/mpc-reinforcement-learning/actions/workflows/tests.yml)
 [![Docs](https://readthedocs.org/projects/mpc-reinforcement-learning/badge/?version=stable)](https://mpc-reinforcement-learning.readthedocs.io/en/stable/?badge=stable)
@@ -68,12 +68,11 @@ pip install mpcrl
 
 **mpcrl** has the following dependencies
 
-- Python 3.9 or higher (though support and testing for 3.9 are deprecated)
+- Python 3.11
 - [csnlp](https://casadi-nlp.readthedocs.io/en/stable/)
 - [SciPy](https://scipy.org/)
 - [Gymnasium](https://gymnasium.farama.org/)
 - [Numba](https://numba.pydata.org/)
-- [typing_extensions](https://pypi.org/project/typing-extensions/) (only for Python 3.9)
 
 If you'd like to play around with the source code instead, run
 
